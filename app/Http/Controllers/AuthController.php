@@ -1,0 +1,193 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Table;
+use App\Models\Tenant;
+use App\Models\User;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
+
+class AuthController extends Controller
+{
+    public function loginForm(): View|RedirectResponse
+    {
+        if (Auth::check()) {
+            $user = Auth::user()->load('tenant');
+            return $this->redirectByRole($user);
+        }
+        return view('auth.login');
+    }
+
+    public function login(Request $request): RedirectResponse
+    {
+        $credentials = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required'],
+        ]);
+
+        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+            $request->session()->regenerate();
+
+            $user = Auth::user()->load('tenant');
+            return $this->redirectByRole($user);
+        }
+
+        return back()->withErrors([
+            'email' => 'As credenciais fornecidas nao correspondem aos nossos registros.',
+        ])->onlyInput('email');
+    }
+
+    public function registerTenantForm(): View|RedirectResponse
+    {
+        if (Auth::check()) {
+            return redirect('/dashboard');
+        }
+        return view('auth.register-tenant');
+    }
+
+    public function registerTenant(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'tenant_name' => ['required', 'string', 'max:255'],
+            'tenant_email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:tenants,email'],
+            'slug' => ['required', 'string', 'max:60', 'unique:tenants,slug', 'alpha_dash:ascii'],
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'confirmed', 'min:8'],
+        ]);
+
+        DB::transaction(function () use ($validated) {
+            $tenant = Tenant::create([
+                'name' => $validated['tenant_name'],
+                'email' => $validated['tenant_email'],
+                'slug' => $validated['slug'],
+                'plan' => Tenant::PLAN_FREE,
+                'max_tables' => Tenant::PLAN_MAX_TABLES[Tenant::PLAN_FREE],
+                'status' => 'active',
+            ]);
+
+            $user = User::create([
+                'tenant_id' => $tenant->id,
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => $validated['password'],
+                'role' => 'admin',
+            ]);
+
+            $tableCount = min($tenant->maxTablesAllowed(), 10);
+            for ($i = 1; $i <= $tableCount; $i++) {
+                Table::create([
+                    'tenant_id' => $tenant->id,
+                    'number' => (string) $i,
+                    'capacity' => 4,
+                    'status' => 'free',
+                ]);
+            }
+
+            Auth::login($user);
+        });
+
+        return redirect('/dashboard');
+    }
+
+    public function waiterLoginForm(Tenant $slug): View|RedirectResponse
+    {
+        if (Auth::check()) {
+            $user = Auth::user();
+            if ($user->tenant_id === $slug->id) {
+                return $this->redirectByRole($user);
+            }
+            return redirect()->route('menu.show', $slug->slug);
+        }
+        return view('auth.waiter-login', ['tenant' => $slug]);
+    }
+
+    public function waiterLogin(Request $request, Tenant $slug): RedirectResponse
+    {
+        $credentials = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required'],
+        ]);
+
+        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+            $user = Auth::user();
+
+            if ($user->tenant_id !== $slug->id) {
+                Auth::logout();
+                return back()->withErrors([
+                    'email' => 'Voce nao possui acesso a este restaurante.',
+                ])->onlyInput('email');
+            }
+
+            $request->session()->regenerate();
+
+            if ($request->has('redirect')) {
+                return redirect($request->input('redirect'));
+            }
+
+            return $this->redirectByRole($user);
+        }
+
+        return back()->withErrors([
+            'email' => 'Credenciais invalidas.',
+        ])->onlyInput('email');
+    }
+
+    public function waiterRegisterForm(Tenant $slug): View|RedirectResponse
+    {
+        if (Auth::check()) {
+            $user = Auth::user();
+            if ($user->tenant_id === $slug->id) {
+                return $this->redirectByRole($user);
+            }
+            return redirect()->route('menu.show', $slug->slug);
+        }
+        return view('auth.waiter-register', ['tenant' => $slug]);
+    }
+
+    public function waiterRegister(Request $request, Tenant $slug): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'confirmed', 'min:8'],
+        ]);
+
+        $user = User::create([
+            'tenant_id' => $slug->id,
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => $validated['password'],
+            'role' => 'cliente',
+            'is_staff' => false,
+        ]);
+
+        Auth::login($user);
+
+        $request->session()->regenerate();
+
+        return redirect()->route('menu.show', $slug->slug);
+    }
+
+    private function redirectByRole($user): RedirectResponse
+    {
+        return match ($user->role) {
+            'admin' => redirect()->intended('/dashboard'),
+            'atendente' => redirect()->route('waiter.panel', $user->tenant->slug),
+            default => redirect()->route('menu.show', $user->tenant->slug),
+        };
+    }
+
+    public function logout(Request $request): RedirectResponse
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect('/');
+    }
+}

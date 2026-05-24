@@ -1,0 +1,1067 @@
+<div x-data="{ sidebarOpen: false }" class="min-h-screen flex" wire:poll.15s>
+    {{-- Backdrop --}}
+    <div x-show="sidebarOpen" x-cloak
+         class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+         @click="sidebarOpen = false"
+         x-transition:enter="transition-opacity duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0">
+    </div>
+
+    {{-- Sidebar (autenticado apenas) --}}
+    @auth
+    <aside x-cloak
+           :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+           @keydown.window.escape="sidebarOpen = false"
+            class="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-neutral-900 border-r border-neutral-800 flex flex-col transition-transform duration-300 ease-in-out">
+        <div class="flex flex-col h-full">
+            {{-- Brand --}}
+            <div class="flex items-center gap-3 px-6 h-16 border-b border-neutral-800">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-neutral-950 font-black text-sm shadow-lg shadow-amber-500/20">
+                    {{ mb_substr($tenant->name, 0, 1) }}
+                </div>
+                <div>
+                    <span class="font-black text-amber-400">{{ $tenant->name }}</span>
+                    <span class="font-black text-white">Digital</span>
+                </div>
+            </div>
+
+            {{-- User Info --}}
+            <div class="px-4 py-4 border-b border-neutral-800">
+                <div class="flex items-center gap-3 px-3 py-2 rounded-xl bg-neutral-800/50">
+                    <div class="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-xs">
+                        {{ substr(Auth::user()->name, 0, 2) }}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-medium truncate">{{ Auth::user()->name }}</p>
+                        <p class="text-xs text-neutral-400 truncate">{{ $tenant->name }}</p>
+                    </div>
+                    <span class="ml-auto px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Cliente</span>
+                </div>
+            </div>
+
+            {{-- Navigation --}}
+            <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+                <button wire:click="switchClientTab('menu'); sidebarOpen = false"
+                        class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ $clientTab === 'menu' ? 'bg-amber-500/10 text-amber-400' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50' }}">
+                    <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                    Cardapio
+                </button>
+
+                <button wire:click="switchClientTab('orders'); sidebarOpen = false"
+                        class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ $clientTab === 'orders' ? 'bg-amber-500/10 text-amber-400' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50' }}">
+                    <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                    </svg>
+                    <span class="flex-1 text-left">Meus Pedidos</span>
+                    @if (count($myActiveOrders) > 0)
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse">{{ count($myActiveOrders) }}</span>
+                    @endif
+                </button>
+
+                <button wire:click="switchClientTab('settings'); sidebarOpen = false"
+                        class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ $clientTab === 'settings' ? 'bg-amber-500/10 text-amber-400' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50' }}">
+                    <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    Configuracoes
+                </button>
+            </nav>
+
+            {{-- Cart Summary in Sidebar --}}
+            <div class="px-3 py-3 border-t border-neutral-800">
+                <button @click="$dispatch('open-cart'); sidebarOpen = false"
+                        class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-400 hover:text-amber-400 hover:bg-amber-500/5 transition-all duration-200">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
+                    </svg>
+                    <span class="flex-1 text-left">Carrinho</span>
+                    @if ($cartItemsCount > 0)
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">{{ $cartItemsCount }}</span>
+                    @endif
+                </button>
+            </div>
+
+            {{-- Logout --}}
+            <div class="px-3 py-4 border-t border-neutral-800">
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit"
+                            class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-400 hover:text-red-400 hover:bg-red-500/5 transition-all duration-200 w-full">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                        </svg>
+                        Sair
+                    </button>
+                </form>
+            </div>
+        </div>
+    </aside>
+    @endauth
+
+    {{-- Main Content --}}
+    <div class="flex-1 flex flex-col min-w-0">
+
+        <div class="relative min-h-screen pb-40"
+             x-data="{
+                 search: '',
+                 activeCategory: null,
+                 showMobileSearch: false,
+                 hasResults: true,
+                 cartCount: 0,
+                 init() {
+                     this.activeCategory = this.$el.querySelector('[data-category]')?.dataset.category || null;
+                     this.$watch('search', () => {
+                         if (!this.search.trim()) { this.hasResults = true; return; }
+                         this.$nextTick(() => {
+                             const cards = document.querySelectorAll('[data-product-card]');
+                             this.hasResults = Array.from(cards).some(c => c.style.display !== 'none');
+                         });
+                     });
+                     this.$nextTick(() => {
+                         const counter = document.getElementById('cart-item-count');
+                         if (counter) this.cartCount = parseInt(counter.dataset.count || '0');
+                     });
+                 },
+                 matchProduct(el) {
+                     if (!this.search.trim()) return true;
+                     const text = (el.innerText || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                     const q = this.search.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                     return text.includes(q);
+                 },
+                 scrollToCategory(slug) {
+                     this.activeCategory = slug;
+                     document.getElementById('cat-' + slug)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                 },
+             }"
+             x-init="
+                 init();
+                 const observer = new IntersectionObserver((entries) => {
+                     entries.forEach(entry => {
+                         if (entry.isIntersecting) activeCategory = entry.target.dataset.category;
+                     });
+                 }, { rootMargin: '-120px 0px -50% 0px' });
+                 $nextTick(() => document.querySelectorAll('[data-category]').forEach(el => observer.observe(el)));
+             ">
+
+            {{-- Toast Notification (cart only) --}}
+            <div x-data="{ toasts: [], id: 0, showToast(text, duration = 3000) { const id = ++this.id; this.toasts.push({ id, text, show: true }); setTimeout(() => { const t = this.toasts.find(x => x.id === id); if (t) t.show = false; setTimeout(() => this.toasts = this.toasts.filter(x => x.id !== id), 300); }, duration); } }"
+                 x-init="
+                     $wire.$on('cartUpdated', () => {
+                         showToast('Item adicionado ao carrinho!');
+                         const el = document.getElementById('cart-item-count');
+                         if (el) { cartCount = parseInt(el.dataset.count || '0'); }
+                     });
+                 "
+                 class="fixed top-4 right-4 z-[80] flex flex-col gap-2 pointer-events-none"
+                 x-cloak>
+                <template x-for="(toast, i) in toasts" :key="toast.id">
+                    <div x-show="toast.show"
+                         x-transition:enter="transition ease-out duration-300"
+                         x-transition:enter-start="translate-x-full opacity-0"
+                         x-transition:enter-end="translate-x-0 opacity-100"
+                         x-transition:leave="transition ease-in duration-200"
+                         x-transition:leave-start="translate-x-0 opacity-100"
+                         x-transition:leave-end="translate-x-full opacity-0"
+                         class="flex items-center gap-3 px-5 py-3 rounded-xl bg-neutral-900 border border-neutral-700 shadow-2xl shadow-black/40 text-sm font-medium pointer-events-auto"
+                         x-text="toast.text">
+                    </div>
+                </template>
+            </div>
+
+            {{-- Header --}}
+            <header class="sticky top-0 z-40 bg-neutral-950/95 backdrop-blur-xl border-b border-neutral-800/80 transition-all duration-300"
+                    x-data="{ scrolled: false }"
+                    x-init="window.addEventListener('scroll', () => scrolled = window.scrollY > 40, { passive: true })">
+                {{-- Top Bar --}}
+                <div class="px-3 sm:px-4 py-2 sm:py-3" :class="scrolled && 'py-1.5 sm:py-2'">
+                    <div class="flex items-center gap-2 sm:gap-3">
+                        @auth
+                        <button x-show="!sidebarOpen" @click="sidebarOpen = !sidebarOpen" class="p-1.5 sm:p-2 rounded-xl hover:bg-neutral-800 transition-colors shrink-0">
+                            <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                            </svg>
+                        </button>
+                        @endauth
+                        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-neutral-950 font-black text-sm sm:text-lg shadow-lg shadow-amber-500/20 shrink-0">
+                            {{ mb_substr($tenant->name, 0, 1) }}
+                        </div>
+                <div class="flex-1 min-w-0">
+                    <h1 class="font-bold truncate" :class="scrolled ? 'text-xs sm:text-sm' : 'text-sm sm:text-lg'" x-text="'{{ $tenant->name }}'"></h1>
+                    <div class="flex items-center gap-1 sm:gap-2 mt-0.5 sm:mt-1 flex-wrap">
+
+                         <span class="text-[10px] sm:text-xs font-medium">
+                             {{ $tenant->opening_time ? (is_string($tenant->opening_time) ? $tenant->opening_time : date('H:i', strtotime($tenant->opening_time))) : '--:--' }} -
+                             {{ $tenant->closing_time ? (is_string($tenant->closing_time) ? $tenant->closing_time : date('H:i', strtotime($tenant->closing_time))) : '--:--' }}
+                         </span>
+                        @if ($tenant->isOpen())
+                            <span class="px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs bg-green-500/20 text-green-400 shrink-0">Aberto</span>
+                        @else
+                            <span class="px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs bg-red-500/20 text-red-400 shrink-0">Fechado</span>
+                        @endif
+                    </div>
+                    <p class="text-[10px] sm:text-xs text-neutral-500 truncate hidden sm:block">Cardapio Digital</p>
+                </div>
+                        <div class="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                            <button @click="showMobileSearch = !showMobileSearch"
+                                    class="p-1.5 sm:p-2 rounded-xl hover:bg-neutral-800 text-neutral-400 hover:text-white transition-all"
+                                    :class="{ 'bg-neutral-800 text-amber-400': showMobileSearch || search }">
+                                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                            </button>
+                            <span id="cart-item-count" data-count="{{ $cartItemsCount ?? 0 }}" class="hidden"></span>
+                            <button @click="$dispatch('open-cart')"
+                                    class="relative p-1.5 sm:p-2 rounded-xl hover:bg-neutral-800 text-neutral-400 hover:text-white transition-all">
+                                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
+                                </svg>
+                                <template x-if="cartCount > 0">
+                                    <span class="absolute -top-1 -right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-amber-500 text-neutral-950 text-[8px] sm:text-[9px] font-bold flex items-center justify-center shadow-lg"
+                                          x-text="cartCount"></span>
+                                </template>
+                            </button>
+                            @auth
+                                @if (Auth::user()->isAdmin())
+                                    <a href="{{ route('dashboard') }}"
+                                       class="p-1.5 sm:p-2 rounded-xl hover:bg-neutral-800 text-neutral-400 hover:text-amber-400 transition-all">
+                                        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                                    </a>
+                                @elseif (Auth::user()->isStaff())
+                                    <a href="{{ route('waiter.panel', $tenant->slug) }}"
+                                       class="p-1.5 sm:p-2 rounded-xl hover:bg-neutral-800 text-neutral-400 hover:text-amber-400 transition-all">
+                                        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                                    </a>
+                                @endif
+                            @else
+                                <a href="{{ route('waiter.register.form', $tenant->slug) }}"
+                                   class="hidden sm:inline text-xs text-neutral-500 hover:text-amber-400 transition-colors px-2">Acesso</a>
+                            @endauth
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Table Selection Bar (cliente only) --}}
+                @auth
+                    @if (Auth::user()->isCliente() || Auth::user()->isAdmin())
+                        <div class="px-4 pb-3">
+                            @if ($selectedTableId && $selectedTableNumber)
+                                <div class="flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-r from-amber-500/10 to-amber-600/5 border border-amber-500/20">
+                                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                                        <svg class="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                        </svg>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-amber-400">Mesa {{ $selectedTableNumber }}</p>
+                                        <p class="text-xs text-neutral-400 truncate">
+                                            Mesa fixa — a mesa so pode ser alterada no painel administrativo
+                                        </p>
+                                    </div>
+                                    <button wire:click="showQrCode"
+                                             wire:loading.attr="disabled"
+                                             class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-all whitespace-nowrap disabled:opacity-50">
+                                        QR Code
+                                    </button>
+                                    <div class="p-1.5 rounded-lg text-neutral-600 cursor-not-allowed"
+                                         title="Mesa fixa — altere apenas no painel">
+                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                            @else
+                                <button wire:click="$set('showTablePicker', true)"
+                                        class="w-full flex items-center gap-3 p-3 rounded-2xl bg-neutral-800/50 border border-dashed border-neutral-700 hover:border-amber-500/30 hover:bg-neutral-800/80 transition-all duration-200 group">
+                                    <div class="w-10 h-10 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0 group-hover:bg-amber-500/10 transition-colors">
+                                        <svg class="w-5 h-5 text-neutral-400 group-hover:text-amber-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                        </svg>
+                                    </div>
+                                    <div class="flex-1 text-left">
+                                        <p class="text-sm font-medium text-neutral-300 group-hover:text-amber-400 transition-colors">Selecionar Mesa</p>
+                                        <p class="text-xs text-neutral-500">Escolha sua mesa para comecar a pedir</p>
+                                    </div>
+                                    <svg class="w-5 h-5 text-neutral-500 group-hover:text-amber-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                </button>
+                            @endif
+                        </div>
+                    @endif
+                @endauth
+
+                {{-- Search Bar --}}
+                <div x-show="showMobileSearch || search"
+                     x-transition:enter="transition ease-out duration-200"
+                     x-transition:enter-start="opacity-0 -translate-y-2"
+                     x-transition:enter-end="opacity-100 translate-y-0"
+                     class="px-4 pb-3">
+                    <div class="relative">
+                        <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <input x-model="search"
+                               type="text"
+                               placeholder="Buscar no cardapio..."
+                               class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
+                        <button x-show="search"
+                                @click="search = ''"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded text-neutral-500 hover:text-white">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <template x-if="search && !hasResults">
+                        <div class="text-center py-8 text-neutral-500">
+                            <svg class="w-10 h-10 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <p class="text-sm">Nenhum produto encontrado</p>
+                        </div>
+                    </template>
+                </div>
+
+                {{-- Category Pills --}}
+                <div class="px-4 pb-3">
+                    <div class="flex flex-wrap gap-1.5 sm:gap-2">
+                        @foreach ($categories as $category)
+                            <button @click="scrollToCategory('{{ $category->slug }}')"
+                                    :class="activeCategory === '{{ $category->slug }}' ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/20' : 'bg-neutral-800/80 text-neutral-300 hover:bg-neutral-700 hover:text-white'"
+                                    class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-200 active:scale-95">
+                                {{ $category->name }}
+                                <span class="ml-1 sm:ml-1.5 text-[10px] sm:text-xs opacity-60">({{ $category->products->count() }})</span>
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+            </header>
+
+            {{-- TAB: Menu Products --}}
+            @if ($clientTab === 'menu' || !Auth::check())
+                <div class="px-4 mt-4 space-y-10">
+                    @foreach ($categories as $category)
+                        <section id="cat-{{ $category->slug }}"
+                                 data-category="{{ $category->slug }}"
+                                 class="scroll-mt-44">
+                            <div class="flex items-center justify-between mb-4">
+                                <h2 class="text-xl font-bold">{{ $category->name }}</h2>
+                                <span class="text-xs text-neutral-500 bg-neutral-800/50 px-2.5 py-1 rounded-full">{{ $category->products->count() }} itens</span>
+                            </div>
+
+                        @if ($category->products->count() === 0)
+                            <div class="text-center py-12 text-neutral-600 rounded-2xl bg-neutral-900/30 border border-dashed border-neutral-800"
+                                 x-show="!search">
+                                <svg class="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                                </svg>
+                                <p class="text-sm">Nenhum produto nesta categoria</p>
+                            </div>
+                            @else
+                                <div class="grid grid-cols-1 gap-4">
+                                    @foreach ($category->products as $product)
+                                        <button wire:click="$dispatch('productSelected', {productId: {{ $product->id }}})"
+                                                x-data="{ added: false }"
+                                                x-show="matchProduct($el)"
+                                                data-product-card
+                                                @cart-cleared.window="added = false"
+                                                class="group relative w-full text-left p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800/80 hover:border-amber-500/30 hover:bg-neutral-900 transition-all duration-300 active:scale-[0.99] hover:shadow-lg hover:shadow-amber-500/5">
+                                            <div class="flex gap-4">
+                                                <div class="w-24 h-24 rounded-xl overflow-hidden shrink-0 bg-neutral-800/50 relative">
+                                                    <img src="{{ $product->imageUrl() }}"
+                                                         alt="{{ $product->name }}"
+                                                         class="w-full h-full object-cover transition-all duration-500 group-hover:scale-110"
+                                                         loading="lazy">
+                                                    <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                                </div>
+                                                <div class="flex-1 min-w-0 flex flex-col justify-between">
+                                                    <div>
+                                                        <h3 class="font-semibold group-hover:text-amber-400 transition-colors duration-200">{{ $product->name }}</h3>
+                                                        @if ($product->description)
+                                                            <p class="text-sm text-neutral-400 mt-1 line-clamp-2 leading-relaxed">{{ $product->description }}</p>
+                                                        @endif
+                                                    </div>
+                                                    <div class="flex items-center justify-between mt-2">
+                                                        <p class="text-lg font-bold text-amber-400 group-hover:scale-105 transition-transform origin-left">R$ {{ number_format($product->price, 2, ',', '.') }}</p>
+                                                        @if (!$product->attributes->count())
+                                                            <span @click.stop
+                                                                  @click="$wire.$dispatchTo('public.cart', 'addToCart', {productId: {{ $product->id }}, productName: @js($product->name), price: {{ $product->price }}, selectedOptions: [], quantity: 1}); added = true; setTimeout(() => added = false, 1200);"
+                                                                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer"
+                                                                  :class="added ? 'bg-emerald-500 text-white scale-110' : 'bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-neutral-950'">
+                                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                                                <span x-text="added ? 'Adicionado' : 'Adicionar'"></span>
+                                                            </span>
+                                                        @else
+                                                            <span class="text-xs text-neutral-500 flex items-center gap-1">
+                                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                                Personalizar
+                                                            </span>
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </section>
+                    @endforeach
+                </div>
+
+            {{-- TAB: Orders --}}
+            @elseif ($clientTab === 'orders' && Auth::check())
+                <div class="px-4 mt-4 space-y-6"
+                     x-data
+                     x-init="$nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }))">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xl font-bold">Meus Pedidos</h2>
+                        <button wire:click="switchClientTab('menu')"
+                                class="text-xs text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                            Voltar ao Cardapio
+                        </button>
+                    </div>
+
+                    {{-- Active Orders --}}
+                    @if ($myActiveOrders->count() > 0)
+                        <div wire:poll.10s>
+                            <p class="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-3">Em Andamento</p>
+                            <div class="space-y-3">
+                                @foreach ($myActiveOrders as $order)
+                                    <div class="p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800/80">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <div>
+                                                <span class="font-semibold">Pedido #{{ $order->id }}</span>
+                                                @if ($order->table)
+                                                    <span class="text-xs text-neutral-500 ml-2">Mesa {{ $order->table->number }}</span>
+                                                @else
+                                                    <span class="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full ml-2">Entrega</span>
+                                                @endif
+                                            </div>
+                                            <span class="px-2.5 py-1 text-xs font-medium rounded-full border {{ $order->statusClasses() }}">
+                                                {{ $order->statusLabel() }}
+                                            </span>
+                                        </div>
+                                        <div class="space-y-1.5 mb-3">
+                                            @foreach ($order->items as $item)
+                                                <div class="flex items-center justify-between text-sm">
+                                                    <span class="text-neutral-300">{{ $item->quantity }}x {{ $item->product_name }}</span>
+                                                    <span class="text-neutral-400">R$ {{ number_format($item->price * $item->quantity, 2, ',', '.') }}</span>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                        <div class="flex items-center justify-between pt-2 border-t border-neutral-800">
+                                            <span class="text-sm text-neutral-400">{{ $order->created_at->format('d/m H:i') }}</span>
+                                            <span class="font-bold text-amber-400">R$ {{ number_format($order->total, 2, ',', '.') }}</span>
+                                        </div>
+                                        <div class="flex items-center gap-1.5 mt-2">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                                            <span class="text-xs text-amber-400">{{ $order->status === 'novo' ? 'Aguardando preparo' : ($order->status === 'em_preparo' ? 'Sendo preparado' : 'Saindo para entrega') }}</span>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
+                    {{-- History with Filters --}}
+                    <div>
+                        <div class="flex items-center gap-2 mb-4 flex-wrap">
+                            <p class="text-xs font-medium text-neutral-500 uppercase tracking-wider">Historico</p>
+                            <div class="flex gap-1 p-0.5 rounded-lg bg-neutral-900 border border-neutral-800">
+                                @foreach (['all' => 'Tudo', 'today' => 'Hoje', 'week' => '7 Dias', 'month' => '30 Dias'] as $k => $l)
+                                    <button wire:click="$set('historyPeriod', '{{ $k }}')"
+                                            class="px-2.5 py-1 text-[10px] font-medium rounded-md transition-all {{ $historyPeriod === $k ? 'bg-amber-500 text-neutral-950' : 'text-neutral-400 hover:text-white' }}">{{ $l }}</button>
+                                @endforeach
+                            </div>
+                            <input wire:model.live.debounce="historySearch" type="text" placeholder="Buscar #"
+                                   class="w-full sm:w-32 px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 text-white placeholder-neutral-500 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                        </div>
+                        @if ($myOrders->count() === 0)
+                            <div class="text-center py-12 text-neutral-600 rounded-2xl bg-neutral-900/30 border border-dashed border-neutral-800">
+                                <svg class="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                                <p class="text-sm">Nenhum pedido encontrado</p>
+                            </div>
+                        @else
+                            <div class="space-y-2">
+                                @foreach ($myOrders as $order)
+                                    <div class="p-4 rounded-2xl bg-neutral-900/50 border border-neutral-800/50">
+                                        <div class="flex items-start justify-between mb-2">
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <span class="font-semibold text-sm">#{{ $order->id }}</span>
+                                                <span class="text-xs text-neutral-500">{{ $order->created_at->format('d/m/Y H:i') }}</span>
+                                                @if ($order->table)
+                                                    <span class="text-xs text-neutral-500">Mesa {{ $order->table->number }}</span>
+                                                @else
+                                                    <span class="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">Entrega</span>
+                                                @endif
+                                            </div>
+                                            <span class="px-2 py-0.5 text-xs font-medium rounded-full border {{ $order->statusClasses() }} shrink-0">
+                                                {{ $order->statusLabel() }}
+                                            </span>
+                                        </div>
+                                        <div class="space-y-1 mb-2">
+                                            @foreach ($order->items->take(3) as $item)
+                                                <div class="flex items-center justify-between text-xs">
+                                                    <span class="text-neutral-400">{{ $item->quantity }}x {{ $item->product_name }}</span>
+                                                    <span class="text-neutral-500">R$ {{ number_format($item->price * $item->quantity, 2, ',', '.') }}</span>
+                                                </div>
+                                            @endforeach
+                                            @if ($order->items->count() > 3)
+                                                <p class="text-xs text-neutral-600">+{{ $order->items->count() - 3 }} itens</p>
+                                            @endif
+                                        </div>
+                                        <div class="flex items-center justify-between pt-2 border-t border-neutral-800">
+                                            <span class="text-sm font-bold text-amber-400">R$ {{ number_format($order->total, 2, ',', '.') }}</span>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+            {{-- TAB: Settings --}}
+            @elseif ($clientTab === 'settings' && Auth::check())
+                <div class="px-4 mt-4 max-w-2xl mx-auto pb-8"
+                     x-init="$nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }))">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold">Configuracoes</h2>
+                        <button wire:click="switchClientTab('menu')"
+                                class="text-xs text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                            Voltar ao Cardapio
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {{-- Profile --}}
+                        <div class="p-5 rounded-2xl bg-neutral-900/70 border border-neutral-800/80">
+                            <h3 class="text-sm font-semibold text-neutral-300 mb-4 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                Meu Perfil
+                            </h3>
+                            <form wire:submit="saveProfile" class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1">Nome</label>
+                                    <input wire:model="profileName" type="text"
+                                           class="w-full px-3.5 py-2 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('profileName') border-red-500 @enderror">
+                                    @error('profileName') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1">Email</label>
+                                    <input wire:model="profileEmail" type="email"
+                                           class="w-full px-3.5 py-2 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('profileEmail') border-red-500 @enderror">
+                                    @error('profileEmail') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1">Nova Senha (opcional)</label>
+                                    <input wire:model="profilePassword" type="password" placeholder="Minimo 6 caracteres"
+                                           class="w-full px-3.5 py-2 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('profilePassword') border-red-500 @enderror">
+                                    @error('profilePassword') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1">Confirmar Senha</label>
+                                    <input wire:model="profilePasswordConfirmation" type="password" placeholder="Repita a senha"
+                                           class="w-full px-3.5 py-2 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('profilePasswordConfirmation') border-red-500 @enderror">
+                                    @error('profilePasswordConfirmation') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                                </div>
+                                <button type="submit" wire:loading.attr="disabled"
+                                         class="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all text-sm hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center gap-2">
+                                    <span wire:loading.remove>Salvar</span>
+                                    <span wire:loading class="flex items-center gap-1"><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Salvando...</span>
+                                </button>
+                            </form>
+                        </div>
+
+                        {{-- Addresses --}}
+                        <div class="p-5 rounded-2xl bg-neutral-900/70 border border-neutral-800/80">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-sm font-semibold text-neutral-300 flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                    Enderecos
+                                    @if ($myAddresses->count() > 0)
+                                        <span class="text-xs text-neutral-500 font-normal">({{ $myAddresses->count() }}/5)</span>
+                                    @endif
+                                </h3>
+                                @if ($myAddresses->count() < 5)
+                                    <button wire:click="openAddressModal" wire:loading.attr="disabled"
+                                             class="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-all disabled:opacity-50">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                        Novo
+                                    </button>
+                                @endif
+                            </div>
+                            @if ($myAddresses->count() === 0)
+                                <div class="text-center py-6 text-neutral-500">
+                                    <p class="text-xs text-neutral-400">Nenhum endereco salvo</p>
+                                </div>
+                            @else
+                                <div class="space-y-2">
+                                    @foreach ($myAddresses as $address)
+                                        <div class="p-2.5 rounded-xl {{ $address->is_default ? 'bg-amber-500/5 border border-amber-500/20' : 'bg-neutral-800/50 border border-neutral-700/50' }}">
+                                            <div class="flex items-start justify-between gap-1">
+                                                <div class="min-w-0 flex-1">
+                                                    <div class="flex items-center gap-1.5 mb-0.5">
+                                                        <span class="text-xs font-semibold text-neutral-200">{{ $address->label }}</span>
+                                                        @if ($address->is_default)
+                                                            <span class="px-1 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-400">Padrao</span>
+                                                        @endif
+                                                    </div>
+                                                    <p class="text-[11px] text-neutral-400 truncate">{{ $address->summary }}</p>
+                                                </div>
+                                                <div class="flex items-center gap-0.5 shrink-0">
+                                                    @if (!$address->is_default)
+                                                        <button wire:click="setDefaultAddress({{ $address->id }})" wire:loading.attr="disabled" class="p-1 rounded text-neutral-500 hover:text-amber-400 disabled:opacity-30">✓</button>
+                                                    @endif
+                                                    <button wire:click="openAddressModal({{ $address->id }})" wire:loading.attr="disabled" class="p-1 rounded text-neutral-500 hover:text-blue-400 disabled:opacity-30">✎</button>
+                                                    <button wire:click="confirmDeleteAddress({{ $address->id }})" wire:loading.attr="disabled" class="p-1 rounded text-neutral-500 hover:text-red-400 disabled:opacity-30">✕</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    {{-- LGPD Privacy --}}
+                    <div class="mt-4 p-5 rounded-2xl bg-neutral-900/70 border border-neutral-800/80">
+                        <h3 class="text-sm font-semibold text-neutral-300 mb-4 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                            Privacidade (LGPD)
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between p-3 rounded-xl bg-neutral-800/50 border border-neutral-700/50">
+                                <div>
+                                    <p class="text-xs font-semibold text-neutral-200">Exportar meus dados</p>
+                                    <p class="text-[11px] text-neutral-500">Baixe um JSON com seus dados pessoais</p>
+                                </div>
+                                <button wire:click="exportData" wire:loading.attr="disabled"
+                                         class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-neutral-700 hover:bg-neutral-600 text-neutral-300 transition-all disabled:opacity-50 flex items-center gap-1">
+                                    <span wire:loading.remove>Exportar</span>
+                                    <span wire:loading><svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between p-3 rounded-xl bg-neutral-800/50 border border-red-500/10">
+                                <div>
+                                    <p class="text-xs font-semibold text-red-400">Excluir minha conta</p>
+                                    <p class="text-[11px] text-neutral-500">Remove seu usuario e anonimiza pedidos</p>
+                                </div>
+                                <button wire:click="confirmDeleteAccount" wire:loading.attr="disabled"
+                                         class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all disabled:opacity-50">
+                                    Excluir
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="text-[10px] text-neutral-600 text-center mt-4">
+                        Ao utilizar nossos servicos, voce concorda com o tratamento de seus dados conforme a Lei Geral de Protecao de Dados (LGPD).
+                    </p>
+                </div>
+
+                {{-- Address Modal --}}
+                <div x-data="{
+                    open: @entangle('showAddressModal'),
+                    viaCepLoading: false,
+                    async searchCep() {
+                        let cep = $wire.addrZipcode.replace(/\D/g, '');
+                        if (cep.length !== 8) return;
+                        this.viaCepLoading = true;
+                        try {
+                            let response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+                            let data = await response.json();
+                            if (!data.erro) {
+                                $wire.addrAddress = data.logradouro || '';
+                                $wire.addrNeighborhood = data.bairro || '';
+                                $wire.addrCity = data.localidade || '';
+                                $wire.addrState = data.uf || '';
+                            }
+                        } catch (e) {}
+                        this.viaCepLoading = false;
+                    }
+                }"
+                     x-show="open" x-cloak
+                     class="fixed inset-0 z-[70] flex items-center justify-center p-4"
+                     @keydown.window.escape="$wire.closeAddressModal()">
+                    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="closeAddressModal"></div>
+                    <div class="relative w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/60">
+                        <div class="flex items-center justify-between px-5 py-4 border-b border-neutral-800">
+                            <h3 class="font-bold text-sm">{{ $editingAddressId ? 'Editar' : 'Novo' }} Endereco</h3>
+                            <button wire:click="closeAddressModal" class="p-1 rounded-lg hover:bg-neutral-800 text-neutral-400">✕</button>
+                        </div>
+                        <form wire:submit="saveAddress" class="p-5 space-y-3">
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div class="col-span-3">
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1">Identificacao</label>
+                                    <select wire:model="addrLabel" class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                        <option value="Casa">Casa</option>
+                                        <option value="Trabalho">Trabalho</option>
+                                        <option value="Outro">Outro</option>
+                                    </select>
+                                </div>
+                                <div class="col-span-2">
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1">Logradouro</label>
+                                    <input wire:model="addrAddress" type="text" placeholder="Rua, Avenida..." class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 @error('addrAddress') border-red-500 @enderror">
+                                    @error('addrAddress') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1">Numero</label>
+                                    <input wire:model="addrNumber" type="text" placeholder="N°" class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1">Bairro</label>
+                                    <input wire:model="addrNeighborhood" type="text" placeholder="Bairro" class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1">Complemento</label>
+                                    <input wire:model="addrComplement" type="text" placeholder="Apto, Bloco..." class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                </div>
+                                <div class="relative">
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1">CEP</label>
+                                    <input wire:model="addrZipcode" type="text" placeholder="00000-000" maxlength="9"
+                                           x-on:blur="searchCep" class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                    <div x-show="viaCepLoading" class="absolute right-2.5 top-7"><svg class="w-4 h-4 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1">Cidade</label>
+                                    <input wire:model="addrCity" type="text" placeholder="Cidade" class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 @error('addrCity') border-red-500 @enderror">
+                                    @error('addrCity') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1">Estado</label>
+                                    <input wire:model="addrState" type="text" placeholder="UF" class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 @error('addrState') border-red-500 @enderror">
+                                    @error('addrState') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                                </div>
+                                <div class="col-span-3">
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1">Referencia</label>
+                                    <input wire:model="addrReference" type="text" placeholder="Proximo a..." class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                </div>
+                            </div>
+                            <label class="flex items-center gap-2 text-sm text-neutral-300 cursor-pointer">
+                                <input type="checkbox" wire:model="addrIsDefault" class="w-4 h-4 rounded bg-neutral-950 border-neutral-700 text-amber-500 focus:ring-amber-500">
+                                Definir como padrao
+                            </label>
+                            <div class="flex items-center justify-end gap-3 pt-2 border-t border-neutral-800">
+                                <button type="button" wire:click="closeAddressModal" class="px-4 py-2 text-sm text-neutral-400 hover:text-white">Cancelar</button>
+                                <button type="submit" wire:loading.attr="disabled" class="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl text-sm disabled:opacity-50 flex items-center gap-1">
+                                    <span wire:loading.remove>{{ $editingAddressId ? 'Atualizar' : 'Salvar' }}</span>
+                                    <span wire:loading><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                {{-- Delete Address Confirmation --}}
+                <div x-data="{ open: @entangle('confirmDeleteAddressId') }"
+                     x-show="open" x-cloak
+                     class="fixed inset-0 z-[80] flex items-center justify-center p-4"
+                     @keydown.window.escape="$wire.cancelDeleteAddress()">
+                    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="cancelDeleteAddress"></div>
+                    <div class="relative w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/60 p-6 text-center">
+                        <div class="w-12 h-12 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center"><svg class="w-6 h-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg></div>
+                        <h3 class="font-bold text-neutral-200 mb-2">Remover Endereco?</h3>
+                        <p class="text-sm text-neutral-400 mb-6">Esta acao nao pode ser desfeita.</p>
+                        <div class="flex items-center justify-center gap-3">
+                            <button wire:click="cancelDeleteAddress" class="px-5 py-2 text-sm text-neutral-400 hover:text-white rounded-xl hover:bg-neutral-800">Cancelar</button>
+                            <button wire:click="deleteAddress" wire:loading.attr="disabled" class="px-5 py-2 text-sm font-semibold bg-red-500 hover:bg-red-400 text-white rounded-xl disabled:opacity-50 flex items-center gap-1">
+                                <span wire:loading.remove>Remover</span>
+                                <span wire:loading><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Delete Account Confirmation --}}
+                <div x-data="{ open: @entangle('showDeleteAccountConfirm') }"
+                     x-show="open" x-cloak
+                     class="fixed inset-0 z-[80] flex items-center justify-center p-4"
+                     @keydown.window.escape="$wire.cancelDeleteAccount()">
+                    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="cancelDeleteAccount"></div>
+                    <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/60 p-6">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center shrink-0"><svg class="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg></div>
+                            <div>
+                                <h3 class="text-lg font-bold text-red-400">Excluir conta</h3>
+                                <p class="text-xs text-neutral-500">Esta acao nao pode ser desfeita</p>
+                            </div>
+                        </div>
+                        <p class="text-sm text-neutral-300 mb-4">Seus pedidos serao anonimizados e sua conta removida.</p>
+                        <form wire:submit="deleteMyAccount" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-neutral-400 mb-2">Digite <span class="font-bold text-red-400">EXCLUIR</span> para confirmar</label>
+                                <input wire:model="deleteConfirmation" type="text" placeholder="EXCLUIR" class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-500">
+                                @error('deleteConfirmation') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                            </div>
+                            <div class="flex gap-2">
+                                <button type="button" wire:click="cancelDeleteAccount" class="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300">Cancelar</button>
+                                <button type="submit" wire:loading.attr="disabled" class="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl bg-red-500 hover:bg-red-400 text-white disabled:opacity-50 flex items-center justify-center gap-1">
+                                    <span wire:loading.remove>Excluir Conta</span>
+                                    <span wire:loading><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            @endif
+
+            {{-- Table Picker Modal --}}
+            @if ($showTablePicker)
+                <div class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4"
+                     @keydown.window.escape="$wire.set('showTablePicker', false)">
+                    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                         wire:click="$set('showTablePicker', false)"></div>
+                    <div class="relative w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-t-3xl sm:rounded-2xl shadow-2xl shadow-black/60 max-h-[80vh] flex flex-col overflow-hidden">
+                        <div class="flex items-center justify-between px-6 py-4 border-b border-neutral-800 shrink-0">
+                            <h3 class="text-lg font-bold">Selecione sua Mesa</h3>
+                            <button wire:click="$set('showTablePicker', false)"
+                                    class="p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="flex-1 overflow-y-auto p-6">
+                            @if ($availableTables->count() === 0)
+                                <div class="text-center py-8 text-neutral-500">
+                                    <p class="text-sm">Nenhuma mesa disponivel</p>
+                                </div>
+                            @else
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    @foreach ($availableTables as $table)
+                                        <button wire:click="selectTable({{ $table->id }})"
+                                                 wire:loading.attr="disabled"
+                                                 class="p-4 rounded-2xl border-2 text-center transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] {{ $table->status === 'free' ? 'bg-emerald-500/5 border-emerald-500/30 hover:border-emerald-500/60' : 'bg-red-500/5 border-red-500/30 hover:border-red-500/60' }} {{ $selectedTableId === $table->id ? 'ring-2 ring-amber-500' : '' }} disabled:opacity-60">
+                                            <p class="text-2xl font-black {{ $table->status === 'free' ? 'text-emerald-400' : 'text-red-400' }}">{{ $table->number }}</p>
+                                            <p class="text-xs mt-1 {{ $table->status === 'free' ? 'text-emerald-400' : 'text-red-400' }}">
+                                                {{ $table->status === 'free' ? 'Livre' : 'Ocupada' }}
+                                            </p>
+                                            <p class="text-[10px] text-neutral-500 mt-0.5">Cap. {{ $table->capacity }}</p>
+                                        </button>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            {{-- QR Code Modal --}}
+            @if ($selectedTableId && $selectedTableToken && $showQrModal)
+                <div class="fixed inset-0 z-[60] flex items-center justify-center p-4"
+                     @keydown.window.escape="$wire.set('showQrModal', false)">
+                    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                         wire:click="$set('showQrModal', false)"></div>
+                    <div class="relative w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-3xl shadow-2xl shadow-black/60 p-8 text-center">
+                        <button wire:click="$set('showQrModal', false)"
+                                class="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-amber-500/10 flex items-center justify-center">
+                            <svg class="w-8 h-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M12 4h8M4 8h8"/>
+                            </svg>
+                        </div>
+
+                        <h3 class="text-xl font-bold mb-2">Mesa {{ $selectedTableNumber }}</h3>
+                        <p class="text-sm text-neutral-400 mb-6">Compartilhe o QR code com sua mesa para todos pedirem juntos.</p>
+
+                        <div class="bg-white rounded-2xl p-4 mb-6 inline-block">
+                            <img src="{{ $qrCodeUrl }}"
+                                 alt="QR Code Mesa {{ $selectedTableNumber }}"
+                                 class="w-48 h-48 mx-auto"
+                                 loading="lazy">
+                        </div>
+
+                        <div class="space-y-3">
+                            <a href="{{ $tableEntryUrl }}"
+                               target="_blank"
+                               class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                                </svg>
+                                Entrar na Mesa {{ $selectedTableNumber }}
+                            </a>
+
+                            <button wire:click="confirmTable" wire:loading.attr="disabled"
+                                     class="w-full px-6 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all disabled:opacity-50">
+                                Continuar no Cardapio
+                            </button>
+                        </div>
+
+                        <p class="text-xs text-neutral-500 mt-4">
+                            Ou compartilhe o link:
+                            <a href="{{ $tableEntryUrl }}" target="_blank"
+                               class="text-amber-400 hover:text-amber-300 underline break-all block mt-1">
+                                {{ $tableEntryUrl }}
+                            </a>
+                        </p>
+                    </div>
+                </div>
+            @endif
+
+            {{-- Cart Component --}}
+            @livewire('public.cart', ['tenant' => $tenant, 'token' => $token])
+
+            {{-- Product Detail Modal --}}
+            <div x-data="{
+                open: false,
+                closeModal() {
+                    this.open = false;
+                    document.body.style.overflow = '';
+                    $wire.closeProduct();
+                }
+            }"
+                 @product-selected.window="open = true; $nextTick(() => document.body.style.overflow = 'hidden')"
+                 @keydown.window.escape="if (open) closeModal()"
+                 x-cloak>
+                {{-- Backdrop --}}
+                <div x-show="open"
+                     x-transition:enter="transition-opacity duration-300"
+                     x-transition:enter-start="opacity-0"
+                     x-transition:enter-end="opacity-100"
+                     x-transition:leave="transition-opacity duration-200"
+                     x-transition:leave-start="opacity-100"
+                     x-transition:leave-end="opacity-0"
+                     class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
+                     @click="closeModal()"></div>
+
+                {{-- Modal Panel --}}
+                <div x-show="open"
+                     x-transition:enter="transition ease-out duration-300"
+                     x-transition:enter-start="translate-y-full opacity-0"
+                     x-transition:enter-end="translate-y-0 opacity-100"
+                     x-transition:leave="transition ease-in duration-200"
+                     x-transition:leave-start="translate-y-0 opacity-100"
+                     x-transition:leave-end="translate-y-full opacity-0"
+                     class="fixed inset-x-0 bottom-0 max-h-[88vh] z-50 overflow-y-auto rounded-t-3xl bg-neutral-900 border-t border-neutral-800 shadow-2xl shadow-black/40">
+
+                    @if ($selectedProduct)
+                        <div>
+                            {{-- Image Hero --}}
+                            @if ($selectedProduct->image_url)
+                                <div class="relative w-full h-52 overflow-hidden">
+                                    <img src="{{ $selectedProduct->imageUrl() }}"
+                                         alt="{{ $selectedProduct->name }}"
+                                         class="w-full h-full object-cover">
+                                    <div class="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/20 to-transparent"></div>
+                                </div>
+                            @endif
+
+                            <div class="p-6 pt-4">
+                                <div class="flex items-start justify-between mb-3">
+                                    <div class="flex-1 min-w-0">
+                                        <h3 class="text-xl font-bold">{{ $selectedProduct->name }}</h3>
+                                        @if ($selectedProduct->description)
+                                            <p class="text-sm text-neutral-400 mt-1.5 leading-relaxed">{{ $selectedProduct->description }}</p>
+                                        @endif
+                                    </div>
+                                    <button @click="closeModal()"
+                                            class="ml-4 p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 transition-colors shrink-0">
+                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                <p class="text-2xl font-bold text-amber-400 mb-6">R$ {{ number_format($selectedProduct->price, 2, ',', '.') }}</p>
+
+                                <form @submit.prevent="
+                                    const form = $event.target;
+                                    const options = [];
+                                    form.querySelectorAll('select, input[type=radio]:checked, input[type=checkbox]:checked').forEach(el => {
+                                        if (el.value && el.name) {
+                                            try { options.push(JSON.parse(el.value)); } catch(e) {}
+                                        }
+                                    });
+                                    $wire.$dispatchTo('public.cart', 'addToCart', {
+                                        productId: {{ $selectedProduct->id }},
+                                        productName: @js($selectedProduct->name),
+                                        price: {{ $selectedProduct->price }},
+                                        selectedOptions: options,
+                                        quantity: 1
+                                    });
+                                    closeModal();
+                                "
+                                      x-data="{ animating: false }"
+                                      @submit="animating = true; setTimeout(() => animating = false, 800)">
+
+                                    @foreach ($selectedProduct->attributes as $attribute)
+                                        <div class="mb-5">
+                                            <div class="flex items-center justify-between mb-3">
+                                                <label class="font-medium text-sm">{{ $attribute->name }}</label>
+                                                @if ($attribute->is_required)
+                                                    <span class="text-xs text-red-400/80">*Obrigatorio</span>
+                                                @endif
+                                            </div>
+
+                                            @if ($attribute->type === 'single')
+                                                <div class="space-y-2">
+                                                    @foreach ($attribute->options as $option)
+                                                        <label class="flex items-center justify-between p-3 rounded-xl bg-neutral-800/40 border border-neutral-700/50 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-500/10 transition-all cursor-pointer hover:bg-neutral-800/80">
+                                                            <div class="flex items-center gap-3">
+                                                                <input type="radio"
+                                                                       name="attr_{{ $attribute->id }}"
+                                                                       value='{{ json_encode(['attribute_id' => $attribute->id, 'attribute_name' => $attribute->name, 'option_id' => $option->id, 'option_name' => $option->name, 'price_additional' => $option->price_additional]) }}'
+                                                                       class="text-amber-500 focus:ring-amber-500 bg-neutral-800 border-neutral-600"
+                                                                       {{ $loop->first ? 'checked' : '' }}>
+                                                                <span class="text-sm">{{ $option->name }}</span>
+                                                            </div>
+                                                            @if ($option->price_additional > 0)
+                                                                <span class="text-xs text-amber-400">+R$ {{ number_format($option->price_additional, 2, ',', '.') }}</span>
+                                                            @endif
+                                                        </label>
+                                                    @endforeach
+                                                </div>
+                                            @else
+                                                <div class="space-y-2">
+                                                    @foreach ($attribute->options as $option)
+                                                        <label class="flex items-center justify-between p-3 rounded-xl bg-neutral-800/40 border border-neutral-700/50 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-500/10 transition-all cursor-pointer hover:bg-neutral-800/80">
+                                                            <div class="flex items-center gap-3">
+                                                                <input type="checkbox"
+                                                                       name="attr_{{ $attribute->id }}[]"
+                                                                       value='{{ json_encode(['attribute_id' => $attribute->id, 'attribute_name' => $attribute->name, 'option_id' => $option->id, 'option_name' => $option->name, 'price_additional' => $option->price_additional]) }}'
+                                                                       class="rounded text-amber-500 focus:ring-amber-500 bg-neutral-800 border-neutral-600">
+                                                                <span class="text-sm">{{ $option->name }}</span>
+                                                            </div>
+                                                            @if ($option->price_additional > 0)
+                                                                <span class="text-xs text-amber-400">+R$ {{ number_format($option->price_additional, 2, ',', '.') }}</span>
+                                                            @endif
+                                                        </label>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endforeach
+
+                                    <button type="submit"
+                                            :disabled="animating"
+                                            class="w-full py-3.5 px-4 bg-amber-500 hover:bg-amber-400 disabled:bg-amber-600 disabled:opacity-60 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 flex items-center justify-center gap-2">
+                                        <svg x-show="animating" class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                        </svg>
+                                        <span x-text="animating ? 'Adicionando...' : 'Adicionar ao Pedido'"></span>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
