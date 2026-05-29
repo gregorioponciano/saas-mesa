@@ -57,6 +57,15 @@
                             {{ $myActiveOrders->count() }} em andamento
                         </span>
                     @endif
+                    @php
+                        $hasTable = $myOrders->firstWhere('table_id', '!=', null);
+                    @endphp
+                    @if ($hasTable)
+                        <button wire:click="freeMyTable" wire:confirm="Tem certeza que deseja liberar a mesa?"
+                                class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all">
+                            Liberar Mesa
+                        </button>
+                    @endif
                 </div>
 
                 @if ($myOrders->count() === 0)

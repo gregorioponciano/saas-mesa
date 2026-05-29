@@ -15,7 +15,7 @@
         @include('partials.flash-messages')
         @include('partials.notifications')
 
-        {{ $slot }}
+        @yield('content')
 
         @livewireScripts
 </body>

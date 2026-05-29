@@ -89,30 +89,46 @@
                     </div>
                 @endforeach
 
-                @if ($selTable && $selTable->status === 'occupied')
-                    @php
-                        $allOrders = \App\Models\Order::with('payments')
-                            ->where('table_id', $selTable->id)
-                            ->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue'])
-                            ->get();
-                        $totalOrders = (float) $allOrders->sum('total');
-                        $paidOrders = (float) $allOrders->sum(fn($o) => (float) $o->payments->where('status', 'paid')->sum('amount'));
-                        $pendingOrders = max(0, $totalOrders - $paidOrders);
-                        $hasNotDelivered = $allOrders->contains(fn($o) => !in_array($o->status, ['entregue']));
-                    @endphp
-                    @if ($allOrders->isNotEmpty())
-                        @if ($hasNotDelivered)
-                            <div class="text-center mb-3">
-                                <p class="text-xs text-amber-400">Ha pedidos em andamento nesta mesa</p>
-                            </div>
+                @if ($selTable)
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        @if ($selTable->status !== 'free')
+                            <button wire:click="setTableFree({{ $selTable->id }})" wire:loading.attr="disabled"
+                                    class="flex-1 min-w-[80px] py-2 px-3 text-xs font-semibold rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all">Desocupar</button>
                         @endif
-                        <button wire:click="openCloseTableModal({{ $selTable->id }})" wire:loading.attr="disabled"
-                                 class="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold rounded-xl transition-all disabled:opacity-50 mb-3">
-                            Fechar Conta da Mesa {{ $selTable->number }} (R$ {{ number_format($totalOrders, 2, ',', '.') }})
-                        </button>
+                        @if ($selTable->status !== 'occupied')
+                            <button wire:click="setTableOccupied({{ $selTable->id }})" wire:loading.attr="disabled"
+                                    class="flex-1 min-w-[80px] py-2 px-3 text-xs font-semibold rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all">Ocupar</button>
+                        @endif
+                        @if ($selTable->status !== 'reserved')
+                            <button wire:click="setTableReserved({{ $selTable->id }})" wire:loading.attr="disabled"
+                                    class="flex-1 min-w-[80px] py-2 px-3 text-xs font-semibold rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-all">Reservar</button>
+                        @endif
+                    </div>
+                    @if ($selTable->status === 'occupied')
+                        @php
+                            $allOrders = \App\Models\Order::with('payments')
+                                ->where('table_id', $selTable->id)
+                                ->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue'])
+                                ->get();
+                            $totalOrders = (float) $allOrders->sum('total');
+                            $paidOrders = (float) $allOrders->sum(fn($o) => (float) $o->payments->where('status', 'paid')->sum('amount'));
+                            $pendingOrders = max(0, $totalOrders - $paidOrders);
+                            $hasNotDelivered = $allOrders->contains(fn($o) => !in_array($o->status, ['entregue']));
+                        @endphp
+                        @if ($allOrders->isNotEmpty())
+                            @if ($hasNotDelivered)
+                                <div class="text-center mb-3">
+                                    <p class="text-xs text-amber-400">Ha pedidos em andamento nesta mesa</p>
+                                </div>
+                            @endif
+                            <button wire:click="openCloseTableModal({{ $selTable->id }})" wire:loading.attr="disabled"
+                                     class="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold rounded-xl transition-all disabled:opacity-50 mb-3">
+                                Fechar Conta da Mesa {{ $selTable->number }} (R$ {{ number_format($totalOrders, 2, ',', '.') }})
+                            </button>
+                        @endif
+                        <button wire:click="freeTable({{ $selTable->id }})" wire:loading.attr="disabled"
+                                 class="w-full py-3.5 px-4 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 font-semibold rounded-xl transition-all disabled:opacity-50">Liberar Mesa</button>
                     @endif
-                    <button wire:click="freeTable({{ $selTable->id }})" wire:loading.attr="disabled"
-                             class="w-full py-3.5 px-4 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 font-semibold rounded-xl transition-all disabled:opacity-50">Liberar Mesa</button>
                 @endif
             @else
                 <div class="text-center py-12">
@@ -144,19 +160,16 @@
                     <span class="text-sm text-neutral-400">Total da Mesa</span>
                     <span class="text-2xl font-bold text-amber-400">R$ {{ number_format($closeTableTotal, 2, ',', '.') }}</span>
                 </div>
-                <p class="text-xs text-neutral-500">Todos os pedidos serao fechados e a mesa liberada</p>
+                <p class="text-xs text-neutral-500">Pagamento via PIX. Todos os pedidos serao fechados e a mesa liberada.</p>
             </div>
             <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-medium text-neutral-400 mb-1.5">Forma de Pagamento</label>
-                    <select wire:model="closeTablePaymentMethod"
-                            class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
-                        <option value="pix">PIX</option>
-                        <option value="credit_card">Cartao de Credito</option>
-                        <option value="debit_card">Cartao de Debito</option>
-                        <option value="cash">Dinheiro</option>
-                    </select>
-                </div>
+                @if ($pixQrCode)
+                    <x-pix-qr-code
+                        :qr-code="$pixQrCode"
+                        :copia-e-cola="$pixCopiaECola"
+                        :id="'close-table-' . $closeTableId"
+                        :loading="false" />
+                @endif
                 <div>
                     <label class="block text-xs font-medium text-neutral-400 mb-1.5">Observacao (opcional)</label>
                     <input wire:model="closeTablePaymentNotes" type="text" placeholder="Observacao"
@@ -167,10 +180,21 @@
                             class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all">
                         Cancelar
                     </button>
-                    <button wire:click="confirmCloseTableBill"
-                            class="flex-1 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold transition-all">
-                        Confirmar Fechamento (R$ {{ number_format($closeTableTotal, 2, ',', '.') }})
-                    </button>
+                    <div class="flex-1 flex gap-2">
+                        @if (!$pixQrCode)
+                            <button wire:click="generateCloseTablePix" wire:loading.attr="disabled"
+                                    class="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold transition-all flex items-center justify-center gap-2">
+                                @if ($generatingPix)
+                                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                @endif
+                                Gerar QR Code PIX
+                            </button>
+                        @endif
+                        <button wire:click="confirmCloseTableBill" wire:loading.class="opacity-50"
+                                class="flex-1 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold transition-all">
+                            Confirmar Pagamento (R$ {{ number_format($closeTableTotal, 2, ',', '.') }})
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -183,27 +207,24 @@
          @keydown.window.escape="$wire.closePaymentModal()">
         <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="closePaymentModal"></div>
         <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/60 p-6">
-            <h3 class="text-lg font-bold mb-4">Registrar Pagamento</h3>
+            <h3 class="text-lg font-bold mb-4">Registrar Pagamento - PIX</h3>
             <div class="space-y-4">
                 <div>
                     <label class="block text-xs font-medium text-neutral-400 mb-1.5">Valor (R$)</label>
-                    <input wire:model="paymentAmount" type="number" step="0.01" min="0.01"
-                           class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
+                    <input wire:model="paymentAmount" type="number" step="0.01" min="0.01" readonly
+                           class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white text-sm transition-all opacity-75">
                     @error('paymentAmount') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                 </div>
-                <div>
-                    <label class="block text-xs font-medium text-neutral-400 mb-1.5">Forma de Pagamento</label>
-                    <select wire:model="paymentMethodInput"
-                            class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
-                        <option value="pix">PIX</option>
-                        <option value="credit_card">Cartao de Credito</option>
-                        <option value="debit_card">Cartao de Debito</option>
-                        <option value="cash">Dinheiro</option>
-                    </select>
-                </div>
+                @if ($pixQrCode)
+                    <x-pix-qr-code
+                        :qr-code="$pixQrCode"
+                        :copia-e-cola="$pixCopiaECola"
+                        :id="'pay-' . $paymentOrderId"
+                        :loading="false" />
+                @endif
                 <div>
                     <label class="block text-xs font-medium text-neutral-400 mb-1.5">Observacao (opcional)</label>
-                    <input wire:model="paymentNotes" type="text" placeholder="Troco para 100, etc"
+                    <input wire:model="paymentNotes" type="text" placeholder="Observacao"
                            class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
                 </div>
                 <div class="flex gap-3 pt-2">
@@ -211,10 +232,21 @@
                             class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all">
                         Cancelar
                     </button>
-                    <button wire:click="registerPayment"
-                            class="flex-1 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold transition-all">
-                        Confirmar Pagamento
-                    </button>
+                    <div class="flex-1 flex gap-2">
+                        @if (!$pixQrCode)
+                            <button wire:click="generatePaymentPix" wire:loading.attr="disabled"
+                                    class="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold transition-all flex items-center justify-center gap-2">
+                                @if ($generatingPix)
+                                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                @endif
+                                Gerar QR Code PIX
+                            </button>
+                        @endif
+                        <button wire:click="registerPayment" wire:loading.class="opacity-50"
+                                class="flex-1 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold transition-all">
+                            Confirmar Pagamento
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

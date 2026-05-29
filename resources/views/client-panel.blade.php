@@ -1,3 +1,5 @@
-@component('layouts.client')
+@extends('layouts.client')
+
+@section('content')
     @livewire('client.client-dashboard', ['tenant' => $tenant])
-@endcomponent
+@endsection

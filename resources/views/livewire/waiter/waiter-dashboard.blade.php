@@ -26,7 +26,7 @@
         <button wire:click="switchTab('orders')"
                 class="flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl text-[11px] sm:text-sm font-medium transition-all duration-200 {{ $tab === 'orders' ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/20' : 'text-neutral-400 hover:text-white' }}">
             <svg class="w-3.5 sm:w-4 h-3.5 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2-1m2 1l2-1m2 1l2-1m2-2v2a1 1 0 001 1h2m0 0a1 1 0 100 2m-2-2a1 1 0 110 2m-10-4h.01M16 12h4m0 0l-3-3m3 3l-3 3"/></svg>
-            <span class="hidden xs:inline">Entregas</span><span class="xs:hidden">Delivery</span>
+            <span>Delivery</span>
             @if ($waiterDeliveryOrders->count() > 0)
                 <span class="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-500/20 text-blue-400">{{ $waiterDeliveryOrders->count() }}</span>
             @endif
@@ -162,117 +162,7 @@
             </div>
         </div>
 
-        <div>
-            <h2 class="text-sm sm:text-lg font-bold mb-4">Pedidos Ativos</h2>
-            @if ($activeOrders->count() === 0)
-                <div class="text-center py-12 text-neutral-500">
-                    <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                    <p>Nenhum pedido ativo no momento</p>
-                </div>
-            @else
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-neutral-700">
-                        <thead class="bg-neutral-900">
-                            <tr>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">#</th>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Cliente</th>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Tipo</th>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Itens</th>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Total</th>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Status</th>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Pagto</th>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Hora</th>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-neutral-800 divide-y divide-neutral-700">
-                            @foreach ($activeOrders as $order)
-                                <tr class="hover:bg-neutral-700/50 transition-colors">
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-neutral-200">#{{ str_pad($order->id, 5, '0', STR_PAD_LEFT) }}</td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-neutral-200">{{ $order->customer_name }}</td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
-                                        @php $tClass = $order->typeClasses(); @endphp
-                                        <span class="text-[10px] sm:text-xs font-semibold px-1 sm:px-2 py-0.5 rounded-full {{ $tClass }}">{{ $order->typeLabel() }}</span>
-                                        @if ($order->table)<span class="text-[10px] sm:text-xs text-neutral-500 ml-1">#{{ $order->table->number }}</span>@endif
-                                    </td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-neutral-200">
-                                        @foreach ($order->items as $item)<div class="mb-1">{{ $item->quantity }}x {{ $item->product_name }}</div>@endforeach
-                                    </td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-neutral-200 text-right">R$ {{ number_format($order->total, 2, ',', '.') }}</td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm"><span class="px-1.5 sm:px-2.5 py-0.5 text-[10px] sm:text-xs font-medium rounded-full {{ $order->statusClasses() }}">{{ $order->statusLabel() }}</span></td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
-                                        @if ($order->hasPayment())<span class="text-[10px] sm:text-xs font-medium text-emerald-400">Pago</span>
-                                        @elseif ($order->isBillClosed())<span class="text-[10px] sm:text-xs font-medium text-purple-400">Fechado</span>
-                                        @else<span class="text-[10px] sm:text-xs font-medium text-amber-400">R$ {{ number_format($order->pendingPaymentAmount(), 2, ',', '.') }}</span>@endif
-                                    </td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-neutral-400 text-right">{{ $order->created_at->format('d/m H:i') }}</td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right space-x-1 sm:space-x-2">
-                                        <button wire:click="viewOrder({{ $order->id }})" class="px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold rounded-lg bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-neutral-700 transition-all duration-200">Detalhes</button>
-                                        @php $nextSt = $order->nextStatus(); @endphp
-                                        @if ($nextSt && !$order->isBillClosed())
-                                            <button wire:click="updateOrderStatus({{ $order->id }}, '{{ $nextSt }}')" class="px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-all duration-200 hover:scale-105 active:scale-95">{{ $order->statusFlowLabels()[$order->status] ?? 'Avançar' }}</button>
-                                        @endif
-                                        @if (in_array($order->status, ['novo', 'em_preparo', 'pronto']))
-                                            <button wire:click="updateOrderStatus({{ $order->id }}, 'cancelado')" class="px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all duration-200">Cancelar</button>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @endif
-        </div>
 
-        <div class="mt-8">
-            <h2 class="text-sm sm:text-lg font-bold mb-4">Historico de Pedidos</h2>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-neutral-700">
-                    <thead class="bg-neutral-900">
-                        <tr>
-                            <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">#</th>
-                            <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Cliente</th>
-                            <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Tipo</th>
-                            <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Endereco</th>
-                            <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Total</th>
-                            <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Status</th>
-                            <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider hidden sm:table-cell">Data</th>
-                            <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-neutral-800 divide-y divide-neutral-700">
-                        @php $allOrders = \App\Models\Order::with('items', 'table')->whereIn('status', ['entregue', 'saiu_entrega', 'fechado', 'cancelado'])->latest()->take(50)->get(); @endphp
-                        @if ($allOrders->isEmpty())
-                            <tr><td colspan="8" class="px-2 sm:px-6 py-4 text-center text-neutral-500">Nenhum pedido encontrado</td></tr>
-                        @else
-                            @foreach ($allOrders as $order)
-                                <tr class="hover:bg-neutral-700/50 transition-colors">
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-neutral-200">#{{ str_pad($order->id, 5, '0', STR_PAD_LEFT) }}</td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-neutral-200">{{ $order->customer_name }}</td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
-                                        @php $tClass = $order->typeClasses(); @endphp
-                                        <span class="text-[10px] sm:text-xs font-semibold px-1 sm:px-2 py-0.5 rounded-full {{ $tClass }}">{{ $order->typeLabel() }}</span>
-                                        @if ($order->table)<span class="text-[10px] sm:text-xs text-neutral-500 ml-1">#{{ $order->table->number }}</span>@endif
-                                    </td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-neutral-200 max-w-[120px] sm:max-w-[200px] truncate">
-                                        @if ($order->address_json && isset($order->address_json['address']))
-                                            <div title="{{ $order->address_json['address'] }}">{{ $order->address_json['address'] }}</div>
-                                            @if (!empty($order->address_json['reference']))<div class="text-[10px] sm:text-xs text-neutral-400 mt-0.5 truncate">Ref: {{ $order->address_json['reference'] }}</div>@endif
-                                        @else<span class="text-neutral-400">-</span>@endif
-                                    </td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-neutral-200 text-right">R$ {{ number_format($order->total, 2, ',', '.') }}</td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm"><span class="px-1.5 sm:px-2.5 py-0.5 text-[10px] sm:text-xs font-medium rounded-full {{ $order->statusClasses() }}">{{ $order->statusLabel() }}</span></td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-neutral-400 text-right hidden sm:table-cell">{{ $order->created_at->format('d/m/Y H:i') }}</td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right">
-                                        <button wire:click="viewOrder({{ $order->id }})" class="px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold rounded-lg bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-neutral-700 transition-all duration-200">Detalhes</button>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        @endif
-                    </tbody>
-                </table>
-            </div>
-        </div>
     @endif
 
     {{-- ===== TAB: GRID (Mapa de Mesas) ===== --}}
@@ -362,116 +252,466 @@
         @endif
     @endif
 
-    {{-- ===== TAB: ORDERS (Entregas) ===== --}}
-    @if ($tab === 'orders')
-        <div class="flex items-center gap-2 sm:gap-4 mb-4 sm:mb-6 flex-wrap">
-            <h2 class="text-sm sm:text-lg font-bold shrink-0">Entregas</h2>
-            <div class="flex gap-1 p-0.5 rounded-lg bg-neutral-900 border border-neutral-800 overflow-x-auto">
-                <button wire:click="$set('waiterDeliveryFilter', 'all')"
-                        class="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $waiterDeliveryFilter === 'all' ? 'bg-amber-500 text-neutral-950' : 'text-neutral-400 hover:text-white' }}">Todas ({{ $waiterDeliveryOrders->count() }})</button>
-                <button wire:click="$set('waiterDeliveryFilter', 'pending')"
-                        class="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $waiterDeliveryFilter === 'pending' ? 'bg-red-500 text-white' : 'text-neutral-400 hover:text-white' }}">Pendentes</button>
-                <button wire:click="$set('waiterDeliveryFilter', 'in_transit')"
-                        class="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $waiterDeliveryFilter === 'in_transit' ? 'bg-blue-500 text-white' : 'text-neutral-400 hover:text-white' }}">Em Rota</button>
-                <button wire:click="$set('waiterDeliveryFilter', 'delivered')"
-                        class="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $waiterDeliveryFilter === 'delivered' ? 'bg-emerald-500 text-white' : 'text-neutral-400 hover:text-white' }}">Entregues</button>
+    {{-- ===== TAB: TABLES (Gerenciar Mesas) ===== --}}
+    @if ($tab === 'tables')
+        @php
+            $allTables = $tables;
+            if ($tableSearch) {
+                $allTables = $allTables->filter(fn($t) => str_contains(strtolower($t->number), strtolower($tableSearch)) || str_contains(strtolower($t->observation ?? ''), strtolower($tableSearch)));
+            }
+            if ($tableStatusFilter) {
+                $allTables = $allTables->where('status', $tableStatusFilter);
+            }
+        @endphp
+        <div class="space-y-6">
+            {{-- Header --}}
+            <div>
+                <h1 class="text-2xl font-bold">Gerenciar Mesas</h1>
+                <p class="text-sm text-neutral-400 mt-1">
+                    {{ $tableStats['total'] }} mesas cadastradas
+                    <span class="text-neutral-600 mx-1">|</span>
+                    Limite: {{ $tenant->maxTablesAllowed() }}
+                    @if ($tenant->isFree())
+                        <span class="text-amber-400 font-medium">(Gratuito)</span>
+                    @endif
+                </p>
             </div>
-        </div>
 
-        @if ($waiterDeliveryOrders->count() === 0)
-            <div class="text-center py-16 text-neutral-500">
-                <svg class="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2-1m2 1l2-1m2 1l2-1m2-2v2a1 1 0 001 1h2m0 0a1 1 0 100 2m-2-2a1 1 0 110 2m-10-4h.01M16 12h4m0 0l-3-3m3 3l-3 3"/></svg>
-                <p class="text-lg font-medium text-neutral-300">Nenhuma entrega encontrada</p>
+            {{-- Stats Bar --}}
+            <div class="grid grid-cols-4 gap-3">
+                <button wire:click="$set('tableStatusFilter', '')"
+                        class="p-4 rounded-2xl text-center transition-all duration-200 border-2 {{ !$tableStatusFilter ? 'border-amber-500 bg-amber-500/5' : 'border-transparent bg-neutral-900/50 hover:bg-neutral-800/50' }}">
+                    <p class="text-2xl font-bold">{{ $tableStats['total'] }}</p>
+                    <p class="text-xs text-neutral-400 mt-0.5">Todas</p>
+                </button>
+                <button wire:click="$set('tableStatusFilter', 'free')"
+                        class="p-4 rounded-2xl text-center transition-all duration-200 border-2 {{ $tableStatusFilter === 'free' ? 'border-emerald-500 bg-emerald-500/5' : 'border-transparent bg-neutral-900/50 hover:bg-neutral-800/50' }}">
+                    <p class="text-2xl font-bold text-emerald-400">{{ $tableStats['free'] }}</p>
+                    <p class="text-xs text-neutral-400 mt-0.5">Livres</p>
+                </button>
+                <button wire:click="$set('tableStatusFilter', 'occupied')"
+                        class="p-4 rounded-2xl text-center transition-all duration-200 border-2 {{ $tableStatusFilter === 'occupied' ? 'border-red-500 bg-red-500/5' : 'border-transparent bg-neutral-900/50 hover:bg-neutral-800/50' }}">
+                    <p class="text-2xl font-bold text-red-400">{{ $tableStats['occupied'] }}</p>
+                    <p class="text-xs text-neutral-400 mt-0.5">Ocupadas</p>
+                </button>
+                <button wire:click="$set('tableStatusFilter', 'reserved')"
+                        class="p-4 rounded-2xl text-center transition-all duration-200 border-2 {{ $tableStatusFilter === 'reserved' ? 'border-blue-500 bg-blue-500/5' : 'border-transparent bg-neutral-900/50 hover:bg-neutral-800/50' }}">
+                    <p class="text-2xl font-bold text-blue-400">{{ $tableStats['reserved'] }}</p>
+                    <p class="text-xs text-neutral-400 mt-0.5">Reservadas</p>
+                </button>
             </div>
-        @else
-            <div class="overflow-x-auto rounded-2xl bg-neutral-900/50 border border-neutral-800">
-                <table class="min-w-full divide-y divide-neutral-800">
-                    <thead class="bg-neutral-900">
-                        <tr>
-                            <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">#</th>
-                            <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Cliente</th>
-                            <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Endereco</th>
-                            <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider hidden sm:table-cell">Total</th>
-                            <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Status</th>
-                            <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Entregador</th>
-                            <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Data</th>
-                            <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Acoes</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-neutral-800/30 divide-y divide-neutral-800">
-                        @foreach ($waiterDeliveryOrders as $order)
-                            <tr class="hover:bg-neutral-800/50 transition-colors">
-                                <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">#{{ str_pad($order->id, 5, '0', STR_PAD_LEFT) }}</td>
-                                <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm">{{ $order->customer_name }}</td>
-                                <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-neutral-300 max-w-[160px] truncate">
+
+            {{-- Search --}}
+            <div class="relative">
+                <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <input wire:model.live.debounce.300ms="tableSearch" type="text" placeholder="Buscar mesa por numero ou nome..."
+                       class="w-full pl-12 pr-4 py-3 rounded-2xl bg-neutral-900 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                @if ($tableSearch)
+                    <button wire:click="$set('tableSearch', '')" class="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition-colors">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                @endif
+            </div>
+
+            {{-- Edit Form --}}
+            @if($showTableForm)
+                <div class="fixed inset-0 z-60" wire:key="table-form">
+                    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="resetTableForm"></div>
+                    <div class="absolute inset-0 flex items-center justify-center p-4">
+                        <div class="w-full max-w-2xl p-6 rounded-2xl bg-gradient-to-br from-neutral-900 to-neutral-950 border border-neutral-800 shadow-2xl shadow-black/30">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-lg font-bold">Editar Mesa {{ $editTableNumber }}</h3>
+                                <button wire:click="resetTableForm" class="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 transition-colors">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <form wire:submit="saveTable" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-neutral-300 mb-2">Numero *</label>
+                                    <input wire:model="editTableNumber" type="text" placeholder="Ex: 01, A1, Terraco 1"
+                                           class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('editTableNumber') border-red-500 @enderror">
+                                    @error('editTableNumber') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-neutral-300 mb-2">Capacidade *</label>
+                                    <input wire:model="editTableCapacity" type="number" min="1" max="50"
+                                           class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('editTableCapacity') border-red-500 @enderror">
+                                    @error('editTableCapacity') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-neutral-300 mb-2">Status</label>
+                                    <select wire:model="editTableStatus"
+                                            class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                                        <option value="free">Livre</option>
+                                        <option value="occupied">Ocupada</option>
+                                        <option value="reserved">Reservada</option>
+                                    </select>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-medium text-neutral-300 mb-2">Observacao</label>
+                                    <input wire:model="editTableObservation" type="text" placeholder="Observacoes sobre a mesa..."
+                                           class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                                </div>
+                                <div class="md:col-span-3 flex items-center gap-3 pt-2">
+                                    <button type="submit" wire:loading.attr="disabled"
+                                             class="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center gap-2">
+                                        <span wire:loading.remove>Atualizar Mesa</span>
+                                        <span wire:loading><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
+                                    </button>
+                                    <button type="button" wire:click="resetTableForm"
+                                            class="px-6 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl transition-all duration-200">
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            {{-- Tables Grid --}}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                @forelse ($allTables as $table)
+                    <div class="relative group rounded-2xl bg-neutral-900/50 border transition-all duration-300 hover:shadow-2xl hover:shadow-black/40
+                        {{ $table->status === 'free' ? 'border-emerald-500/20 hover:border-emerald-500/40' : '' }}
+                        {{ $table->status === 'occupied' ? 'border-red-500/20 hover:border-red-500/40' : '' }}
+                        {{ $table->status === 'reserved' ? 'border-blue-500/20 hover:border-blue-500/40' : '' }}">
+                        {{-- Status Badge --}}
+                        <div class="absolute top-3 right-3 flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full animate-pulse
+                                {{ $table->status === 'free' ? 'bg-emerald-400' : '' }}
+                                {{ $table->status === 'occupied' ? 'bg-red-400' : '' }}
+                                {{ $table->status === 'reserved' ? 'bg-blue-400' : '' }}">
+                            </span>
+                            <span class="text-[10px] font-semibold uppercase tracking-wider
+                                {{ $table->status === 'free' ? 'text-emerald-400' : '' }}
+                                {{ $table->status === 'occupied' ? 'text-red-400' : '' }}
+                                {{ $table->status === 'reserved' ? 'text-blue-400' : '' }}">
+                                {{ $table->status === 'free' ? 'Livre' : ($table->status === 'occupied' ? 'Ocupada' : 'Reservada') }}
+                            </span>
+                        </div>
+
+                        {{-- Quick Actions toolbar --}}
+                        <div class="absolute top-3 left-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                            <button wire:click="editTable({{ $table->id }})" wire:loading.attr="disabled"
+                                     class="p-1.5 rounded-lg bg-neutral-800/80 text-neutral-400 hover:text-white hover:bg-neutral-700 transition-all backdrop-blur-sm disabled:opacity-30"
+                                     title="Editar">
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                            </button>
+                            <button wire:click="toggleTableStatus({{ $table->id }})" wire:loading.attr="disabled"
+                                     class="p-1.5 rounded-lg bg-neutral-800/80 text-neutral-400 hover:text-white hover:bg-neutral-700 transition-all backdrop-blur-sm disabled:opacity-30"
+                                     title="Alternar status">
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                            </button>
+                            <button wire:click="showTableQrCode({{ $table->id }})"
+                                    class="p-1.5 rounded-lg bg-neutral-800/80 text-neutral-400 hover:text-white hover:bg-neutral-700 transition-all backdrop-blur-sm"
+                                    title="QR Code">
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+                                </svg>
+                            </button>
+                        </div>
+
+                        {{-- Card Content --}}
+                        <div class="p-6 pt-12">
+                            <div class="flex flex-col items-center text-center">
+                                <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black mb-3
+                                    {{ $table->status === 'free' ? 'bg-emerald-500/10 text-emerald-400' : '' }}
+                                    {{ $table->status === 'occupied' ? 'bg-red-500/10 text-red-400' : '' }}
+                                    {{ $table->status === 'reserved' ? 'bg-blue-500/10 text-blue-400' : '' }}">
+                                    {{ $table->number }}
+                                </div>
+                                <h3 class="font-bold text-lg">Mesa {{ $table->number }}</h3>
+                                <div class="flex items-center gap-3 mt-2 text-xs text-neutral-500">
+                                    <span class="flex items-center gap-1">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                        </svg>
+                                        {{ $table->capacity }} pessoas
+                                    </span>
+                                    @if ($table->status === 'free')
+                                        <span class="flex items-center gap-1 text-emerald-400">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                            </svg>
+                                            Disponivel
+                                        </span>
+                                    @endif
+                                </div>
+                                @if ($table->observation)
+                                    <p class="text-xs text-neutral-500 mt-2 italic">"{{ $table->observation }}"</p>
+                                @endif
+                            </div>
+                        </div>
+
+                        {{-- Bottom Actions --}}
+                        <div class="px-6 pb-4">
+                            <div class="flex gap-1.5">
+                                <button wire:click="toggleTableStatus({{ $table->id }})" wire:loading.attr="disabled"
+                                         class="flex-1 py-2 text-xs font-semibold rounded-xl transition-all duration-200 disabled:opacity-50
+                                         {{ $table->status === 'free' ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20' : '' }}
+                                         {{ $table->status === 'occupied' ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20' : '' }}
+                                         {{ $table->status === 'reserved' ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20' : '' }}">
+                                    {{ $table->status === 'free' ? 'Ocupar' : ($table->status === 'occupied' ? 'Reservar' : 'Liberar') }}
+                                </button>
+                                <a href="{{ route('menu.show', ['slug' => $table->tenant->slug]) }}" target="_blank"
+                                   class="px-3 py-2 text-xs font-medium rounded-xl bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700 transition-all border border-neutral-700/50">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <div class="col-span-full">
+                        <div class="text-center py-20">
+                            <div class="w-20 h-20 mx-auto mb-6 rounded-3xl bg-neutral-900 flex items-center justify-center">
+                                <svg class="w-10 h-10 text-neutral-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-bold text-neutral-300 mb-2">Nenhuma mesa encontrada</h3>
+                            <p class="text-neutral-500 mb-8 max-w-md mx-auto">
+                                @if ($tableSearch || $tableStatusFilter)
+                                    Nenhuma mesa corresponde aos filtros aplicados. Tente alterar os criterios de busca.
+                                @else
+                                    Nenhuma mesa cadastrada.
+                                @endif
+                            </p>
+                        </div>
+                    </div>
+                @endforelse
+            </div>
+
+            {{-- QR Code Modal --}}
+            @if ($showQr)
+                <div class="fixed inset-0 z-60" wire:key="qr-modal">
+                    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="closeQrCode"></div>
+                    <div class="absolute inset-0 flex items-center justify-center p-4">
+                        <div class="w-full max-w-sm p-8 rounded-3xl bg-neutral-900 border border-neutral-800 shadow-2xl shadow-black/50">
+                            <div class="text-center">
+                                <h3 class="text-lg font-bold mb-1">QR Code da Mesa</h3>
+                                <p class="text-sm text-neutral-400 mb-6">Mesa {{ $qrTableNumber }}</p>
+                                <div class="w-56 h-56 mx-auto mb-6 p-3 bg-white rounded-2xl flex items-center justify-center">
+                                    <img src="{{ $qrImage }}" alt="QR Code da Mesa {{ $qrTableNumber }}" class="w-full h-full">
+                                </div>
+                                <p class="text-xs text-neutral-500 mb-6 break-all bg-neutral-800/50 p-3 rounded-xl">{{ $qrUrl }}</p>
+                                <div class="flex gap-3">
+                                    <a href="{{ $qrUrl }}" target="_blank"
+                                       class="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl text-center transition-all duration-200">
+                                        Abrir Cardapio
+                                    </a>
+                                    <button wire:click="closeQrCode"
+                                            class="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl transition-all duration-200">
+                                        Fechar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
+        </div>
+    @endif
+
+    {{-- ===== TAB: DELIVERY ===== --}}
+    @if ($tab === 'orders')
+        <div class="space-y-4">
+            {{-- Real-time Notification Bar --}}
+            <div wire:poll.5s class="flex gap-2 flex-wrap">
+                @php
+                    $novos = $waiterDeliveryOrders->whereIn('status', ['novo'])->count();
+                    $preparo = $waiterDeliveryOrders->whereIn('status', ['em_preparo'])->count();
+                    $rota = $waiterDeliveryOrders->where('status', 'saiu_entrega')->count();
+                @endphp
+                @if ($novos > 0)
+                    <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium">
+                        <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                        {{ $novos }} novo(s)
+                    </span>
+                @endif
+                @if ($preparo > 0)
+                    <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium">
+                        <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                        {{ $preparo }} em preparo
+                    </span>
+                @endif
+                @if ($rota > 0)
+                    <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-medium">
+                        <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+                        {{ $rota }} em rota
+                    </span>
+                @endif
+            </div>
+
+            {{-- Filters --}}
+            <div class="flex items-center gap-2 sm:gap-4 flex-wrap">
+                <h2 class="text-lg font-bold shrink-0">Delivery</h2>
+                <div class="flex gap-1 p-0.5 rounded-lg bg-neutral-900 border border-neutral-800 overflow-x-auto">
+                    <button wire:click="$set('waiterDeliveryFilter', 'all')"
+                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $waiterDeliveryFilter === 'all' ? 'bg-amber-500 text-neutral-950' : 'text-neutral-400 hover:text-white' }}">Todas ({{ $waiterDeliveryOrders->count() }})</button>
+                    <button wire:click="$set('waiterDeliveryFilter', 'pending')"
+                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $waiterDeliveryFilter === 'pending' ? 'bg-red-500 text-white' : 'text-neutral-400 hover:text-white' }}">Pendentes</button>
+                    <button wire:click="$set('waiterDeliveryFilter', 'in_transit')"
+                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $waiterDeliveryFilter === 'in_transit' ? 'bg-blue-500 text-white' : 'text-neutral-400 hover:text-white' }}">Em Rota</button>
+                    <button wire:click="$set('waiterDeliveryFilter', 'delivered')"
+                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $waiterDeliveryFilter === 'delivered' ? 'bg-emerald-500 text-white' : 'text-neutral-400 hover:text-white' }}">Entregues</button>
+                </div>
+            </div>
+
+            @if ($waiterDeliveryOrders->count() === 0)
+                <div class="text-center py-16 text-neutral-500">
+                    <svg class="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2-1m2 1l2-1m2 1l2-1m2-2v2a1 1 0 001 1h2m0 0a1 1 0 100 2m-2-2a1 1 0 110 2m-10-4h.01M16 12h4m0 0l-3-3m3 3l-3 3"/></svg>
+                    <p class="text-lg font-medium text-neutral-300">Nenhuma entrega encontrada</p>
+                </div>
+            @else
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    @foreach ($waiterDeliveryOrders as $order)
+                        @php
+                            $orderPaid = $order->payments->where('status', 'paid')->count() > 0;
+                            $nextSt = $order->nextStatus();
+                            $orderPaymentPending = $order->pendingPaymentAmount() > 0;
+                        @endphp
+                        <div class="p-4 rounded-2xl bg-neutral-900/70 border transition-all duration-200 hover:shadow-lg hover:shadow-black/30
+                            {{ $order->status === 'novo' ? 'border-amber-500/30' : '' }}
+                            {{ $order->status === 'em_preparo' ? 'border-blue-500/30' : '' }}
+                            {{ $order->status === 'saiu_entrega' ? 'border-purple-500/30' : '' }}
+                            {{ $order->status === 'entregue' ? 'border-emerald-500/30' : '' }}">
+                            {{-- Card Header --}}
+                            <div class="flex items-start justify-between mb-3">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-base">#{{ str_pad($order->id, 5, '0', STR_PAD_LEFT) }}</span>
+                                        <span class="px-2 py-0.5 text-[10px] font-medium rounded-full {{ $order->statusClasses() }}">{{ $order->statusLabel() }}</span>
+                                    </div>
+                                    <p class="text-xs text-neutral-400 mt-1">{{ $order->customer_name }}</p>
+                                </div>
+                                <span class="text-sm font-bold text-amber-400">R$ {{ number_format($order->total, 2, ',', '.') }}</span>
+                            </div>
+
+                            {{-- Quick Info --}}
+                            <div class="flex items-center gap-3 text-[11px] text-neutral-500 mb-3 flex-wrap">
+                                <span class="flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    {{ $order->created_at->format('d/m H:i') }}
+                                </span>
+                                @if ($orderPaid)
+                                    <span class="flex items-center gap-1 text-emerald-400">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        Pago
+                                    </span>
+                                @else
+                                    <span class="flex items-center gap-1 text-rose-400">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        Nao pago
+                                    </span>
+                                @endif
+                            </div>
+
+                            {{-- Address --}}
+                            @if ($order->address_json)
+                                <div class="text-[11px] text-neutral-400 bg-neutral-800/50 rounded-lg px-3 py-2 mb-3 truncate">
+                                    <span class="text-neutral-500 block text-[10px]">Endereco</span>
                                     {{ $order->address_json['address'] ?? '-' }}
                                     @if (!empty($order->address_json['reference']))
-                                        <span class="text-[10px] text-neutral-500 block truncate">Ref: {{ $order->address_json['reference'] }}</span>
+                                        <span class="text-[10px] text-neutral-500 block">Ref: {{ $order->address_json['reference'] }}</span>
                                     @endif
-                                </td>
-                                <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-neutral-200 hidden sm:table-cell">R$ {{ number_format($order->total, 2, ',', '.') }}</td>
-                                <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                                    <span class="px-1.5 sm:px-2.5 py-0.5 text-[10px] sm:text-xs font-medium rounded-full {{ $order->statusClasses() }}">{{ $order->statusLabel() }}</span>
-                                </td>
-                                <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
-                                    @if ($order->deliveryPerson)
-                                        <span class="text-emerald-400 font-medium">{{ $order->deliveryPerson->name }}</span>
+                                </div>
+                            @endif
+
+                            {{-- Delivery Person --}}
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-xs text-neutral-500">Entregador:</span>
+                                @if ($order->deliveryPerson)
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="text-xs font-medium text-emerald-400">{{ $order->deliveryPerson->name }}</span>
                                         <button wire:click="removeDeliveryPerson({{ $order->id }})"
-                                                class="ml-1 text-red-400 hover:text-red-300 text-[10px] transition-colors"
-                                                title="Remover entregador">&times;</button>
-                                    @else
-                                        <span class="text-neutral-500 text-[10px]">Nao designado</span>
-                                    @endif
-                                </td>
-                                <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-neutral-400">{{ $order->created_at->format('d/m H:i') }}</td>
-                                <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm space-y-1">
-                                    <div class="flex gap-1 flex-wrap">
-                                        <button wire:click="viewOrder({{ $order->id }})"
-                                                class="px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold rounded-lg bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-neutral-700 transition-all">Detalhes</button>
-                                        @if (!$order->deliveryPerson && $order->isActive())
-                                            <div x-data="{ open: false }" class="relative">
-                                                <button @click="open = !open"
-                                                        class="px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-all">Designar</button>
-                                                <div x-show="open" @click.outside="open = false"
-                                                     class="absolute right-0 mt-1 z-50 w-48 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl shadow-black/60 py-1 max-h-48 overflow-y-auto">
-                                                    @forelse ($availableDeliveryPeople as $dp)
-                                                        <button wire:click="assignDeliveryPerson({{ $order->id }}, {{ $dp->id }})"
-                                                                @click="open = false"
-                                                                class="w-full text-left px-4 py-2 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors">{{ $dp->name }}</button>
-                                                    @empty
-                                                        <p class="px-4 py-2 text-xs text-neutral-500">Nenhum entregador ativo</p>
-                                                    @endforelse
-                                                </div>
-                                            </div>
-                                        @endif
-                                        @php $nextSt = $order->nextStatus(); @endphp
-                                        @if ($nextSt && !$order->isBillClosed())
-                                            <button wire:click="updateOrderStatus({{ $order->id }}, '{{ $nextSt }}')"
-                                                    class="px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-all">{{ $order->statusFlowLabels()[$order->status] ?? 'Avançar' }}</button>
-                                        @endif
-                                        @if (in_array($order->status, ['novo', 'em_preparo', 'pronto']))
-                                            <button wire:click="updateOrderStatus({{ $order->id }}, 'cancelado')"
-                                                    class="px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all">Cancelar</button>
-                                        @endif
+                                                class="p-0.5 rounded text-red-400 hover:text-red-300 text-xs">&times;</button>
                                     </div>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        @endif
+                                @else
+                                    <div x-data="{ open: false }" class="relative">
+                                        <button @click="open = !open"
+                                                class="text-xs font-medium text-amber-400 hover:text-amber-300 flex items-center gap-1">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                            Designar
+                                        </button>
+                                        <div x-show="open" @click.outside="open = false" x-cloak
+                                             class="absolute right-0 mt-1 z-50 w-52 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl shadow-black/60 py-1 max-h-48 overflow-y-auto">
+                                            @forelse ($availableDeliveryPeople as $dp)
+                                                <button wire:click="assignDeliveryPerson({{ $order->id }}, {{ $dp->id }})"
+                                                        @click="open = false"
+                                                        class="w-full text-left px-4 py-2.5 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors border-b border-neutral-800 last:border-0">{{ $dp->name }}</button>
+                                            @empty
+                                                <p class="px-4 py-3 text-xs text-neutral-500">Nenhum entregador ativo</p>
+                                            @endforelse
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+
+                            {{-- Actions --}}
+                            <div class="flex gap-1.5 flex-wrap pt-3 border-t border-neutral-800">
+                                <button wire:click="viewOrder({{ $order->id }})"
+                                        class="flex-1 px-3 py-2 text-[11px] font-semibold rounded-xl bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-all border border-neutral-700/50">
+                                    Detalhes
+                                </button>
+                                @if (!$orderPaid && !$order->isBillClosed())
+                                    <button wire:click="openPaymentModal({{ $order->id }})"
+                                            class="px-3 py-2 text-[11px] font-semibold rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all border border-emerald-500/20">
+                                        Pagamento
+                                    </button>
+                                @endif
+                                @if ($nextSt && !$order->isBillClosed())
+                                    <button wire:click="advanceOrder({{ $order->id }})"
+                                            class="px-3 py-2 text-[11px] font-semibold rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-all">
+                                        {{ $order->statusFlowLabels()[$order->status] ?? 'Avancar' }}
+                                    </button>
+                                @endif
+                                @if (in_array($order->status, ['novo', 'em_preparo', 'pronto', 'entregue']) && !$order->isBillClosed())
+                                    <button wire:click="updateOrderStatus({{ $order->id }}, 'cancelado')"
+                                            class="px-3 py-2 text-[11px] font-semibold rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all border border-red-500/20">
+                                        Cancelar
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
     @endif
 
     {{-- ===== TAB: HISTORY ===== --}}
     @if ($tab === 'history')
-        <div>
+        <div x-data="{ animate: true }" x-init="setTimeout(() => animate = false, 500)">
             <div class="flex items-center gap-2 sm:gap-4 mb-4 sm:mb-6 flex-wrap">
                 <h2 class="text-sm sm:text-lg font-bold shrink-0">Historico</h2>
                 <div class="flex gap-1 p-0.5 rounded-lg bg-neutral-900 border border-neutral-800">
                     @foreach (['today' => 'Hoje', 'week' => '7 Dias', 'month' => '30 Dias'] as $k => $l)
-                        <button wire:click="$set('historyPeriod', '{{ $k }}')" class="px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium rounded-md transition-all {{ $historyPeriod === $k ? 'bg-amber-500 text-neutral-950' : 'text-neutral-400 hover:text-white' }}">{{ $l }}</button>
+                        <button wire:click="$set('historyPeriod', '{{ $k }}')"
+                                class="px-3 py-1.5 text-xs font-medium rounded-md transition-all {{ $historyPeriod === $k ? 'bg-amber-500 text-neutral-950' : 'text-neutral-400 hover:text-white' }}">{{ $l }}</button>
                     @endforeach
+                </div>
+                <div class="flex gap-1 p-0.5 rounded-lg bg-neutral-900 border border-neutral-800">
+                    <button wire:click="$set('historyTypeFilter', 'all')"
+                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all {{ $historyTypeFilter === 'all' ? 'bg-amber-500 text-neutral-950' : 'text-neutral-400 hover:text-white' }}">Todas</button>
+                    <button wire:click="$set('historyTypeFilter', 'mesa')"
+                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all {{ $historyTypeFilter === 'mesa' ? 'bg-blue-500 text-white' : 'text-neutral-400 hover:text-white' }}">Mesa</button>
+                    <button wire:click="$set('historyTypeFilter', 'entrega')"
+                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all {{ $historyTypeFilter === 'entrega' ? 'bg-green-500 text-white' : 'text-neutral-400 hover:text-white' }}">Delivery</button>
+                    <button wire:click="$set('historyTypeFilter', 'retirada')"
+                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all {{ $historyTypeFilter === 'retirada' ? 'bg-purple-500 text-white' : 'text-neutral-400 hover:text-white' }}">Retirada</button>
                 </div>
                 <div class="w-full sm:w-auto">
                     <input wire:model.live.debounce="historySearch" type="text" placeholder="Buscar..."
@@ -480,36 +720,75 @@
             </div>
 
             @if ($orderHistory->count() === 0)
-                <div class="text-center py-16 text-neutral-500"><p class="text-lg font-medium text-neutral-300">Nenhum pedido encontrado</p></div>
+                <div class="text-center py-16 text-neutral-500">
+                    <svg class="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <p class="text-lg font-medium text-neutral-300">Nenhum pedido encontrado</p>
+                    <p class="text-sm mt-1">Tente alterar o periodo ou buscar por nome</p>
+                </div>
             @else
-                <div class="space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     @foreach ($orderHistory as $order)
-                        <div class="p-3 sm:p-4 rounded-2xl bg-neutral-900/30 border border-neutral-800/50 hover:border-neutral-700 transition-all">
-                            <div class="flex items-center gap-2 sm:gap-3">
-                                <div class="flex flex-col items-center shrink-0">
-                                    <span class="text-sm sm:text-lg font-bold">#{{ $order->id }}</span>
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-xs sm:text-sm font-medium truncate">{{ $order->customer_name }}</p>
-                                    <div class="flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-neutral-500 mt-0.5">
-                                        <span class="shrink-0">{{ $order->created_at->format('d/m H:i') }}</span>
-                                        <span class="shrink-0">&middot; {{ $order->typeLabel() }}</span>
-                                        @if ($order->table)<span class="shrink-0">&middot; Mesa {{ $order->table->number }}</span>@endif
+                        <div class="p-3 sm:p-5 rounded-2xl bg-neutral-900/50 border border-neutral-800 hover:border-neutral-700 transition-all duration-300 group"
+                              x-transition:enter="transition ease-out duration-500"
+                              x-transition:enter-start="opacity-0 translate-y-4"
+                              x-transition:enter-end="opacity-100 translate-y-0"
+                              style="animation: fadeInUp 0.3s ease-out {{ $loop->index * 0.05 }}s both;">
+                            <div class="flex items-start justify-between mb-3">
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-2 truncate">
+                                        <span class="text-sm sm:text-lg font-bold text-neutral-200 truncate">{{ $order->display_id }}</span>
+                                        @if ($order->is_grouped)
+                                            <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">{{ $order->order_count }} pedidos</span>
+                                        @endif
+                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full {{ $order->typeClasses }}">{{ $order->typeLabel }}</span>
                                     </div>
+                                     <p class="text-xs sm:text-sm text-neutral-300 mt-1 font-medium truncate">{{ $order->customer_name }}</p>
+                                    <p class="text-xs text-neutral-500 mt-0.5">{{ $order->created_at }}</p>
                                 </div>
-                                <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-                                    <span class="text-xs sm:text-sm font-bold text-amber-400">R$ {{ number_format($order->total, 2, ',', '.') }}</span>
-                                    <span class="px-1.5 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-medium rounded-full border shrink-0
-                                        {{ $order->status === 'entregue' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : '' }}
-                                        {{ $order->status === 'cancelado' ? 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20' : '' }}
-                                        {{ $order->status === 'fechado' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : '' }}">{{ $order->statusLabel() }}</span>
+                                <span class="px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-medium rounded-full shrink-0 {{ $order->statusClasses }}">{{ $order->statusLabel }}</span>
+                            </div>
+                            @if (!$order->is_grouped && $order->address_json && isset($order->address_json['address']))
+                                <div class="mb-3 p-2 rounded-lg bg-neutral-800/50 border border-neutral-800/50">
+                                    <p class="text-xs text-neutral-400 truncate" title="{{ $order->address_json['address'] }}">
+                                        <svg class="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                        {{ $order->address_json['address'] }}
+                                    </p>
+                                    @if (!empty($order->address_json['reference']))
+                                        <p class="text-xs text-neutral-500 mt-0.5 ml-4">Ref: {{ $order->address_json['reference'] }}</p>
+                                    @endif
                                 </div>
+                            @endif
+                            <div class="space-y-1.5 mb-4">
+                                @foreach ($order->items->take(3) as $item)
+                                    <div class="flex items-center justify-between text-sm">
+                                        <span class="text-neutral-300">{{ $item->quantity }}x {{ $item->product_name }}</span>
+                                        <span class="text-neutral-400">R$ {{ number_format($item->price * $item->quantity, 2, ',', '.') }}</span>
+                                    </div>
+                                @endforeach
+                                @if ($order->items->count() > 3)
+                                    <p class="text-xs text-neutral-500">+{{ $order->items->count() - 3 }} itens</p>
+                                @endif
+                            </div>
+                            <div class="flex items-center justify-between pt-3 border-t border-neutral-800">
+                                <span class="font-bold text-amber-400">R$ {{ number_format($order->total, 2, ',', '.') }}</span>
+                                <button wire:click="viewOrder({{ $order->id }})"
+                                        class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-amber-500 hover:text-neutral-950 hover:border-amber-500 transition-all duration-200 group-hover:scale-105">
+                                    Detalhes
+                                </button>
                             </div>
                         </div>
                     @endforeach
                 </div>
             @endif
         </div>
+        <style>
+            @keyframes fadeInUp {
+                from { opacity: 0; transform: translateY(1rem); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        </style>
     @endif
 
     {{-- Order Detail Modal (same as admin) --}}
@@ -589,7 +868,7 @@
                     <div>
                         <div class="flex items-center justify-between mb-3">
                             <p class="text-xs font-medium text-neutral-500 uppercase tracking-wider">Itens</p>
-                            @if (!$viewingOrder['is_fechado'] && !in_array($viewingOrder['status'], \App\Models\Order::STATUS_FINISHED))
+                            @if (!$viewingOrder['is_fechado'])
                                 <button wire:click="openAddItem({{ $viewingOrder['id'] }})"
                                         class="text-xs text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1">
                                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
@@ -609,7 +888,7 @@
                                     </div>
                                     <div class="flex items-center gap-2 shrink-0">
                                         <span class="text-neutral-400">R$ {{ number_format($item['subtotal'], 2, ',', '.') }}</span>
-                                        @if (!$viewingOrder['is_fechado'] && !in_array($viewingOrder['status'], \App\Models\Order::STATUS_FINISHED))
+                                        @if (!$viewingOrder['is_fechado'])
                                             <button wire:click="removeItemFromOrder({{ $item['id'] }})"
                                                     wire:confirm="Remover este item do pedido?"
                                                     class="p-1 rounded text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-colors">
@@ -666,6 +945,11 @@
                         <button wire:click="updateOrderStatus({{ $viewingOrder['id'] }}, 'cancelado')"
                                 class="px-4 py-2.5 text-sm font-semibold rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all duration-200">
                             Cancelar
+                        </button>
+                    @elseif ($viewingOrder['is_fechado'] && $viewingOrder['status'] !== 'cancelado')
+                        <button wire:click="reopenAccount({{ $viewingOrder['id'] }})"
+                                class="px-4 py-2.5 text-sm font-semibold rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-all duration-200">
+                            Reabrir Conta
                         </button>
                     @endif
                     @if (!$viewingOrder['is_fechado'] && $viewingOrder['pending_payment'] > 0)
@@ -729,35 +1013,58 @@
              @keydown.window.escape="$wire.closePaymentModal()">
             <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="closePaymentModal"></div>
             <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/60 p-6">
-                <h3 class="text-lg font-bold mb-4">Registrar Pagamento</h3>
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold">Registrar Pagamento</h3>
+                    <button wire:click="closePaymentModal" class="p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
                 <div class="space-y-4">
                     <div>
                         <label class="block text-xs font-medium text-neutral-400 mb-1.5">Valor (R$)</label>
-                        <input wire:model="paymentAmount" type="number" step="0.01" min="0.01"
-                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
+                        <input wire:model="paymentAmount" type="number" step="0.01" min="0.01" readonly
+                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white text-sm transition-all opacity-75">
                         @error('paymentAmount') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-neutral-400 mb-1.5">Forma de Pagamento</label>
                         <select wire:model="paymentMethodInput"
-                                class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
+                                class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
                             <option value="pix">PIX</option>
                             <option value="credit_card">Cartao de Credito</option>
                             <option value="debit_card">Cartao de Debito</option>
                             <option value="cash">Dinheiro</option>
+                            <option value="other">Outro</option>
                         </select>
-                        @error('paymentMethodInput') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                     </div>
+                    @if ($paymentMethodInput === 'pix' && !$pixQrCode)
+                        <button wire:click="generatePaymentPix" wire:loading.attr="disabled"
+                                class="w-full px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold transition-all flex items-center justify-center gap-2">
+                            @if ($generatingPix)
+                                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            @endif
+                            Gerar QR Code PIX
+                        </button>
+                    @endif
+                    @if ($pixQrCode)
+                        <x-pix-qr-code
+                            :qr-code="$pixQrCode"
+                            :copia-e-cola="$pixCopiaECola"
+                            :id="'pay-' . $paymentOrderId"
+                            :loading="false" />
+                    @endif
                     <div>
                         <label class="block text-xs font-medium text-neutral-400 mb-1.5">Observacao (opcional)</label>
-                        <input wire:model="paymentNotes" type="text" placeholder="Troco para 100, etc"
+                        <input wire:model="paymentNotes" type="text" placeholder="Observacao"
                                class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
                     </div>
                     <div class="flex gap-3 pt-2">
                         <button wire:click="closePaymentModal"
                                 class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all">Cancelar</button>
-                        <button wire:click="registerPayment"
-                                class="flex-1 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold transition-all">Confirmar Pagamento</button>
+                        <button wire:click="registerPayment" wire:loading.class="opacity-50"
+                                class="flex-1 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold transition-all">
+                            Confirmar Pagamento
+                        </button>
                     </div>
                 </div>
             </div>
@@ -886,9 +1193,6 @@
                                     <select wire:model="paymentMethod"
                                             class="w-full px-4 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
                                         <option value="pix">Pix</option>
-                                        <option value="credit_card">Cartao Credito</option>
-                                        <option value="debit_card">Cartao Debito</option>
-                                        <option value="cash">Dinheiro</option>
                                     </select>
                                 </div>
                                 <div>

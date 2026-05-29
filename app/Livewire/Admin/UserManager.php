@@ -162,6 +162,6 @@ class UserManager extends Component
     {
         return view('livewire.admin.user-manager', [
             'users' => $this->users,
-        ])->layout('layouts.admin');
+        ])->extends('layouts.admin');
     }
 }

@@ -67,7 +67,7 @@
 
             {{-- Page Content --}}
             <main class="flex-1">
-                {{ $slot }}
+                @yield('content')
             </main>
         </div>
     </div>

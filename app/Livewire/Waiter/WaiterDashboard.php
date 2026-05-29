@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Table;
 use App\Models\UserAddress;
+use App\Services\EfiPixService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +60,7 @@ class WaiterDashboard extends Component
     public string $tableFilter = 'all';
     public string $historySearch = '';
     public string $historyPeriod = 'today';
+    public string $historyTypeFilter = 'all';
 
     public string $profileName = '';
     public string $profileEmail = '';
@@ -74,11 +76,33 @@ class WaiterDashboard extends Component
     public bool $showCloseTableModal = false;
     public ?int $closeTableId = null;
     public float $closeTableTotal = 0;
+    public float $closeTablePending = 0;
     public string $closeTablePaymentMethod = 'pix';
     public string $closeTablePaymentNotes = '';
 
+    public bool $showPixQrModal = false;
+    public ?string $pixQrCode = null;
+    public ?string $pixCopiaECola = null;
+    public bool $generatingPix = false;
+    public float $pixAmount = 0;
+
     public string $addressSearch = '';
     public array $foundAddresses = [];
+
+    // Table Management
+    public string $tableSearch = '';
+    public string $tableStatusFilter = '';
+    public int $editTableId = 0;
+    public string $editTableNumber = '';
+    public int $editTableCapacity = 4;
+    public string $editTableStatus = 'free';
+    public string $editTableObservation = '';
+    public bool $showTableForm = false;
+    public bool $showQr = false;
+    public ?int $qrTableId = null;
+    public ?string $qrTableNumber = null;
+    public string $qrUrl = '';
+    public string $qrImage = '';
 
     protected $listeners = ['orderUpdated' => '$refresh', 'notifyNewOrder'];
 
@@ -211,6 +235,13 @@ class WaiterDashboard extends Component
             $order->table()->update(['status' => 'occupied']);
         }
 
+        if ($order->table_id && in_array($status, ['cancelado', 'fechado'])) {
+            $hasOther = \App\Models\Table::hasOtherActiveOrders($order->table_id, $order->id);
+            if (!$hasOther) {
+                $order->table()->update(['status' => 'free']);
+            }
+        }
+
         if ($this->showOrderModal && $this->viewingOrderId === $orderId) {
             $this->viewOrder($orderId);
         }
@@ -315,6 +346,11 @@ class WaiterDashboard extends Component
 
     public function addItemToOrder(): void
     {
+        if (!Auth::user()->isAdmin()) {
+            $this->dispatch('notify', message: 'Apenas administradores podem adicionar itens.');
+            return;
+        }
+
         $this->validate([
             'addItemProductId' => 'required|exists:products,id',
             'addItemQuantity' => 'required|integer|min:1|max:99',
@@ -350,6 +386,11 @@ class WaiterDashboard extends Component
 
     public function removeItemFromOrder(int $itemId): void
     {
+        if (!Auth::user()->isAdmin()) {
+            $this->dispatch('notify', message: 'Apenas administradores podem remover itens.');
+            return;
+        }
+
         $item = OrderItem::with('order')->findOrFail($itemId);
         $order = $item->order;
 
@@ -374,7 +415,34 @@ class WaiterDashboard extends Component
         $this->paymentAmount = $order->pendingPaymentAmount();
         $this->paymentMethodInput = 'pix';
         $this->paymentNotes = '';
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
         $this->showPaymentModal = true;
+    }
+
+    public function generatePaymentPix(): void
+    {
+        $this->validate([
+            'paymentAmount' => 'required|numeric|min:0.01',
+        ]);
+
+        $this->generatingPix = true;
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
+
+        try {
+            $efi = app(EfiPixService::class);
+            $txid = 'pay' . $this->paymentOrderId . now()->format('YmdHis') . rand(100, 999);
+            $charge = $efi->createImmediateCharge($this->paymentAmount, $txid);
+            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? $charge['pixCopiaECola'] ?? null;
+            if ($this->pixCopiaECola) {
+                $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
+            }
+        } catch (\Throwable $e) {
+            $this->dispatch('notify', message: 'Erro ao gerar PIX: ' . $e->getMessage());
+        }
+
+        $this->generatingPix = false;
     }
 
     public function registerPayment(): void
@@ -413,6 +481,8 @@ class WaiterDashboard extends Component
         $this->paymentOrderId = null;
         $this->paymentAmount = 0;
         $this->paymentNotes = '';
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
 
         if ($this->showOrderModal) {
             $this->viewOrder($order->id);
@@ -453,7 +523,35 @@ class WaiterDashboard extends Component
         $this->closeTablePending = $pending;
         $this->closeTablePaymentMethod = 'pix';
         $this->closeTablePaymentNotes = '';
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
         $this->showCloseTableModal = true;
+    }
+
+    public function generateCloseTablePix(): void
+    {
+        if ($this->closeTableTotal <= 0) {
+            $this->dispatch('notify', message: 'Nenhum valor pendente.');
+            return;
+        }
+
+        $this->generatingPix = true;
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
+
+        try {
+            $efi = app(EfiPixService::class);
+            $txid = 'mesa' . $this->closeTableId . now()->format('YmdHis') . rand(100, 999);
+            $charge = $efi->createImmediateCharge($this->closeTableTotal, $txid);
+            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? $charge['pixCopiaECola'] ?? null;
+            if ($this->pixCopiaECola) {
+                $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
+            }
+        } catch (\Throwable $e) {
+            $this->dispatch('notify', message: 'Erro ao gerar PIX: ' . $e->getMessage());
+        }
+
+        $this->generatingPix = false;
     }
 
     public function confirmCloseTableBill(): void
@@ -494,13 +592,19 @@ class WaiterDashboard extends Component
             }
 
             $table->update(['status' => 'free']);
-            $this->dispatch('notify', message: "Conta da Mesa {$table->number} fechada! R$ " . number_format($totalPending, 2, ',', '.') . " em {$closedCount} pedido(s). Pagamento: " . ($this->closeTablePaymentMethod === 'pix' ? 'PIX' : ($this->closeTablePaymentMethod === 'credit_card' ? 'Cartao Credito' : ($this->closeTablePaymentMethod === 'debit_card' ? 'Cartao Debito' : 'Dinheiro'))));
+            $this->dispatch('notify', message: "Conta da Mesa {$table->number} fechada! R$ " . number_format($totalPending, 2, ',', '.') . " em {$closedCount} pedido(s). Pagamento: PIX");
         } else {
             $this->dispatch('notify', message: "Nenhum pedido da Mesa {$table->number} pode ser fechado.");
         }
 
         $this->closeOrderModal();
         $this->dispatch('orderUpdated');
+    }
+
+    public function closePixQrModal(): void
+    {
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
     }
 
     public function closeCloseTableModal(): void
@@ -540,6 +644,26 @@ class WaiterDashboard extends Component
         $this->dispatch('orderUpdated');
     }
 
+    public function reopenAccount(int $orderId): void
+    {
+        $order = Order::findOrFail($orderId);
+        if ($order->status !== 'fechado') {
+            $this->dispatch('notify', message: 'Apenas contas fechadas podem ser reabertas.');
+            return;
+        }
+        $order->update(['status' => 'entregue', 'bill_closed_at' => null]);
+
+        if ($order->table_id) {
+            $order->table()->update(['status' => 'occupied']);
+        }
+
+        if ($this->showOrderModal && $this->viewingOrderId === $orderId) {
+            $this->viewOrder($orderId);
+        }
+        $this->dispatch('notify', message: "Conta #{$order->id} reaberta!");
+        $this->dispatch('orderUpdated');
+    }
+
     public function finalizeOrder(): void
     {
         if (!$this->viewingOrderId) {
@@ -567,11 +691,18 @@ class WaiterDashboard extends Component
         $table = Table::findOrFail($tableId);
 
         $activeOrders = Order::where('table_id', $tableId)
-            ->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega'])
+            ->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue'])
             ->get();
 
         foreach ($activeOrders as $activeOrder) {
-            $activeOrder->update(['status' => 'entregue']);
+            if (!$activeOrder->hasPayment() || $activeOrder->pendingPaymentAmount() <= 0) {
+                $activeOrder->update([
+                    'status' => 'fechado',
+                    'bill_closed_at' => now(),
+                ]);
+            } else {
+                $activeOrder->update(['status' => 'entregue']);
+            }
         }
 
         $table->update(['status' => 'free']);
@@ -579,6 +710,30 @@ class WaiterDashboard extends Component
         $this->closeDetail();
         $this->dispatch('orderUpdated');
         $this->dispatch('notify', message: 'Mesa ' . $table->number . ' liberada!');
+    }
+
+    public function setTableReserved(int $tableId): void
+    {
+        if (!$this->isStaff()) return;
+        Table::findOrFail($tableId)->update(['status' => 'reserved']);
+        $this->dispatch('orderUpdated');
+        $this->dispatch('notify', message: 'Mesa reservada!');
+    }
+
+    public function setTableOccupied(int $tableId): void
+    {
+        if (!$this->isStaff()) return;
+        Table::findOrFail($tableId)->update(['status' => 'occupied']);
+        $this->dispatch('orderUpdated');
+        $this->dispatch('notify', message: 'Mesa ocupada!');
+    }
+
+    public function setTableFree(int $tableId): void
+    {
+        if (!$this->isStaff()) return;
+        Table::findOrFail($tableId)->update(['status' => 'free']);
+        $this->dispatch('orderUpdated');
+        $this->dispatch('notify', message: 'Mesa liberada!');
     }
 
     public function closeDetail(): void
@@ -1175,7 +1330,165 @@ class WaiterDashboard extends Component
             }
         }
 
-        return $query->latest()->take(50)->get();
+        $orders = $query->latest()->take(50)->get();
+
+        $entries = collect();
+        $processedIds = collect();
+
+        $fechadoTableOrders = $orders->where('status', 'fechado')
+            ->whereNotNull('table_id')
+            ->whereNotNull('bill_closed_at');
+
+        $groups = $fechadoTableOrders->groupBy(fn($o) => $o->table_id . '-' . $o->bill_closed_at->timestamp);
+
+        foreach ($groups as $group) {
+            $first = $group->first();
+            $ids = $group->pluck('id');
+            $processedIds = $processedIds->merge($ids);
+
+            if ($group->count() > 1) {
+                $entries->push((object) [
+                    'id' => $first->id,
+                    'order_ids' => $ids->toArray(),
+                    'display_id' => 'Mesa ' . $first->table?->number,
+                    'customer_name' => 'Mesa ' . $first->table?->number,
+                    'table_number' => $first->table?->number,
+                    'total' => $group->sum('total'),
+                    'typeLabel' => 'Mesa',
+                    'typeClasses' => $first->typeClasses(),
+                    'statusLabel' => 'Fechado',
+                    'statusClasses' => $first->statusClasses(),
+                    'created_at' => $first->bill_closed_at->format('d/m/Y H:i'),
+                    'created_at_raw' => $first->bill_closed_at,
+                    'items' => $group->flatMap(fn($o) => $o->items),
+                    'address_json' => null,
+                    'order_count' => $group->count(),
+                    'is_grouped' => true,
+                    'table_id' => $first->table_id,
+                ]);
+            } else {
+                $entries->push($this->makeHistoryEntry($first));
+            }
+        }
+
+        foreach ($orders as $order) {
+            if (!$processedIds->contains($order->id)) {
+                $entries->push($this->makeHistoryEntry($order));
+            }
+        }
+
+        return $entries->sortByDesc(fn($e) => $e->created_at_raw ?? $e->created_at)
+            ->when($this->historyTypeFilter !== 'all', fn($c) => $c->where('typeLabel', \App\Models\Order::TYPE_LABELS[$this->historyTypeFilter] ?? ucfirst($this->historyTypeFilter)))
+            ->values();
+    }
+
+    private function makeHistoryEntry($order): object
+    {
+        return (object) [
+            'id' => $order->id,
+            'order_ids' => [$order->id],
+            'display_id' => '#' . str_pad($order->id, 5, '0', STR_PAD_LEFT),
+            'customer_name' => $order->customer_name,
+            'table_number' => $order->table?->number,
+            'total' => (float) $order->total,
+            'typeLabel' => $order->typeLabel(),
+            'typeClasses' => $order->typeClasses(),
+            'statusLabel' => $order->statusLabel(),
+            'statusClasses' => $order->statusClasses(),
+            'created_at' => $order->bill_closed_at ? $order->bill_closed_at->format('d/m/Y H:i') : $order->created_at->format('d/m/Y H:i'),
+            'created_at_raw' => $order->bill_closed_at ?? $order->created_at,
+            'items' => $order->items,
+            'address_json' => $order->address_json,
+            'order_count' => 1,
+            'is_grouped' => false,
+            'table_id' => $order->table_id,
+        ];
+    }
+
+    // Table Management
+    public function editTable(int $id): void
+    {
+        $table = Table::findOrFail($id);
+        $this->editTableId = $table->id;
+        $this->editTableNumber = $table->number;
+        $this->editTableCapacity = $table->capacity;
+        $this->editTableStatus = $table->status;
+        $this->editTableObservation = $table->observation ?? '';
+        $this->showTableForm = true;
+    }
+
+    public function saveTable(): void
+    {
+        $this->validate([
+            'editTableNumber' => 'required|string|max:20',
+            'editTableCapacity' => 'required|integer|min:1|max:50',
+            'editTableStatus' => 'required|in:free,occupied,reserved',
+            'editTableObservation' => 'nullable|string|max:500',
+        ]);
+
+        $existing = Table::where('number', $this->editTableNumber)
+            ->where('id', '!=', $this->editTableId)
+            ->first();
+
+        if ($existing) {
+            $this->addError('editTableNumber', 'Ja existe uma mesa com este numero.');
+            return;
+        }
+
+        Table::findOrFail($this->editTableId)->update([
+            'number' => $this->editTableNumber,
+            'capacity' => $this->editTableCapacity,
+            'status' => $this->editTableStatus,
+            'observation' => $this->editTableObservation ?: null,
+        ]);
+        $this->dispatch('notify', message: 'Mesa ' . $this->editTableNumber . ' atualizada!');
+        $this->resetTableForm();
+    }
+
+    public function resetTableForm(): void
+    {
+        $this->showTableForm = false;
+        $this->editTableId = 0;
+        $this->editTableNumber = '';
+        $this->editTableCapacity = 4;
+        $this->editTableStatus = 'free';
+        $this->editTableObservation = '';
+    }
+
+    public function toggleTableStatus(int $id): void
+    {
+        $table = Table::findOrFail($id);
+        $newStatus = match ($table->status) {
+            'free' => 'occupied',
+            'occupied' => 'reserved',
+            'reserved' => 'free',
+            default => 'free',
+        };
+        $table->update(['status' => $newStatus]);
+        $this->dispatch('orderUpdated');
+        $this->dispatch('notify', message: 'Mesa alterada para ' . match($newStatus) { 'free' => 'Livre', 'occupied' => 'Ocupada', 'reserved' => 'Reservada' });
+    }
+
+    public function showTableQrCode(int $id): void
+    {
+        $table = Table::with('tenant')->findOrFail($id);
+        $this->qrTableId = $id;
+        $this->qrTableNumber = $table->number;
+        $this->qrUrl = route('menu.show', [
+            'slug' => $table->tenant->slug,
+            'token' => $table->token,
+        ]);
+        $this->qrImage = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . urlencode($this->qrUrl);
+        $this->showQr = true;
+    }
+
+    public function closeQrCode(): void
+    {
+        $this->showQr = false;
+        $this->qrTableId = null;
+        $this->qrTableNumber = null;
+        $this->qrUrl = '';
+        $this->qrImage = '';
     }
 
     public function render()
@@ -1219,6 +1532,6 @@ class WaiterDashboard extends Component
             'waiterDeliveryOrders' => $this->waiterDeliveryOrders,
             'availableDeliveryPeople' => $this->availableDeliveryPeople,
             'waiterOccupiedTablesCount' => $this->waiterOccupiedTablesCount,
-        ])->layout('layouts.waiter');
+        ])->extends('layouts.waiter');
     }
 }

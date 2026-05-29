@@ -48,6 +48,29 @@ class Table extends Model
         return static::where('id', $tableId)->first()?->hasActiveOrdersExcluding($orderId) ?? false;
     }
 
+    public function hasOpenBillableOrders(): bool
+    {
+        return $this->orders()
+            ->whereNotIn('status', ['fechado', 'cancelado'])
+            ->exists();
+    }
+
+    public static function tableHasOpenBillableOrders(int $tableId): bool
+    {
+        return static::where('id', $tableId)->first()?->hasOpenBillableOrders() ?? false;
+    }
+
+    public static function tryFreeTable(int $tableId): bool
+    {
+        $table = static::find($tableId);
+        if (!$table) return false;        
+        if (!$table->hasOpenBillableOrders()) {
+            $table->update(['status' => 'free']);
+            return true;
+        }
+        return false;
+    }
+
     public function tenant()
     {
         return $this->belongsTo(Tenant::class);

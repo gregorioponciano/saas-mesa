@@ -294,6 +294,6 @@ class TablesPage extends Component
     {
         return view('livewire.admin.tables-page', [
             'stats' => $this->stats,
-        ])->layout('layouts.admin');
+        ])->extends('layouts.admin');
     }
 }

@@ -9,6 +9,6 @@ class SubscriptionCheckout extends Component
     public function render()
     {
         return view('livewire.admin.subscription-checkout')
-            ->layout('layouts.admin');
+            ->extends('layouts.admin');
     }
 }

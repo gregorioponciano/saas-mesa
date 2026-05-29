@@ -119,6 +119,6 @@ class DeliveryPeopleManager extends Component
 
         return view('livewire.admin.delivery-people-manager', [
             'deliveryPeople' => $deliveryPeople,
-        ])->layout('layouts.admin');
+        ])->extends('layouts.admin');
     }
 }

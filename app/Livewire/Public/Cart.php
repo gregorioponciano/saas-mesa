@@ -6,8 +6,10 @@ use App\Livewire\Concerns\HasCart;
 use App\Models\Coupon;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Payment;
 use App\Models\Table;
 use App\Models\UserAddress;
+use App\Services\EfiPixService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -48,8 +50,7 @@ class Cart extends Component
 
     public string $orderType = 'mesa';
 
-    public string $paymentMethod = '';
-
+    public string $paymentMethod = 'pix';
     public ?float $cashAmount = null;
 
     public string $deliveryAddress = '';
@@ -66,6 +67,17 @@ class Cart extends Component
     public ?int $selectedAddressId = null;
 
     public bool $showAddressModal = false;
+
+    public bool $showPixCheckoutModal = false;
+    public ?string $pixQrCode = null;
+    public ?string $pixCopiaECola = null;
+    public bool $generatingPix = false;
+    public ?int $pixOrderId = null;
+    public ?string $pixTxid = null;
+    public bool $pixPaymentConfirmed = false;
+    public bool $pixPaymentError = false;
+    public string $pixPaymentErrorMsg = '';
+
     public string $newAddressLabel = '';
     public string $newAddressStreet = '';
     public string $newAddressNumber = '';
@@ -136,7 +148,7 @@ class Cart extends Component
         $address = UserAddress::find($addressId);
         if ($address && $address->user_id === Auth::id()) {
             $this->selectedAddressId = $addressId;
-            $this->deliveryAddress = $address->address;
+            $this->deliveryAddress = $address->full_address;
             $this->deliveryReference = $address->reference ?? '';
         }
     }
@@ -233,7 +245,8 @@ class Cart extends Component
     public function total()
     {
         $cartTotal = $this->calcCartTotal();
-        return max(0, $cartTotal - $this->discount);
+        $deliveryCost = $this->orderType === 'entrega' ? (float) ($this->tenant->delivery_cost_per_order ?? 0) : 0;
+        return max(0, $cartTotal - $this->discount + $deliveryCost);
     }
 
     #[Computed]
@@ -357,36 +370,26 @@ class Cart extends Component
             return;
         }
 
-        $this->validate([
+        $rules = [
             'customerName' => 'required|string|max:255',
-        ]);
-
-        if (empty($this->cartItems)) {
-            return;
-        }
+        ];
 
         if ($this->orderType === 'mesa' && !$this->tableNumber) {
             $this->dispatch('notify', message: 'Selecione uma mesa.');
             return;
         }
 
-        if ($this->orderType === 'entrega' && !$this->deliveryAddress) {
-            $this->dispatch('notify', message: 'Informe o endereco de entrega.');
-            return;
+        if ($this->orderType === 'entrega') {
+            $rules['deliveryAddress'] = 'required|string';
+            $rules['paymentMethod'] = 'required|in:pix,credit_card,cash';
+            if ($this->paymentMethod === 'cash') {
+                $rules['cashAmount'] = 'required|numeric|min:' . ($this->calcCartTotal() - $this->discount + ($this->orderType === 'entrega' ? (float) ($this->tenant->delivery_cost_per_order ?? 0) : 0) + 0.01);
+            }
         }
 
-        if ($this->orderType === 'entrega' && !$this->paymentMethod) {
-            $this->dispatch('notify', message: 'Selecione a forma de pagamento.');
-            return;
-        }
+        $this->validate($rules);
 
-        if ($this->paymentMethod === 'cash' && (!$this->cashAmount || $this->cashAmount <= 0)) {
-            $this->dispatch('notify', message: 'Informe o valor para calculo do troco.');
-            return;
-        }
-
-        if ($this->paymentMethod === 'cash' && $this->cashAmount < $this->calcCartTotal() - $this->discount) {
-            $this->dispatch('notify', message: 'O valor informado deve ser maior ou igual ao total do pedido.');
+        if (empty($this->cartItems)) {
             return;
         }
 
@@ -405,13 +408,21 @@ class Cart extends Component
         }
 
         $orderId = null;
+        $order = null;
 
-        DB::transaction(function () use ($tableId, &$orderId) {
+        DB::transaction(function () use ($tableId, &$orderId, &$order) {
             $addressData = null;
             if ($this->orderType === 'entrega' && $this->deliveryAddress) {
                 $addressData = [
                     'address' => $this->deliveryAddress,
                     'reference' => $this->deliveryReference,
+                    'street' => $this->newAddressStreet ?: null,
+                    'number' => $this->newAddressNumber ?: null,
+                    'complement' => $this->newAddressComplement ?: null,
+                    'neighborhood' => $this->newAddressNeighborhood ?: null,
+                    'city' => $this->newAddressCity ?: '',
+                    'state' => $this->newAddressState ?: '',
+                    'zipcode' => $this->newAddressZipcode ?: null,
                 ];
             }
 
@@ -423,7 +434,7 @@ class Cart extends Component
                 'table_id' => $tableId,
                 'customer_name' => $this->customerName,
                 'customer_phone' => $this->customerPhone,
-                'total' => $this->calcCartTotal(),
+                'total' => max(0, $this->calcCartTotal() - $this->discount + $deliveryCost),
                 'discount' => $this->discount,
                 'discount_type' => $this->appliedCoupon['discount_type'] ?? null,
                 'coupon_id' => $this->appliedCoupon['id'] ?? null,
@@ -464,9 +475,15 @@ class Cart extends Component
         $this->customerName = Auth::check() ? Auth::user()->name : '';
         $this->customerPhone = '';
         $this->notes = '';
-        $this->cashAmount = null;
-        $this->paymentMethod = '';
         $this->showCart = false;
+
+        $willGeneratePix = $this->orderType !== 'mesa' && $this->paymentMethod === 'pix' && $order;
+
+        if ($willGeneratePix) {
+            $this->generateCheckoutPix($order);
+        }
+
+        $this->cashAmount = null;
         $this->resetCart();
 
         if (!$this->qrTableNumber) {
@@ -488,7 +505,81 @@ class Cart extends Component
         };
         $this->dispatch('notifyNewOrder');
         $this->dispatch('orderUpdated');
-        $this->dispatch('notify', message: "Pedido enviado com sucesso{$orderTypeLabel}! Acompanhe o status.");
+
+        if (!$willGeneratePix) {
+            $this->dispatch('notify', message: "Pedido enviado com sucesso{$orderTypeLabel}! Acompanhe o status.");
+        }
+    }
+
+    protected function generateCheckoutPix(Order $order): void
+    {
+        $this->generatingPix = true;
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
+        $this->pixOrderId = $order->id;
+        $this->pixTxid = null;
+        $this->pixPaymentConfirmed = false;
+        $this->pixPaymentError = false;
+        $this->pixPaymentErrorMsg = '';
+
+        try {
+            $efi = app(EfiPixService::class);
+            $txid = 'ped' . $order->id . now()->format('YmdHis') . rand(100, 999);
+            $charge = $efi->createImmediateCharge($order->total, $txid, $order->customer_name);
+            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? $charge['pixCopiaECola'] ?? null;
+            $this->pixTxid = $charge['txid'] ?? $txid;
+            if ($this->pixCopiaECola) {
+                $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
+                $this->showPixCheckoutModal = true;
+            }
+        } catch (\Throwable $e) {
+            $this->dispatch('notify', message: 'Pedido criado! Erro ao gerar PIX: ' . $e->getMessage());
+        }
+
+        $this->generatingPix = false;
+    }
+
+    public function closePixCheckoutModal(): void
+    {
+        $this->showPixCheckoutModal = false;
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
+    }
+
+    public function verifyCheckoutPixPayment(): void
+    {
+        if (!$this->pixTxid || !$this->pixOrderId || $this->pixPaymentConfirmed) {
+            return;
+        }
+
+        try {
+            $efi = app(EfiPixService::class);
+            $charge = $efi->verifyPayment($this->pixTxid);
+
+            if ($efi->paymentIsConfirmed($charge)) {
+                $this->pixPaymentConfirmed = true;
+                $this->pixPaymentError = false;
+
+                $order = Order::find($this->pixOrderId);
+                if ($order && !$order->hasPayment()) {
+                    Payment::create([
+                        'order_id' => $order->id,
+                        'tenant_id' => $order->tenant_id,
+                        'amount' => $order->total,
+                        'payment_method' => 'pix',
+                        'status' => 'paid',
+                        'paid_at' => now(),
+                        'notes' => 'Pagamento PIX confirmado via API',
+                    ]);
+                }
+
+                $this->showPixCheckoutModal = false;
+                $this->dispatch('notify', message: 'Pagamento PIX confirmado! Pedido enviado.');
+            }
+        } catch (\Throwable $e) {
+            $this->pixPaymentError = true;
+            $this->pixPaymentErrorMsg = $e->getMessage();
+        }
     }
 
     protected function autoSaveDeliveryAddress(): void
@@ -499,14 +590,17 @@ class Cart extends Component
 
         $userId = Auth::id();
 
+        if ($this->selectedAddressId) {
+            return;
+        }
+
         $existingCount = UserAddress::where('user_id', $userId)->count();
         if ($existingCount >= 5) {
             return;
         }
 
         $alreadySaved = UserAddress::where('user_id', $userId)
-            ->where('address', $this->deliveryAddress)
-            ->where('reference', $this->deliveryReference)
+            ->where('address', $this->newAddressStreet ?: $this->deliveryAddress)
             ->exists();
 
         if ($alreadySaved) {
@@ -517,14 +611,14 @@ class Cart extends Component
             'tenant_id' => $this->tenant->id,
             'user_id' => $userId,
             'label' => 'Entrega',
-            'address' => $this->deliveryAddress,
-            'number' => null,
-            'complement' => null,
-            'neighborhood' => null,
-            'city' => '',
-            'state' => '',
-            'zipcode' => null,
-            'reference' => $this->deliveryReference,
+            'address' => $this->newAddressStreet ?: $this->deliveryAddress,
+            'number' => $this->newAddressNumber ?: null,
+            'complement' => $this->newAddressComplement ?: null,
+            'neighborhood' => $this->newAddressNeighborhood ?: null,
+            'city' => $this->newAddressCity ?: '',
+            'state' => $this->newAddressState ?: '',
+            'zipcode' => $this->newAddressZipcode ?: null,
+            'reference' => $this->deliveryReference ?: null,
             'is_default' => $existingCount === 0,
         ]);
     }

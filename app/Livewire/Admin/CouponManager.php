@@ -113,6 +113,6 @@ class CouponManager extends Component
 
         return view('livewire.admin.coupon-manager', [
             'coupons' => $coupons,
-        ])->layout('layouts.admin');
+        ])->extends('layouts.admin');
     }
 }

@@ -8,6 +8,7 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Table;
+use App\Services\EfiPixService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -41,8 +42,15 @@ class Dashboard extends Component
     public string $closeTablePaymentMethod = 'pix';
     public string $closeTablePaymentNotes = '';
 
+    public bool $showPixQrModal = false;
+    public ?string $pixQrCode = null;
+    public ?string $pixCopiaECola = null;
+    public bool $generatingPix = false;
+    public float $pixAmount = 0;
+
     public string $historySearch = '';
     public string $historyPeriod = 'today';
+    public string $historyTypeFilter = 'all';
 
     protected $listeners = [
         'notifyNewOrder' => '$refresh',
@@ -217,7 +225,79 @@ class Dashboard extends Component
             });
         }
 
-        return $query->latest()->take(50)->get();
+        $orders = $query->latest()->take(50)->get();
+
+        $entries = collect();
+        $processedIds = collect();
+
+        $fechadoTableOrders = $orders->where('status', 'fechado')
+            ->whereNotNull('table_id')
+            ->whereNotNull('bill_closed_at');
+
+        $groups = $fechadoTableOrders->groupBy(fn($o) => $o->table_id . '-' . $o->bill_closed_at->timestamp);
+
+        foreach ($groups as $group) {
+            $first = $group->first();
+            $ids = $group->pluck('id');
+            $processedIds = $processedIds->merge($ids);
+
+            if ($group->count() > 1) {
+                $entries->push((object) [
+                    'id' => $first->id,
+                    'order_ids' => $ids->toArray(),
+                    'display_id' => 'Mesa ' . $first->table?->number,
+                    'customer_name' => 'Mesa ' . $first->table?->number,
+                    'table_number' => $first->table?->number,
+                    'total' => $group->sum('total'),
+                    'typeLabel' => 'Mesa',
+                    'typeClasses' => $first->typeClasses(),
+                    'statusLabel' => 'Fechado',
+                    'statusClasses' => $first->statusClasses(),
+                    'created_at' => $first->bill_closed_at->format('d/m/Y H:i'),
+                    'created_at_raw' => $first->bill_closed_at,
+                    'items' => $group->flatMap(fn($o) => $o->items),
+                    'address_json' => null,
+                    'order_count' => $group->count(),
+                    'is_grouped' => true,
+                    'table_id' => $first->table_id,
+                ]);
+            } else {
+                $entries->push($this->makeHistoryEntry($first));
+            }
+        }
+
+        foreach ($orders as $order) {
+            if (!$processedIds->contains($order->id)) {
+                $entries->push($this->makeHistoryEntry($order));
+            }
+        }
+
+        return $entries->sortByDesc(fn($e) => $e->created_at_raw ?? $e->created_at)
+            ->when($this->historyTypeFilter !== 'all', fn($c) => $c->where('typeLabel', \App\Models\Order::TYPE_LABELS[$this->historyTypeFilter] ?? ucfirst($this->historyTypeFilter)))
+            ->values();
+    }
+
+    private function makeHistoryEntry($order): object
+    {
+        return (object) [
+            'id' => $order->id,
+            'order_ids' => [$order->id],
+            'display_id' => '#' . str_pad($order->id, 5, '0', STR_PAD_LEFT),
+            'customer_name' => $order->customer_name,
+            'table_number' => $order->table?->number,
+            'total' => (float) $order->total,
+            'typeLabel' => $order->typeLabel(),
+            'typeClasses' => $order->typeClasses(),
+            'statusLabel' => $order->statusLabel(),
+            'statusClasses' => $order->statusClasses(),
+            'created_at' => $order->bill_closed_at ? $order->bill_closed_at->format('d/m/Y H:i') : $order->created_at->format('d/m/Y H:i'),
+            'created_at_raw' => $order->bill_closed_at ?? $order->created_at,
+            'items' => $order->items,
+            'address_json' => $order->address_json,
+            'order_count' => 1,
+            'is_grouped' => false,
+            'table_id' => $order->table_id,
+        ];
     }
 
     #[Computed]
@@ -418,7 +498,34 @@ class Dashboard extends Component
         $this->paymentAmount = $order->pendingPaymentAmount();
         $this->paymentMethod = 'pix';
         $this->paymentNotes = '';
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
         $this->showPaymentModal = true;
+    }
+
+    public function generatePaymentPix(): void
+    {
+        $this->validate([
+            'paymentAmount' => 'required|numeric|min:0.01',
+        ]);
+
+        $this->generatingPix = true;
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
+
+        try {
+            $efi = app(EfiPixService::class);
+            $txid = 'pay' . $this->paymentOrderId . now()->format('YmdHis') . rand(100, 999);
+            $charge = $efi->createImmediateCharge($this->paymentAmount, $txid);
+            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? $charge['pixCopiaECola'] ?? null;
+            if ($this->pixCopiaECola) {
+                $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
+            }
+        } catch (\Throwable $e) {
+            $this->dispatch('notify', message: 'Erro ao gerar PIX: ' . $e->getMessage());
+        }
+
+        $this->generatingPix = false;
     }
 
     public function registerPayment(): void
@@ -457,6 +564,8 @@ class Dashboard extends Component
         $this->paymentOrderId = null;
         $this->paymentAmount = 0;
         $this->paymentNotes = '';
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
 
         if ($this->showOrderModal) {
             $this->viewOrder($order->id);
@@ -520,6 +629,10 @@ class Dashboard extends Component
         }
         $order->update(['status' => 'entregue', 'bill_closed_at' => null]);
 
+        if ($order->table_id) {
+            $order->table()->update(['status' => 'occupied']);
+        }
+
         if ($this->showOrderModal) {
             $this->viewOrder($orderId);
         }
@@ -566,7 +679,35 @@ class Dashboard extends Component
         $this->closeTableTotal = $total;
         $this->closeTablePaymentMethod = 'pix';
         $this->closeTablePaymentNotes = '';
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
         $this->showCloseTableModal = true;
+    }
+
+    public function generateCloseTablePix(): void
+    {
+        if ($this->closeTableTotal <= 0) {
+            $this->dispatch('notify', message: 'Nenhum valor pendente.');
+            return;
+        }
+
+        $this->generatingPix = true;
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
+
+        try {
+            $efi = app(EfiPixService::class);
+            $txid = 'mesa' . $this->closeTableId . now()->format('YmdHis') . rand(100, 999);
+            $charge = $efi->createImmediateCharge($this->closeTableTotal, $txid);
+            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? $charge['pixCopiaECola'] ?? null;
+            if ($this->pixCopiaECola) {
+                $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
+            }
+        } catch (\Throwable $e) {
+            $this->dispatch('notify', message: 'Erro ao gerar PIX: ' . $e->getMessage());
+        }
+
+        $this->generatingPix = false;
     }
 
     public function confirmCloseTableBill(): void
@@ -607,13 +748,19 @@ class Dashboard extends Component
             }
 
             $table->update(['status' => 'free']);
-            $this->dispatch('notify', message: "Conta da Mesa {$table->number} fechada! R$ " . number_format($totalPending, 2, ',', '.') . " em {$closedCount} pedido(s). Pagamento: " . ($this->closeTablePaymentMethod === 'pix' ? 'PIX' : ($this->closeTablePaymentMethod === 'credit_card' ? 'Cartao Credito' : ($this->closeTablePaymentMethod === 'debit_card' ? 'Cartao Debito' : 'Dinheiro'))));
+            $this->dispatch('notify', message: "Conta da Mesa {$table->number} fechada! R$ " . number_format($totalPending, 2, ',', '.') . " em {$closedCount} pedido(s). Pagamento: PIX");
         } else {
             $this->dispatch('notify', message: "Nenhum pedido da Mesa {$table->number} pode ser fechado.");
         }
 
         $this->closeOrderModal();
         $this->dispatch('orderUpdated');
+    }
+
+    public function closePixQrModal(): void
+    {
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
     }
 
     public function updateStatus(int $orderId, string $status): void
@@ -740,6 +887,6 @@ class Dashboard extends Component
             'pendingDeliveryCost' => $this->pendingDeliveryCost,
             'deliveryOrders' => $this->deliveryOrders,
             'availableDeliveryPeople' => $this->availableDeliveryPeople,
-        ])->layout('layouts.admin');
+        ])->extends('layouts.admin');
     }
 }

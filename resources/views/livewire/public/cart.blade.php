@@ -524,7 +524,26 @@
     </div>
 
     {{-- Address Modal --}}
-    <div x-data="{ open: @entangle('showAddressModal') }"
+    <div x-data="{
+        open: @entangle('showAddressModal'),
+        viaCepLoading: false,
+        async searchCep() {
+            let cep = $wire.newAddressZipcode.replace(/\D/g, '');
+            if (cep.length !== 8) return;
+            this.viaCepLoading = true;
+            try {
+                let response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+                let data = await response.json();
+                if (!data.erro) {
+                    $wire.newAddressStreet = data.logradouro || '';
+                    $wire.newAddressNeighborhood = data.bairro || '';
+                    $wire.newAddressCity = data.localidade || '';
+                    $wire.newAddressState = data.uf || '';
+                }
+            } catch (e) {}
+            this.viaCepLoading = false;
+        }
+    }"
          x-init="$watch('open', val => document.body.style.overflow = val ? 'hidden' : '')"
          x-show="open"
          x-transition:enter="transition-opacity duration-300"
@@ -533,11 +552,11 @@
          x-transition:leave="transition-opacity duration-200"
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
-         class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+         class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
          @keydown.window.escape="$wire.closeAddressModal()"
          x-cloak>
         <div class="absolute inset-0" wire:click="closeAddressModal"></div>
-        <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/60 max-h-[90vh] flex flex-col"
+        <div class="relative w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/60 max-h-[95vh] sm:max-h-[90vh] flex flex-col m-2 sm:m-0"
              @click.stop
              x-transition:enter="transition ease-out duration-300"
              x-transition:enter-start="opacity-0 scale-95 translate-y-4"
@@ -545,70 +564,149 @@
              x-transition:leave="transition ease-in duration-200"
              x-transition:leave-start="opacity-100 scale-100 translate-y-0"
              x-transition:leave-end="opacity-0 scale-95 translate-y-4">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-neutral-800 shrink-0">
-                <h3 class="text-lg font-bold">Novo Endereco</h3>
+            <div class="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-800 shrink-0">
+                <h3 class="text-base sm:text-lg font-bold">Novo Endereco</h3>
                 <button wire:click="closeAddressModal" class="p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <div class="flex-1 overflow-y-auto p-6 space-y-4">
+            <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 sm:space-y-4">
                 <div>
-                    <label class="block text-xs font-medium text-neutral-400 mb-1.5">Nome / Identificacao *</label>
-                    <input wire:model="newAddressLabel" type="text" placeholder="Casa, Trabalho, etc"
-                           class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                    <label class="block text-xs font-medium text-neutral-400 mb-1">Nome / Identificacao *</label>
+                    <input wire:model.blur="newAddressLabel" type="text" placeholder="Casa, Trabalho, etc"
+                           class="w-full px-3.5 sm:px-4 py-2.5 rounded-xl bg-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('newAddressLabel') border-red-500 bg-red-500/10 @else border-neutral-700 @enderror">
+                    @error('newAddressLabel') <p class="mt-1 text-xs text-red-400 flex items-center gap-1"><svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>{{ $message }}</p> @enderror
                 </div>
-                <div class="grid grid-cols-3 gap-3">
-                    <div class="col-span-2">
-                        <label class="block text-xs font-medium text-neutral-400 mb-1.5">Logradouro *</label>
-                        <input wire:model="newAddressStreet" type="text" placeholder="Rua, Avenida..."
-                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium text-neutral-400 mb-1">Logradouro *</label>
+                        <input wire:model.blur="newAddressStreet" type="text" placeholder="Rua, Avenida..."
+                               class="w-full px-3.5 sm:px-4 py-2.5 rounded-xl bg-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('newAddressStreet') border-red-500 bg-red-500/10 @else border-neutral-700 @enderror">
+                        @error('newAddressStreet') <p class="mt-1 text-xs text-red-400 flex items-center gap-1"><svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-neutral-400 mb-1.5">Numero</label>
+                        <label class="block text-xs font-medium text-neutral-400 mb-1">Numero</label>
                         <input wire:model="newAddressNumber" type="text" placeholder="S/N"
-                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                               class="w-full px-3.5 sm:px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-medium text-neutral-400 mb-1.5">Complemento</label>
+                        <label class="block text-xs font-medium text-neutral-400 mb-1">Complemento</label>
                         <input wire:model="newAddressComplement" type="text" placeholder="Apto, Bloco"
-                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                               class="w-full px-3.5 sm:px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-neutral-400 mb-1.5">Bairro</label>
+                        <label class="block text-xs font-medium text-neutral-400 mb-1">Bairro</label>
                         <input wire:model="newAddressNeighborhood" type="text" placeholder="Centro"
-                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                               class="w-full px-3.5 sm:px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
                     </div>
                 </div>
-                <div class="grid grid-cols-3 gap-3">
-                    <div class="col-span-2">
-                        <label class="block text-xs font-medium text-neutral-400 mb-1.5">Cidade</label>
-                        <input wire:model="newAddressCity" type="text" placeholder="Sao Paulo"
-                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium text-neutral-400 mb-1">Cidade</label>
+                        <input wire:model.blur="newAddressCity" type="text" placeholder="Sao Paulo"
+                               class="w-full px-3.5 sm:px-4 py-2.5 rounded-xl bg-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('newAddressCity') border-red-500 bg-red-500/10 @else border-neutral-700 @enderror">
+                        @error('newAddressCity') <p class="mt-1 text-xs text-red-400 flex items-center gap-1"><svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-neutral-400 mb-1.5">UF</label>
-                        <input wire:model="newAddressState" type="text" maxlength="2" placeholder="SP"
-                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all uppercase">
+                        <label class="block text-xs font-medium text-neutral-400 mb-1">UF</label>
+                        <input wire:model.blur="newAddressState" type="text" maxlength="2" placeholder="SP"
+                               class="w-full px-3.5 sm:px-4 py-2.5 rounded-xl bg-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all uppercase @error('newAddressState') border-red-500 bg-red-500/10 @else border-neutral-700 @enderror">
+                        @error('newAddressState') <p class="mt-1 text-xs text-red-400 flex items-center gap-1"><svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>{{ $message }}</p> @enderror
                     </div>
                 </div>
-                <div>
-                    <label class="block text-xs font-medium text-neutral-400 mb-1.5">CEP</label>
-                    <input wire:model="newAddressZipcode" type="text" placeholder="00000-000"
-                           class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                <div class="relative">
+                    <label class="block text-xs font-medium text-neutral-400 mb-1">CEP</label>
+                    <input wire:model.blur="newAddressZipcode" type="text" placeholder="00000-000" maxlength="9"
+                           x-on:blur="searchCep"
+                           class="w-full px-3.5 sm:px-4 py-2.5 rounded-xl bg-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('newAddressZipcode') border-red-500 bg-red-500/10 @else border-neutral-700 @enderror">
+                    <div x-show="viaCepLoading" class="absolute right-3 top-7 sm:top-8">
+                        <svg class="w-4 h-4 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    </div>
+                    @error('newAddressZipcode') <p class="mt-1 text-xs text-red-400 flex items-center gap-1"><svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>{{ $message }}</p> @enderror
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-neutral-400 mb-1.5">Referencia</label>
+                    <label class="block text-xs font-medium text-neutral-400 mb-1">Referencia</label>
                     <input wire:model="newAddressReference" type="text" placeholder="Proximo ao mercado..."
-                           class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                           class="w-full px-3.5 sm:px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
                 </div>
             </div>
-            <div class="px-6 py-4 border-t border-neutral-800 flex gap-3 shrink-0">
+            <div class="px-4 sm:px-6 py-3 sm:py-4 border-t border-neutral-800 flex gap-3 shrink-0">
                 <button wire:click="closeAddressModal"
-                        class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all">Cancelar</button>
+                        class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all text-sm">Cancelar</button>
                 <button wire:click="saveNewAddress"
-                        class="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold transition-all">Salvar</button>
+                        class="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold transition-all text-sm">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    {{-- PIX Checkout Modal --}}
+    <div x-data="{ open: @entangle('showPixCheckoutModal') }"
+         x-init="$watch('open', val => document.body.style.overflow = val ? 'hidden' : '')"
+         x-show="open"
+         x-transition:enter="transition-opacity duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
+         x-cloak>
+        <div class="absolute inset-0" wire:click="closePixCheckoutModal"></div>
+        <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl"
+             @click.stop>
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold">Pagamento PIX</h3>
+                <button wire:click="closePixCheckoutModal" class="p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div wire:poll.5s="verifyCheckoutPixPayment">
+                @if ($generatingPix)
+                    <div class="flex flex-col items-center py-8">
+                        <svg class="w-12 h-12 animate-spin text-amber-400 mb-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                        <p class="text-sm text-neutral-400">Gerando QR Code PIX...</p>
+                    </div>
+                @elseif ($pixPaymentConfirmed)
+                    <div class="flex flex-col items-center py-8">
+                        <svg class="w-16 h-16 text-emerald-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <p class="text-lg font-bold text-emerald-400">Pagamento Confirmado!</p>
+                        <p class="text-sm text-neutral-400 mt-1">Seu pedido foi enviado.</p>
+                    </div>
+                @elseif ($pixQrCode)
+                    <div class="space-y-4">
+                        <p class="text-sm text-neutral-400 text-center">Escaneie o QR Code para pagar</p>
+                        <div class="flex justify-center">
+                            <img src="data:image/png;base64,{{ $pixQrCode }}" alt="QR Code PIX" class="w-56 h-56 rounded-2xl bg-white p-2">
+                        </div>
+                        @if ($pixCopiaECola)
+                            <div class="bg-neutral-800 rounded-xl p-3">
+                                <p class="text-xs text-neutral-400 mb-1">PIX Copia e Cola</p>
+                                <div class="flex gap-2">
+                                    <input type="text" readonly value="{{ $pixCopiaECola }}"
+                                           class="flex-1 bg-neutral-700 text-xs text-neutral-300 rounded-lg px-3 py-2 border border-neutral-600 select-all"
+                                           onclick="this.select()">
+                                    <button onclick="navigator.clipboard.writeText('{{ $pixCopiaECola }}'); this.textContent='Copiado!'; setTimeout(()=>this.textContent='Copiar', 2000)"
+                                            class="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-semibold rounded-lg transition-all shrink-0">
+                                        Copiar
+                                    </button>
+                                </div>
+                            </div>
+                        @endif
+                        <p class="text-xs text-neutral-500 text-center">Aguardando pagamento... A pagina sera atualizada automaticamente.</p>
+                    </div>
+                @elseif ($pixPaymentError)
+                    <div class="flex flex-col items-center py-8">
+                        <p class="text-sm text-red-400">Erro ao verificar pagamento.</p>
+                    </div>
+                @endif
+            </div>
+            <div class="mt-4 flex gap-3">
+                <button wire:click="closePixCheckoutModal"
+                        class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all text-sm">
+                    Fechar
+                </button>
             </div>
         </div>
     </div>

@@ -3,6 +3,7 @@
 namespace App\Livewire\Client;
 
 use App\Models\Order;
+use App\Models\Table;
 use App\Models\UserAddress;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -274,6 +275,30 @@ class ClientDashboard extends Component
         $this->redirect(route('menu.show', $this->tenant->slug), navigate: false);
     }
 
+    public function freeMyTable(): void
+    {
+        $orders = Order::where('user_id', Auth::id())
+            ->whereNotNull('table_id')
+            ->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue'])
+            ->get();
+
+        if ($orders->isEmpty()) {
+            $this->dispatch('notify', message: 'Nenhuma mesa ativa para liberar.');
+            return;
+        }
+
+        $tableId = $orders->first()->table_id;
+        foreach ($orders as $order) {
+            $order->update([
+                'status' => 'fechado',
+                'bill_closed_at' => now(),
+            ]);
+        }
+
+        Table::tryFreeTable($tableId);
+        $this->dispatch('notify', message: 'Mesa liberada com sucesso!');
+    }
+
     #[Computed]
     public function myOrders()
     {
@@ -329,6 +354,6 @@ class ClientDashboard extends Component
             'orderHistory' => $this->orderHistory,
             'myAddresses' => $this->myAddresses,
             'tenant' => $this->tenant,
-        ])->layout('layouts.client');
+        ])->extends('layouts.client');
     }
 }

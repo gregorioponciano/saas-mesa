@@ -443,6 +443,6 @@ class MenuManager extends Component
         return view('livewire.admin.menu-manager', [
             'categories' => $this->categories,
             'products' => $this->products,
-        ])->layout('layouts.admin');
+        ])->extends('layouts.admin');
     }
 }

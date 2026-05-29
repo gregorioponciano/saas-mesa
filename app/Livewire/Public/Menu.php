@@ -4,9 +4,12 @@ namespace App\Livewire\Public;
 
 use App\Models\Category;
 use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Table;
 use App\Models\UserAddress;
+use App\Services\EfiPixService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -20,6 +23,9 @@ class Menu extends Component
     public ?string $token = null;
 
     public string $clientTab = 'menu';
+    public string $orderHistoryFilter = 'all';
+    public string $historyPeriod = 'all';
+    public string $historySearch = '';
     public string $profileName = '';
     public string $profileEmail = '';
     public string $profilePassword = '';
@@ -28,8 +34,6 @@ class Menu extends Component
     public ?int $selectedTableId = null;
     public ?string $selectedTableNumber = null;
     public ?string $selectedTableToken = null;
-    public string $historyPeriod = 'all';
-    public string $historySearch = '';
     public bool $showQrModal = false;
     public bool $showTablePicker = false;
     public ?int $pickingTableId = null;
@@ -151,24 +155,12 @@ class Menu extends Component
         if (!Auth::check()) {
             return collect();
         }
-        $query = Order::where('user_id', Auth::id())
-            ->with('items', 'table');
-
-        if ($this->historyPeriod === 'today') {
-            $query->whereDate('created_at', now()->today());
-        } elseif ($this->historyPeriod === 'week') {
-            $query->whereDate('created_at', '>=', now()->subDays(7));
-        } elseif ($this->historyPeriod === 'month') {
-            $query->whereDate('created_at', '>=', now()->subDays(30));
-        }
-
-        if ($this->historySearch) {
-            $query->where(function ($q) {
-                $q->where('id', 'like', "%{$this->historySearch}%");
-            });
-        }
-
-        return $query->latest()->take(30)->get();
+        return Order::where('user_id', Auth::id())
+            ->whereIn('status', ['fechado', 'entregue'])
+            ->with('items', 'table', 'payments')
+            ->latest()
+            ->take(50)
+            ->get();
     }
 
     #[Computed]
@@ -178,9 +170,131 @@ class Menu extends Component
             return collect();
         }
         return Order::where('user_id', Auth::id())
-            ->whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])
-            ->with('items', 'table')
+            ->whereNotIn('status', ['fechado', 'cancelado', 'entregue'])
+            ->with('items', 'table', 'payments')
             ->latest()
+            ->get();
+    }
+
+    public string $ordersFilter = 'mesa';
+
+    public bool $showPixModal = false;
+    public ?string $pixQrCode = null;
+    public ?string $pixCopiaECola = null;
+    public bool $generatingPix = false;
+    public ?int $pixOrderId = null;
+    public ?string $pixTxid = null;
+    public bool $pixPaymentConfirmed = false;
+    public bool $pixPaymentError = false;
+    public string $pixPaymentErrorMsg = '';
+    public int $pixExpiresIn = 3600;
+
+    #[Computed]
+    public function myUnpaidOrders()
+    {
+        if (!Auth::check()) {
+            return collect();
+        }
+        $userId = Auth::id();
+        $orders = Order::where('user_id', $userId)
+            ->whereNotIn('status', ['entregue', 'cancelado', 'fechado'])
+            ->with('items', 'table', 'payments')
+            ->latest()
+            ->get();
+
+        return $orders->filter(function ($order) {
+            $paid = $order->payments->where('status', 'paid')->sum('amount');
+            return $paid < (float) $order->total;
+        })->values();
+    }
+
+    public function generateOrderPix(int $orderId): void
+    {
+        $order = Order::where('user_id', Auth::id())->findOrFail($orderId);
+
+        $this->generatingPix = true;
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
+        $this->pixOrderId = $order->id;
+        $this->pixTxid = null;
+        $this->pixPaymentConfirmed = false;
+        $this->pixPaymentError = false;
+        $this->pixPaymentErrorMsg = '';
+
+        try {
+            $efi = app(EfiPixService::class);
+            $txid = 'ord' . $order->id . now()->format('YmdHis') . rand(100, 999);
+            $charge = $efi->createImmediateCharge($order->total, $txid, $order->customer_name ?: Auth::user()->name);
+            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? $charge['pixCopiaECola'] ?? null;
+            $this->pixTxid = $charge['txid'] ?? $txid;
+            if ($this->pixCopiaECola) {
+                $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
+                $this->showPixModal = true;
+            }
+        } catch (\Throwable $e) {
+            $this->dispatch('notify', message: 'Erro ao gerar PIX: ' . $e->getMessage());
+        }
+
+        $this->generatingPix = false;
+    }
+
+    public function closePixModal(): void
+    {
+        $this->showPixModal = false;
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
+        $this->pixOrderId = null;
+        $this->pixTxid = null;
+        $this->pixPaymentConfirmed = false;
+        $this->pixPaymentError = false;
+    }
+
+    public function verifyPixPayment(): void
+    {
+        if (!$this->pixTxid || !$this->pixOrderId || $this->pixPaymentConfirmed) {
+            return;
+        }
+
+        try {
+            $efi = app(EfiPixService::class);
+            $charge = $efi->verifyPayment($this->pixTxid);
+
+            if ($efi->paymentIsConfirmed($charge)) {
+                $this->pixPaymentConfirmed = true;
+                $this->pixPaymentError = false;
+
+                $order = Order::find($this->pixOrderId);
+                if ($order && !$order->payments->where('status', 'paid')->count()) {
+                    Payment::create([
+                        'order_id' => $order->id,
+                        'tenant_id' => $order->tenant_id,
+                        'amount' => $order->total,
+                        'payment_method' => 'pix',
+                        'status' => 'paid',
+                        'paid_at' => now(),
+                        'notes' => 'Pagamento PIX confirmado via API',
+                    ]);
+                }
+
+                $this->showPixModal = false;
+                $this->dispatch('notify', message: 'Pagamento PIX confirmado!');
+            }
+        } catch (\Throwable $e) {
+            $this->pixPaymentError = true;
+            $this->pixPaymentErrorMsg = $e->getMessage();
+        }
+    }
+
+    public function getCanceledOrders()
+    {
+        if (!Auth::check()) {
+            return collect();
+        }
+        return Order::where('user_id', Auth::id())
+            ->where('status', 'cancelado')
+            ->with('items', 'table', 'payments')
+            ->latest()
+            ->take(20)
             ->get();
     }
 
@@ -199,6 +313,109 @@ class Menu extends Component
     public ?int $confirmDeleteAddressId = null;
     public bool $showDeleteAccountConfirm = false;
     public string $deleteConfirmation = '';
+
+    public bool $showCloseTablePix = false;
+    public ?string $closeTablePixQr = null;
+    public ?string $closeTablePixCopia = null;
+    public bool $generatingTablePix = false;
+    public float $tableBillTotal = 0;
+
+    public function closeMyTableBill(): void
+    {
+        if (!Auth::check()) return;
+
+        if ($this->closeTablePixCopia && $this->closeTablePixQr) {
+            $this->showCloseTablePix = true;
+            return;
+        }
+
+        $orders = Order::where('user_id', Auth::id())
+            ->whereNotNull('table_id')
+            ->whereNotIn('status', ['fechado', 'cancelado'])
+            ->with('payments')
+            ->get();
+
+        if ($orders->isEmpty()) {
+            $this->dispatch('notify', message: 'Nenhuma conta de mesa ativa.');
+            return;
+        }
+
+        $tableId = $orders->first()->table_id;
+        $total = $orders->sum(fn($o) => (float) $o->total);
+        $paid = $orders->sum(fn($o) => (float) $o->payments->where('status', 'paid')->sum('amount'));
+        $pending = max(0, $total - $paid);
+
+        if ($pending <= 0) {
+            $this->dispatch('notify', message: 'Conta ja esta paga.');
+            return;
+        }
+
+        $this->tableBillTotal = $pending;
+        $this->generatingTablePix = true;
+        $this->closeTablePixQr = null;
+        $this->closeTablePixCopia = null;
+
+        try {
+            $efi = app(EfiPixService::class);
+            $txid = 'clt' . $tableId . now()->format('YmdHis') . rand(100, 999);
+            $charge = $efi->createImmediateCharge($pending, $txid, Auth::user()->name);
+            $this->closeTablePixCopia = $charge['pixCopiaECola'] ?? $charge['pixCopiaECola'] ?? null;
+            if ($this->closeTablePixCopia) {
+                $this->closeTablePixQr = $efi->generateQrCodeImage($this->closeTablePixCopia);
+                $this->showCloseTablePix = true;
+            }
+        } catch (\Throwable $e) {
+            $this->dispatch('notify', message: 'Erro ao gerar PIX: ' . $e->getMessage());
+        }
+
+        $this->generatingTablePix = false;
+    }
+
+    public function confirmTablePixPayment(): void
+    {
+        if (!Auth::check()) return;
+
+        $orders = Order::where('user_id', Auth::id())
+            ->whereNotNull('table_id')
+            ->whereNotIn('status', ['fechado', 'cancelado'])
+            ->with('payments')
+            ->get();
+
+        if ($orders->isEmpty()) return;
+
+        $tableId = $orders->first()->table_id;
+        DB::transaction(function () use ($orders, $tableId) {
+            foreach ($orders as $order) {
+                $pending = $order->pendingPaymentAmount();
+                if ($pending > 0) {
+                    Payment::create([
+                        'order_id' => $order->id,
+                        'tenant_id' => $order->tenant_id,
+                        'amount' => $pending,
+                        'payment_method' => 'pix',
+                        'status' => 'paid',
+                        'paid_at' => now(),
+                        'notes' => 'Pagamento via PIX pelo cliente',
+                    ]);
+                }
+                if ($order->pendingPaymentAmount() <= 0) {
+                    $order->update(['status' => 'fechado']);
+                }
+            }
+            Table::tryFreeTable($tableId);
+        });
+
+        $this->showCloseTablePix = false;
+        $this->closeTablePixQr = null;
+        $this->closeTablePixCopia = null;
+        $this->dispatch('orderUpdated');
+        $this->dispatch('notify', message: 'Mesa liberada e pagamento confirmado!');
+    }
+
+    public function cancelTablePixPayment(): void
+    {
+        $this->showCloseTablePix = false;
+    }
 
     public function openAddressModal(?int $addressId = null): void
     {
@@ -492,6 +709,7 @@ class Menu extends Component
             'selectedProduct' => $this->selectedProduct,
             'myOrders' => $this->myOrders,
             'myActiveOrders' => $this->myActiveOrders,
+            'myUnpaidOrders' => $this->myUnpaidOrders,
             'availableTables' => $this->availableTables,
             'qrCodeUrl' => $this->getQrCodeUrl(),
             'tableEntryUrl' => $this->getTableEntryUrl(),

@@ -399,122 +399,232 @@
 
     {{-- Tab: Deliveries --}}
     @if ($tab === 'deliveries')
-        <div>
-            <div class="flex items-center gap-2 sm:gap-4 mb-4 sm:mb-6 flex-wrap">
-                <h2 class="text-sm sm:text-lg font-bold shrink-0">Pedidos de Entrega</h2>
+        <div class="space-y-4">
+            {{-- Real-time Notification Bar --}}
+            <div wire:poll.5s class="flex gap-2 flex-wrap">
+                @php
+                    $deliveryNovos = $deliveryOrders->whereIn('status', ['novo'])->count();
+                    $deliveryPreparo = $deliveryOrders->whereIn('status', ['em_preparo'])->count();
+                    $deliveryRota = $deliveryOrders->where('status', 'saiu_entrega')->count();
+                @endphp
+                @if ($deliveryNovos > 0)
+                    <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium">
+                        <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                        {{ $deliveryNovos }} novo(s)
+                    </span>
+                @endif
+                @if ($deliveryPreparo > 0)
+                    <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium">
+                        <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                        {{ $deliveryPreparo }} em preparo
+                    </span>
+                @endif
+                @if ($deliveryRota > 0)
+                    <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-medium">
+                        <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+                        {{ $deliveryRota }} em rota
+                    </span>
+                @endif
+            </div>
+
+            {{-- Filters --}}
+            <div class="flex items-center gap-2 sm:gap-4 flex-wrap">
+                <h2 class="text-lg font-bold shrink-0">Delivery</h2>
                 <div class="flex gap-1 p-0.5 rounded-lg bg-neutral-900 border border-neutral-800 overflow-x-auto">
                     <button wire:click="$set('deliveryFilter', 'all')"
-                            class="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $deliveryFilter === 'all' ? 'bg-amber-500 text-neutral-950' : 'text-neutral-400 hover:text-white' }}">Todas ({{ $deliveryOrders->count() }})</button>
+                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $deliveryFilter === 'all' ? 'bg-amber-500 text-neutral-950' : 'text-neutral-400 hover:text-white' }}">Todas ({{ $deliveryOrders->count() }})</button>
                     <button wire:click="$set('deliveryFilter', 'pending')"
-                            class="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $deliveryFilter === 'pending' ? 'bg-red-500 text-white' : 'text-neutral-400 hover:text-white' }}">Pendentes</button>
+                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $deliveryFilter === 'pending' ? 'bg-red-500 text-white' : 'text-neutral-400 hover:text-white' }}">Pendentes</button>
                     <button wire:click="$set('deliveryFilter', 'in_transit')"
-                            class="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $deliveryFilter === 'in_transit' ? 'bg-blue-500 text-white' : 'text-neutral-400 hover:text-white' }}">Em Rota</button>
+                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $deliveryFilter === 'in_transit' ? 'bg-blue-500 text-white' : 'text-neutral-400 hover:text-white' }}">Em Rota</button>
                     <button wire:click="$set('deliveryFilter', 'delivered')"
-                            class="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $deliveryFilter === 'delivered' ? 'bg-emerald-500 text-white' : 'text-neutral-400 hover:text-white' }}">Entregues</button>
-                    <button wire:click="$set('deliveryFilter', 'finished')"
-                            class="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $deliveryFilter === 'finished' ? 'bg-purple-500 text-white' : 'text-neutral-400 hover:text-white' }}">Fechados</button>
+                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap {{ $deliveryFilter === 'delivered' ? 'bg-emerald-500 text-white' : 'text-neutral-400 hover:text-white' }}">Entregues</button>
                 </div>
             </div>
 
             @if ($deliveryOrders->count() === 0)
                 <div class="text-center py-16 text-neutral-500">
-                    <svg class="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2-1m2 1l2-1m2 1l2-1m2-2v2a1 1 0 001 1h2m0 0a1 1 0 100 2m-2-2a1 1 0 110 2m-10-4h.01M16 12h4m0 0l-3-3m3 3l-3 3"/>
-                    </svg>
-                    <p class="text-lg font-medium text-neutral-300">Nenhum pedido de entrega encontrado</p>
+                    <svg class="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2-1m2 1l2-1m2 1l2-1m2-2v2a1 1 0 001 1h2m0 0a1 1 0 100 2m-2-2a1 1 0 110 2m-10-4h.01M16 12h4m0 0l-3-3m3 3l-3 3"/></svg>
+                    <p class="text-lg font-medium text-neutral-300">Nenhuma entrega encontrada</p>
                 </div>
             @else
-                <div class="overflow-x-auto rounded-2xl bg-neutral-900/50 border border-neutral-800">
-                    <table class="min-w-full divide-y divide-neutral-800">
-                        <thead class="bg-neutral-900">
-                            <tr>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">#</th>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Cliente</th>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Endereco</th>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider hidden sm:table-cell">Total</th>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Status</th>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Entregador</th>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Custo</th>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Data</th>
-                                <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-neutral-400 uppercase tracking-wider">Acoes</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-neutral-800/30 divide-y divide-neutral-800">
-                            @foreach ($deliveryOrders as $order)
-                                <tr class="hover:bg-neutral-800/50 transition-colors">
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">#{{ str_pad($order->id, 5, '0', STR_PAD_LEFT) }}</td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm">{{ $order->customer_name }}</td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 text-xs sm:text-sm text-neutral-300 max-w-[160px] truncate">
-                                        {{ $order->address_json['address'] ?? '-' }}
-                                        @if (!empty($order->address_json['reference']))
-                                            <span class="text-[10px] text-neutral-500 block truncate">Ref: {{ $order->address_json['reference'] }}</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-neutral-200 hidden sm:table-cell">R$ {{ number_format($order->total, 2, ',', '.') }}</td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
-                                        <span class="px-1.5 sm:px-2.5 py-0.5 text-[10px] sm:text-xs font-medium rounded-full {{ $order->statusClasses() }}">{{ $order->statusLabel() }}</span>
-                                    </td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
-                                        @if ($order->deliveryPerson)
-                                            <span class="text-emerald-400 font-medium">{{ $order->deliveryPerson->name }}</span>
-                                            @if (Auth::user()?->isAdmin())
-                                                <button wire:click="removeDeliveryPerson({{ $order->id }})"
-                                                        class="ml-1 text-red-400 hover:text-red-300 text-[10px] transition-colors"
-                                                        title="Remover entregador">&times;</button>
-                                            @endif
-                                        @else
-                                            <span class="text-neutral-500 text-[10px]">Nao designado</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
-                                        @if ($order->delivery_cost)
-                                            <span class="text-amber-400">R$ {{ number_format($order->delivery_cost, 2, ',', '.') }}</span>
-                                        @else
-                                            <span class="text-neutral-600">-</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-neutral-400">{{ $order->created_at->format('d/m H:i') }}</td>
-                                    <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm space-y-1">
-                                        <div class="flex gap-1 flex-wrap">
-                                            <button wire:click="viewOrder({{ $order->id }})"
-                                                    class="px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold rounded-lg bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-neutral-700 transition-all">
-                                                Detalhes
-                                            </button>
-                                            @if (!$order->deliveryPerson && $order->isActive())
-                                                <div x-data="{ open: false }" class="relative">
-                                                    <button @click="open = !open"
-                                                            class="px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-all">
-                                                        Designar
-                                                    </button>
-                                                    <div x-show="open" @click.outside="open = false"
-                                                         class="absolute right-0 mt-1 z-50 w-48 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl shadow-black/60 py-1 max-h-48 overflow-y-auto">
-                                                        @forelse ($availableDeliveryPeople as $dp)
-                                                            <button wire:click="assignDeliveryPerson({{ $order->id }}, {{ $dp->id }})"
-                                                                    @click="open = false"
-                                                                    class="w-full text-left px-4 py-2 text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors">
-                                                                {{ $dp->name }}
-                                                            </button>
-                                                        @empty
-                                                            <p class="px-4 py-2 text-xs text-neutral-500">Nenhum entregador ativo</p>
-                                                        @endforelse
-                                                    </div>
-                                                </div>
-                                            @endif
-                                            @php $nextSt = $order->nextStatus(); @endphp
-                                            @if ($nextSt && !$order->isBillClosed())
-                                                <button wire:click="updateStatus({{ $order->id }}, '{{ $nextSt }}')"
-                                                        class="px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-all">
-                                                    {{ $order->statusFlowLabels()[$order->status] ?? 'Avancar' }}
-                                                </button>
-                                            @endif
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    @foreach ($deliveryOrders as $order)
+                        @php
+                            $orderPaid = $order->payments->where('status', 'paid')->count() > 0;
+                            $nextSt = $order->nextStatus();
+                            $orderPaymentPending = $order->pendingPaymentAmount() > 0;
+                        @endphp
+                        <div class="p-4 rounded-2xl bg-neutral-900/70 border transition-all duration-200 hover:shadow-lg hover:shadow-black/30
+                            {{ $order->status === 'novo' ? 'border-amber-500/30' : '' }}
+                            {{ $order->status === 'em_preparo' ? 'border-blue-500/30' : '' }}
+                            {{ $order->status === 'saiu_entrega' ? 'border-purple-500/30' : '' }}
+                            {{ $order->status === 'entregue' ? 'border-emerald-500/30' : '' }}">
+                            {{-- Card Header --}}
+                            <div class="flex items-start justify-between mb-3">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-base">#{{ str_pad($order->id, 5, '0', STR_PAD_LEFT) }}</span>
+                                        <span class="px-2 py-0.5 text-[10px] font-medium rounded-full {{ $order->statusClasses() }}">{{ $order->statusLabel() }}</span>
+                                    </div>
+                                    <p class="text-xs text-neutral-400 mt-1">{{ $order->customer_name }}</p>
+                                </div>
+                                <span class="text-sm font-bold text-amber-400">R$ {{ number_format($order->total, 2, ',', '.') }}</span>
+                            </div>
+
+                            {{-- Quick Info --}}
+                            <div class="flex items-center gap-3 text-[11px] text-neutral-500 mb-3 flex-wrap">
+                                <span class="flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    {{ $order->created_at->format('d/m H:i') }}
+                                </span>
+                                @if ($orderPaid)
+                                    <span class="flex items-center gap-1 text-emerald-400">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        Pago
+                                    </span>
+                                @else
+                                    <span class="flex items-center gap-1 text-rose-400">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        Nao pago
+                                    </span>
+                                @endif
+                            </div>
+
+                            {{-- Address --}}
+                            @if ($order->address_json)
+                                <div class="text-[11px] text-neutral-400 bg-neutral-800/50 rounded-lg px-3 py-2 mb-3 truncate">
+                                    <span class="text-neutral-500 block text-[10px]">Endereco</span>
+                                    {{ $order->address_json['address'] ?? '-' }}
+                                    @if (!empty($order->address_json['reference']))
+                                        <span class="text-[10px] text-neutral-500 block">Ref: {{ $order->address_json['reference'] }}</span>
+                                    @endif
+                                </div>
+                            @endif
+
+                            {{-- Delivery Person --}}
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-xs text-neutral-500">Entregador:</span>
+                                @if ($order->deliveryPerson)
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="text-xs font-medium text-emerald-400">{{ $order->deliveryPerson->name }}</span>
+                                        <button wire:click="removeDeliveryPerson({{ $order->id }})"
+                                                class="p-0.5 rounded text-red-400 hover:text-red-300 text-xs">&times;</button>
+                                    </div>
+                                @else
+                                    <div x-data="{ open: false }" class="relative">
+                                        <button @click="open = !open"
+                                                class="text-xs font-medium text-amber-400 hover:text-amber-300 flex items-center gap-1">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                            Designar
+                                        </button>
+                                        <div x-show="open" @click.outside="open = false" x-cloak
+                                             class="absolute right-0 mt-1 z-50 w-52 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl shadow-black/60 py-1 max-h-48 overflow-y-auto">
+                                            @forelse ($availableDeliveryPeople as $dp)
+                                                <button wire:click="assignDeliveryPerson({{ $order->id }}, {{ $dp->id }})"
+                                                        @click="open = false"
+                                                        class="w-full text-left px-4 py-2.5 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors border-b border-neutral-800 last:border-0">{{ $dp->name }}</button>
+                                            @empty
+                                                <p class="px-4 py-3 text-xs text-neutral-500">Nenhum entregador ativo</p>
+                                            @endforelse
                                         </div>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                                    </div>
+                                @endif
+                            </div>
+
+                            {{-- Actions --}}
+                            <div class="flex gap-1.5 flex-wrap pt-3 border-t border-neutral-800">
+                                <button wire:click="viewOrder({{ $order->id }})"
+                                        class="flex-1 px-3 py-2 text-[11px] font-semibold rounded-xl bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-all border border-neutral-700/50">
+                                    Detalhes
+                                </button>
+                                @if (!$orderPaid && !$order->isBillClosed())
+                                    <button wire:click="openPaymentModal({{ $order->id }})"
+                                            class="px-3 py-2 text-[11px] font-semibold rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all border border-emerald-500/20">
+                                        Pagamento
+                                    </button>
+                                @endif
+                                @if ($nextSt && !$order->isBillClosed())
+                                    <button wire:click="updateStatus({{ $order->id }}, '{{ $nextSt }}')"
+                                            class="px-3 py-2 text-[11px] font-semibold rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-all">
+                                        {{ $order->statusFlowLabels()[$order->status] ?? 'Avancar' }}
+                                    </button>
+                                @endif
+                                @if (in_array($order->status, ['novo', 'em_preparo', 'pronto']))
+                                    <button wire:click="updateStatus({{ $order->id }}, 'cancelado')"
+                                            class="px-3 py-2 text-[11px] font-semibold rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all border border-red-500/20">
+                                        Cancelar
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
             @endif
+        </div>
+    @endif
+
+    {{-- Payment Modal --}}
+    @if ($showPaymentModal)
+        <div class="fixed inset-0 z-80 flex items-center justify-center p-4"
+             @keydown.window.escape="$wire.closeOrderModal()">
+            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="closeOrderModal"></div>
+            <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/60 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold">Registrar Pagamento</h3>
+                    <button wire:click="closeOrderModal" class="p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-neutral-400 mb-1.5">Valor (R$)</label>
+                        <input wire:model="paymentAmount" type="number" step="0.01" min="0.01" readonly
+                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white text-sm transition-all opacity-75">
+                        @error('paymentAmount') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-neutral-400 mb-1.5">Forma de Pagamento</label>
+                        <select wire:model="paymentMethod"
+                                class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                            <option value="pix">PIX</option>
+                            <option value="credit_card">Cartao de Credito</option>
+                            <option value="debit_card">Cartao de Debito</option>
+                            <option value="cash">Dinheiro</option>
+                            <option value="other">Outro</option>
+                        </select>
+                    </div>
+                    @if ($paymentMethod === 'pix' && !$pixQrCode)
+                        <button wire:click="generatePaymentPix" wire:loading.attr="disabled"
+                                class="w-full px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold transition-all flex items-center justify-center gap-2">
+                            @if ($generatingPix)
+                                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            @endif
+                            Gerar QR Code PIX
+                        </button>
+                    @endif
+                    @if ($pixQrCode)
+                        <x-pix-qr-code
+                            :qr-code="$pixQrCode"
+                            :copia-e-cola="$pixCopiaECola"
+                            :id="'pay-' . $paymentOrderId"
+                            :loading="false" />
+                    @endif
+                    <div>
+                        <label class="block text-xs font-medium text-neutral-400 mb-1.5">Observacao (opcional)</label>
+                        <input wire:model="paymentNotes" type="text" placeholder="Observacao"
+                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                    </div>
+                    <div class="flex gap-3 pt-2">
+                        <button wire:click="closeOrderModal"
+                                class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all">Cancelar</button>
+                        <button wire:click="registerPayment" wire:loading.class="opacity-50"
+                                class="flex-1 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold transition-all">
+                            Confirmar Pagamento
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     @endif
 
@@ -528,6 +638,16 @@
                         <button wire:click="$set('historyPeriod', '{{ $k }}')"
                                 class="px-3 py-1.5 text-xs font-medium rounded-md transition-all {{ $historyPeriod === $k ? 'bg-amber-500 text-neutral-950' : 'text-neutral-400 hover:text-white' }}">{{ $l }}</button>
                     @endforeach
+                </div>
+                <div class="flex gap-1 p-0.5 rounded-lg bg-neutral-900 border border-neutral-800">
+                    <button wire:click="$set('historyTypeFilter', 'all')"
+                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all {{ $historyTypeFilter === 'all' ? 'bg-amber-500 text-neutral-950' : 'text-neutral-400 hover:text-white' }}">Todas</button>
+                    <button wire:click="$set('historyTypeFilter', 'mesa')"
+                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all {{ $historyTypeFilter === 'mesa' ? 'bg-blue-500 text-white' : 'text-neutral-400 hover:text-white' }}">Mesa</button>
+                    <button wire:click="$set('historyTypeFilter', 'entrega')"
+                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all {{ $historyTypeFilter === 'entrega' ? 'bg-green-500 text-white' : 'text-neutral-400 hover:text-white' }}">Delivery</button>
+                    <button wire:click="$set('historyTypeFilter', 'retirada')"
+                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-all {{ $historyTypeFilter === 'retirada' ? 'bg-purple-500 text-white' : 'text-neutral-400 hover:text-white' }}">Retirada</button>
                 </div>
                 <div class="w-full sm:w-auto">
                     <input wire:model.live.debounce="historySearch" type="text" placeholder="Buscar..."
@@ -554,16 +674,18 @@
                             <div class="flex items-start justify-between mb-3">
                                 <div class="min-w-0 flex-1">
                                     <div class="flex items-center gap-2 truncate">
-                                        <span class="text-sm sm:text-lg font-bold text-neutral-200 truncate">#{{ str_pad($order->id, 5, '0', STR_PAD_LEFT) }}</span>
-                                        @php $tClass = $order->typeClasses(); @endphp
-                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full {{ $tClass }}">{{ $order->typeLabel() }}</span>
+                                        <span class="text-sm sm:text-lg font-bold text-neutral-200 truncate">{{ $order->display_id }}</span>
+                                        @if ($order->is_grouped)
+                                            <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">{{ $order->order_count }} pedidos</span>
+                                        @endif
+                                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full {{ $order->typeClasses }}">{{ $order->typeLabel }}</span>
                                     </div>
                                      <p class="text-xs sm:text-sm text-neutral-300 mt-1 font-medium truncate">{{ $order->customer_name }}</p>
-                                    <p class="text-xs text-neutral-500 mt-0.5">{{ $order->created_at->format('d/m/Y H:i') }}</p>
+                                    <p class="text-xs text-neutral-500 mt-0.5">{{ $order->created_at }}</p>
                                 </div>
-                                <span class="px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-medium rounded-full shrink-0 {{ $order->statusClasses() }}">{{ $order->statusLabel() }}</span>
+                                <span class="px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-medium rounded-full shrink-0 {{ $order->statusClasses }}">{{ $order->statusLabel }}</span>
                             </div>
-                            @if ($order->address_json && isset($order->address_json['address']))
+                            @if (!$order->is_grouped && $order->address_json && isset($order->address_json['address']))
                                 <div class="mb-3 p-2 rounded-lg bg-neutral-800/50 border border-neutral-800/50">
                                     <p class="text-xs text-neutral-400 truncate" title="{{ $order->address_json['address'] }}">
                                         <svg class="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -884,28 +1006,24 @@
              @keydown.window.escape="$wire.closeOrderModal()">
             <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="closeOrderModal"></div>
             <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/60 p-6">
-                <h3 class="text-lg font-bold mb-4">Registrar Pagamento</h3>
+                <h3 class="text-lg font-bold mb-4">Registrar Pagamento - PIX</h3>
                 <div class="space-y-4">
                     <div>
                         <label class="block text-xs font-medium text-neutral-400 mb-1.5">Valor (R$)</label>
-                        <input wire:model="paymentAmount" type="number" step="0.01" min="0.01"
-                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
+                        <input wire:model="paymentAmount" type="number" step="0.01" min="0.01" readonly
+                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white text-sm transition-all opacity-75">
                         @error('paymentAmount') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                     </div>
-                    <div>
-                        <label class="block text-xs font-medium text-neutral-400 mb-1.5">Forma de Pagamento</label>
-                        <select wire:model="paymentMethod"
-                                class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
-                            <option value="pix">PIX</option>
-                            <option value="credit_card">Cartao de Credito</option>
-                            <option value="debit_card">Cartao de Debito</option>
-                            <option value="cash">Dinheiro</option>
-                        </select>
-                        @error('paymentMethod') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                    </div>
+                    @if ($pixQrCode)
+                        <x-pix-qr-code
+                            :qr-code="$pixQrCode"
+                            :copia-e-cola="$pixCopiaECola"
+                            :id="'pay-' . $paymentOrderId"
+                            :loading="false" />
+                    @endif
                     <div>
                         <label class="block text-xs font-medium text-neutral-400 mb-1.5">Observacao (opcional)</label>
-                        <input wire:model="paymentNotes" type="text" placeholder="Troco para 100, etc"
+                        <input wire:model="paymentNotes" type="text" placeholder="Observacao"
                                class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
                     </div>
                     <div class="flex gap-3 pt-2">
@@ -913,10 +1031,21 @@
                                 class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all">
                             Cancelar
                         </button>
-                        <button wire:click="registerPayment"
-                                class="flex-1 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold transition-all">
-                            Confirmar Pagamento
-                        </button>
+                        <div class="flex-1 flex gap-2">
+                            @if (!$pixQrCode)
+                                <button wire:click="generatePaymentPix" wire:loading.attr="disabled"
+                                        class="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold transition-all flex items-center justify-center gap-2">
+                                    @if ($generatingPix)
+                                        <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    @endif
+                                    Gerar QR Code PIX
+                                </button>
+                            @endif
+                            <button wire:click="registerPayment" wire:loading.class="opacity-50"
+                                    class="flex-1 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold transition-all">
+                                Confirmar Pagamento
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -935,23 +1064,19 @@
                         <span class="text-sm text-neutral-400">Total da Mesa</span>
                         <span class="text-2xl font-bold text-amber-400">R$ {{ number_format($closeTableTotal, 2, ',', '.') }}</span>
                     </div>
-                    <p class="text-xs text-neutral-500">Todos os pedidos serao fechados e a mesa liberada</p>
+                    <p class="text-xs text-neutral-500">Pagamento via PIX. Todos os pedidos serao fechados e a mesa liberada.</p>
                 </div>
                 <div class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-medium text-neutral-400 mb-1.5">Forma de Pagamento</label>
-                        <select wire:model="closeTablePaymentMethod"
-                                class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
-                            <option value="pix">PIX</option>
-                            <option value="credit_card">Cartao de Credito</option>
-                            <option value="debit_card">Cartao de Debito</option>
-                            <option value="cash">Dinheiro</option>
-                        </select>
-                        @error('closeTablePaymentMethod') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                    </div>
+                    @if ($pixQrCode)
+                        <x-pix-qr-code
+                            :qr-code="$pixQrCode"
+                            :copia-e-cola="$pixCopiaECola"
+                            :id="'close-table-' . $closeTableId"
+                            :loading="false" />
+                    @endif
                     <div>
                         <label class="block text-xs font-medium text-neutral-400 mb-1.5">Observacao (opcional)</label>
-                        <input wire:model="closeTablePaymentNotes" type="text" placeholder="Troco para 100, etc"
+                        <input wire:model="closeTablePaymentNotes" type="text" placeholder="Observacao"
                                class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
                     </div>
                     <div class="flex gap-3 pt-2">
@@ -959,10 +1084,21 @@
                                 class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all">
                             Cancelar
                         </button>
-                        <button wire:click="confirmCloseTableBill"
-                                class="flex-1 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold transition-all">
-                            Confirmar Fechamento (R$ {{ number_format($closeTableTotal, 2, ',', '.') }})
-                        </button>
+                        <div class="flex-1 flex gap-2">
+                            @if (!$pixQrCode)
+                                <button wire:click="generateCloseTablePix" wire:loading.attr="disabled"
+                                        class="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold transition-all flex items-center justify-center gap-2">
+                                    @if ($generatingPix)
+                                        <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    @endif
+                                    Gerar QR Code PIX
+                                </button>
+                            @endif
+                            <button wire:click="confirmCloseTableBill" wire:loading.class="opacity-50"
+                                    class="flex-1 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold transition-all">
+                                Confirmar Pagamento (R$ {{ number_format($closeTableTotal, 2, ',', '.') }})
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

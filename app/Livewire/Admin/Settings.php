@@ -260,6 +260,6 @@ class Settings extends Component
         return view('livewire.admin.settings', [
             'tenant' => Auth::user()->tenant,
             'user' => Auth::user(),
-        ])->layout('layouts.admin');
+        ])->extends('layouts.admin');
     }
 }

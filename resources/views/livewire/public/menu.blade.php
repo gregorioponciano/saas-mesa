@@ -64,6 +64,14 @@
                     @endif
                 </button>
 
+                <button wire:click="switchClientTab('history'); sidebarOpen = false"
+                        class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ $clientTab === 'history' ? 'bg-amber-500/10 text-amber-400' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50' }}">
+                    <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Historico
+                </button>
+
                 <button wire:click="switchClientTab('settings'); sidebarOpen = false"
                         class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ $clientTab === 'settings' ? 'bg-amber-500/10 text-amber-400' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50' }}">
                     <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -330,6 +338,7 @@
                 </div>
 
                 {{-- Category Pills --}}
+                @if ($clientTab === 'menu' || !Auth::check())
                 <div class="px-4 pb-3">
                     <div class="flex flex-wrap gap-1.5 sm:gap-2">
                         @foreach ($categories as $category)
@@ -342,6 +351,7 @@
                         @endforeach
                     </div>
                 </div>
+                @endif
             </header>
 
             {{-- TAB: Menu Products --}}
@@ -417,8 +427,18 @@
 
             {{-- TAB: Orders --}}
             @elseif ($clientTab === 'orders' && Auth::check())
-                <div class="px-4 mt-4 space-y-6"
-                     x-data
+                @php
+                    $filterType = $ordersFilter ?? 'mesa';
+                    $unpaidOrders = $myUnpaidOrders;
+                    if ($filterType === 'mesa') {
+                        $filteredUnpaid = $unpaidOrders->where('table_id', '!=', null);
+                    } elseif ($filterType === 'entrega') {
+                        $filteredUnpaid = $unpaidOrders->where('table_id', null)->where('type', 'entrega');
+                    } else {
+                        $filteredUnpaid = $unpaidOrders->where('table_id', null)->where('type', 'retirada');
+                    }
+                @endphp
+                <div class="px-4 mt-4 space-y-6 pb-8"
                      x-init="$nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }))">
                     <div class="flex items-center justify-between">
                         <h2 class="text-xl font-bold">Meus Pedidos</h2>
@@ -429,103 +449,244 @@
                         </button>
                     </div>
 
-                    {{-- Active Orders --}}
-                    @if ($myActiveOrders->count() > 0)
-                        <div wire:poll.10s>
-                            <p class="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-3">Em Andamento</p>
-                            <div class="space-y-3">
-                                @foreach ($myActiveOrders as $order)
-                                    <div class="p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800/80">
-                                        <div class="flex items-center justify-between mb-3">
-                                            <div>
-                                                <span class="font-semibold">Pedido #{{ $order->id }}</span>
-                                                @if ($order->table)
-                                                    <span class="text-xs text-neutral-500 ml-2">Mesa {{ $order->table->number }}</span>
-                                                @else
-                                                    <span class="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full ml-2">Entrega</span>
-                                                @endif
-                                            </div>
-                                            <span class="px-2.5 py-1 text-xs font-medium rounded-full border {{ $order->statusClasses() }}">
-                                                {{ $order->statusLabel() }}
-                                            </span>
-                                        </div>
-                                        <div class="space-y-1.5 mb-3">
-                                            @foreach ($order->items as $item)
-                                                <div class="flex items-center justify-between text-sm">
-                                                    <span class="text-neutral-300">{{ $item->quantity }}x {{ $item->product_name }}</span>
-                                                    <span class="text-neutral-400">R$ {{ number_format($item->price * $item->quantity, 2, ',', '.') }}</span>
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                        <div class="flex items-center justify-between pt-2 border-t border-neutral-800">
-                                            <span class="text-sm text-neutral-400">{{ $order->created_at->format('d/m H:i') }}</span>
-                                            <span class="font-bold text-amber-400">R$ {{ number_format($order->total, 2, ',', '.') }}</span>
-                                        </div>
-                                        <div class="flex items-center gap-1.5 mt-2">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                                            <span class="text-xs text-amber-400">{{ $order->status === 'novo' ? 'Aguardando preparo' : ($order->status === 'em_preparo' ? 'Sendo preparado' : 'Saindo para entrega') }}</span>
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
-                        </div>
-                    @endif
-
-                    {{-- History with Filters --}}
-                    <div>
-                        <div class="flex items-center gap-2 mb-4 flex-wrap">
-                            <p class="text-xs font-medium text-neutral-500 uppercase tracking-wider">Historico</p>
-                            <div class="flex gap-1 p-0.5 rounded-lg bg-neutral-900 border border-neutral-800">
-                                @foreach (['all' => 'Tudo', 'today' => 'Hoje', 'week' => '7 Dias', 'month' => '30 Dias'] as $k => $l)
-                                    <button wire:click="$set('historyPeriod', '{{ $k }}')"
-                                            class="px-2.5 py-1 text-[10px] font-medium rounded-md transition-all {{ $historyPeriod === $k ? 'bg-amber-500 text-neutral-950' : 'text-neutral-400 hover:text-white' }}">{{ $l }}</button>
-                                @endforeach
-                            </div>
-                            <input wire:model.live.debounce="historySearch" type="text" placeholder="Buscar #"
-                                   class="w-full sm:w-32 px-3 py-1.5 rounded-xl bg-neutral-900 border border-neutral-800 text-white placeholder-neutral-500 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
-                        </div>
-                        @if ($myOrders->count() === 0)
-                            <div class="text-center py-12 text-neutral-600 rounded-2xl bg-neutral-900/30 border border-dashed border-neutral-800">
-                                <svg class="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                                <p class="text-sm">Nenhum pedido encontrado</p>
-                            </div>
-                        @else
-                            <div class="space-y-2">
-                                @foreach ($myOrders as $order)
-                                    <div class="p-4 rounded-2xl bg-neutral-900/50 border border-neutral-800/50">
-                                        <div class="flex items-start justify-between mb-2">
-                                            <div class="flex items-center gap-2 flex-wrap">
-                                                <span class="font-semibold text-sm">#{{ $order->id }}</span>
-                                                <span class="text-xs text-neutral-500">{{ $order->created_at->format('d/m/Y H:i') }}</span>
-                                                @if ($order->table)
-                                                    <span class="text-xs text-neutral-500">Mesa {{ $order->table->number }}</span>
-                                                @else
-                                                    <span class="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">Entrega</span>
-                                                @endif
-                                            </div>
-                                            <span class="px-2 py-0.5 text-xs font-medium rounded-full border {{ $order->statusClasses() }} shrink-0">
-                                                {{ $order->statusLabel() }}
-                                            </span>
-                                        </div>
-                                        <div class="space-y-1 mb-2">
-                                            @foreach ($order->items->take(3) as $item)
-                                                <div class="flex items-center justify-between text-xs">
-                                                    <span class="text-neutral-400">{{ $item->quantity }}x {{ $item->product_name }}</span>
-                                                    <span class="text-neutral-500">R$ {{ number_format($item->price * $item->quantity, 2, ',', '.') }}</span>
-                                                </div>
-                                            @endforeach
-                                            @if ($order->items->count() > 3)
-                                                <p class="text-xs text-neutral-600">+{{ $order->items->count() - 3 }} itens</p>
-                                            @endif
-                                        </div>
-                                        <div class="flex items-center justify-between pt-2 border-t border-neutral-800">
-                                            <span class="text-sm font-bold text-amber-400">R$ {{ number_format($order->total, 2, ',', '.') }}</span>
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
-                        @endif
+                    {{-- Type Filter --}}
+                    <div class="flex gap-2">
+                        <button wire:click="$set('ordersFilter', 'mesa')"
+                                class="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ ($filterType === 'mesa') ? 'bg-emerald-500 text-neutral-950 shadow-lg shadow-emerald-500/25' : 'bg-neutral-900/50 border border-neutral-800 text-neutral-400 hover:text-white' }}">
+                            Mesa
+                        </button>
+                        <button wire:click="$set('ordersFilter', 'entrega')"
+                                class="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ ($filterType === 'entrega') ? 'bg-sky-500 text-neutral-950 shadow-lg shadow-sky-500/25' : 'bg-neutral-900/50 border border-neutral-800 text-neutral-400 hover:text-white' }}">
+                            Entrega
+                        </button>
+                        <button wire:click="$set('ordersFilter', 'retirada')"
+                                class="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ ($filterType === 'retirada') ? 'bg-purple-500 text-neutral-950 shadow-lg shadow-purple-500/25' : 'bg-neutral-900/50 border border-neutral-800 text-neutral-400 hover:text-white' }}">
+                            Balcao
+                        </button>
                     </div>
+
+                    @forelse ($filteredUnpaid as $order)
+                        @php
+                            $typeLabel = match($order->type) {
+                                'mesa' => 'Mesa ' . ($order->table->number ?? ''),
+                                'entrega' => 'Entrega',
+                                'retirada' => 'Balcao',
+                                default => ucfirst($order->type ?? '')
+                            };
+                        @endphp
+                        <div class="p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800/80">
+                            <div class="flex items-start justify-between mb-3">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-semibold">Pedido #{{ $order->id }}</span>
+                                    <span class="text-xs text-neutral-500">{{ $order->created_at->format('d/m/Y H:i') }}</span>
+                                    <span class="text-[10px] font-medium {{ $order->type === 'mesa' ? 'bg-neutral-800 text-neutral-400 border border-neutral-700' : ($order->type === 'entrega' ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20' : 'text-purple-400 bg-purple-500/10 border border-purple-500/20') }} px-1.5 py-0.5 rounded-full">
+                                        {{ $typeLabel }}
+                                    </span>
+                                    @if ($order->payment_method)
+                                        <span class="text-[10px] font-medium bg-neutral-800 text-neutral-400 border border-neutral-700 px-1.5 py-0.5 rounded-full">
+                                            {{ $order->payment_method === 'pix' ? 'PIX' : ($order->payment_method === 'credit_card' ? 'Cartao' : ($order->payment_method === 'money' ? 'Dinheiro' : $order->payment_method)) }}
+                                        </span>
+                                    @endif
+                                </div>
+                                <span class="px-2.5 py-1 text-xs font-medium rounded-full border {{ $order->statusClasses() }} shrink-0">
+                                    {{ $order->statusLabel() }}
+                                </span>
+                            </div>
+
+                            <div class="space-y-1.5 mb-3">
+                                @foreach ($order->items as $item)
+                                    <div class="flex items-center justify-between text-sm">
+                                        <span class="text-neutral-300">{{ $item->quantity }}x {{ $item->product_name }}</span>
+                                        <span class="text-neutral-400">R$ {{ number_format($item->price * $item->quantity, 2, ',', '.') }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            <div class="pt-2 border-t border-neutral-800">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3 text-xs text-neutral-500">
+                                        <span class="flex items-center gap-1">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                                            {{ $order->items->count() }} item(ns)
+                                        </span>
+                                        @if (!$order->table && $order->address_json)
+                                            @php $addr = is_array($order->address_json) ? $order->address_json : ['address' => $order->address_json]; @endphp
+                                            <span class="flex items-start gap-1">
+                                                <svg class="w-3.5 h-3.5 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                                <span class="text-xs text-neutral-400">
+                                                    {{ $addr['street'] ?? $addr['address'] ?? '' }}
+                                                    @if (!empty($addr['number'])), {{ $addr['number'] }}@endif
+                                                    @if (!empty($addr['neighborhood'])) - {{ $addr['neighborhood'] }}@endif
+                                                </span>
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <span class="font-bold text-amber-400">R$ {{ number_format($order->total, 2, ',', '.') }}</span>
+                                </div>
+
+                                <div class="mt-3 flex items-center gap-2 text-[11px] text-rose-400/80 bg-rose-500/5 rounded-lg px-3 py-2">
+                                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <span>Aguardando pagamento</span>
+                                </div>
+
+                                <button wire:click="generateOrderPix({{ $order->id }})" wire:loading.attr="disabled"
+                                        class="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold transition-all text-sm shadow-lg shadow-emerald-500/20">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <span wire:loading.remove wire:target="generateOrderPix({{ $order->id }})">Pagar com PIX</span>
+                                    <span wire:loading wire:target="generateOrderPix({{ $order->id }})">Gerando...</span>
+                                </button>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="text-center py-16 text-neutral-600 rounded-2xl bg-neutral-900/30 border border-dashed border-neutral-800">
+                            <svg class="w-14 h-14 mx-auto mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <p class="text-sm font-medium">Nenhum pedido pendente</p>
+                            <p class="text-xs text-neutral-700 mt-1">Todos os pedidos desse tipo estao pagos ou finalizados</p>
+                        </div>
+                    @endforelse
+                </div>
+
+            {{-- TAB: History --}}
+            @elseif ($clientTab === 'history' && Auth::check())
+                @php
+                    $typeFilter = $orderHistoryFilter ?? 'all';
+                @endphp
+                <div class="px-4 mt-4 space-y-6 pb-8"
+                     x-init="$nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }))">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xl font-bold">Historico de Pedidos</h2>
+                        <button wire:click="switchClientTab('menu')"
+                                class="text-xs text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                            Voltar ao Cardapio
+                        </button>
+                    </div>
+
+                    {{-- Type Filter --}}
+                    <div class="flex gap-2">
+                        <button wire:click="$set('orderHistoryFilter', 'all')"
+                                class="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ ($typeFilter === 'all') ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/25' : 'bg-neutral-900/50 border border-neutral-800 text-neutral-400 hover:text-white' }}">
+                            Todas
+                        </button>
+                        <button wire:click="$set('orderHistoryFilter', 'mesa')"
+                                class="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ ($typeFilter === 'mesa') ? 'bg-emerald-500 text-neutral-950 shadow-lg shadow-emerald-500/25' : 'bg-neutral-900/50 border border-neutral-800 text-neutral-400 hover:text-white' }}">
+                            Mesa
+                        </button>
+                        <button wire:click="$set('orderHistoryFilter', 'entrega')"
+                                class="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ ($typeFilter === 'entrega') ? 'bg-sky-500 text-neutral-950 shadow-lg shadow-sky-500/25' : 'bg-neutral-900/50 border border-neutral-800 text-neutral-400 hover:text-white' }}">
+                            Entrega
+                        </button>
+                        <button wire:click="$set('orderHistoryFilter', 'retirada')"
+                                class="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ ($typeFilter === 'retirada') ? 'bg-purple-500 text-neutral-950 shadow-lg shadow-purple-500/25' : 'bg-neutral-900/50 border border-neutral-800 text-neutral-400 hover:text-white' }}">
+                            Balcao
+                        </button>
+                    </div>
+
+                    @php
+                        $filteredOrders = $myOrders;
+                        if ($typeFilter !== 'all') {
+                            if ($typeFilter === 'mesa') {
+                                $filteredOrders = $filteredOrders->where('table_id', '!=', null);
+                            } else {
+                                $filteredOrders = $filteredOrders->where('table_id', null)->where('type', $typeFilter);
+                            }
+                        }
+                    @endphp
+
+                    @forelse ($filteredOrders as $order)
+                        @php
+                            $orderPaid = $order->payments->where('status', 'paid')->count() > 0;
+                            $isEntregue = $order->status === 'entregue';
+                            $isFechado = $order->status === 'fechado';
+                            $typeLabel = match($order->type) {
+                                'mesa' => 'Mesa ' . ($order->table->number ?? ''),
+                                'entrega' => 'Entrega',
+                                'retirada' => 'Balcao',
+                                default => ucfirst($order->type ?? '')
+                            };
+                        @endphp
+                        <div class="p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800/80 {{ $orderPaid ? 'border-emerald-500/10' : '' }}">
+                            <div class="flex items-start justify-between mb-3">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-semibold">Pedido #{{ $order->id }}</span>
+                                    <span class="text-xs text-neutral-500">{{ $order->created_at->format('d/m/Y H:i') }}</span>
+                                    <span class="text-[10px] font-medium {{ $order->type === 'mesa' ? 'bg-neutral-800 text-neutral-400 border border-neutral-700' : ($order->type === 'entrega' ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20' : 'text-purple-400 bg-purple-500/10 border border-purple-500/20') }} px-1.5 py-0.5 rounded-full">
+                                        {{ $typeLabel }}
+                                    </span>
+                                    @if ($order->payment_method)
+                                        <span class="text-[10px] font-medium bg-neutral-800 text-neutral-400 border border-neutral-700 px-1.5 py-0.5 rounded-full">
+                                            {{ $order->payment_method === 'pix' ? 'PIX' : ($order->payment_method === 'credit_card' ? 'Cartao' : ($order->payment_method === 'money' ? 'Dinheiro' : $order->payment_method)) }}
+                                        </span>
+                                    @endif
+                                    @if ($isEntregue)
+                                        <span class="text-[10px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded-full">Entregue</span>
+                                    @endif
+                                    @if ($orderPaid)
+                                        <span class="text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">Pago</span>
+                                    @else
+                                        <span class="text-[10px] font-semibold bg-neutral-800 text-neutral-500 border border-neutral-700 px-1.5 py-0.5 rounded-full">Nao Pago</span>
+                                    @endif
+                                </div>
+                                <span class="px-2.5 py-1 text-xs font-medium rounded-full border {{ $order->statusClasses() }} shrink-0">
+                                    {{ $order->statusLabel() }}
+                                </span>
+                            </div>
+
+                            <div class="space-y-1.5 mb-3">
+                                @foreach ($order->items as $item)
+                                    <div class="flex items-center justify-between text-sm">
+                                        <span class="text-neutral-300">{{ $item->quantity }}x {{ $item->product_name }}</span>
+                                        <span class="text-neutral-400">R$ {{ number_format($item->price * $item->quantity, 2, ',', '.') }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            <div class="pt-2 border-t border-neutral-800">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3 text-xs text-neutral-500">
+                                        <span class="flex items-center gap-1">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                                            {{ $order->items->count() }} item(ns)
+                                        </span>
+                                        @if (!$order->table && $order->address_json)
+                                            @php $addr = is_array($order->address_json) ? $order->address_json : ['address' => $order->address_json]; @endphp
+                                            <span class="flex items-start gap-1">
+                                                <svg class="w-3.5 h-3.5 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                                <span class="text-xs text-neutral-400">
+                                                    {{ $addr['street'] ?? $addr['address'] ?? '' }}
+                                                    @if (!empty($addr['number'])), {{ $addr['number'] }}@endif
+                                                    @if (!empty($addr['neighborhood'])) - {{ $addr['neighborhood'] }}@endif
+                                                    @if (!empty($addr['city'])) - {{ $addr['city'] }}@endif
+                                                    @if (!empty($addr['state']))/{{ $addr['state'] }}@endif
+                                                </span>
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <span class="font-bold text-amber-400">R$ {{ number_format($order->total, 2, ',', '.') }}</span>
+                                </div>
+
+                                @if ($orderPaid)
+                                    <div class="mt-2 flex items-center gap-2 text-[11px] text-emerald-400/80 bg-emerald-500/5 rounded-lg px-3 py-2">
+                                        <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        <span>Pagamento confirmado {{ $order->payments->where('status', 'paid')->first()?->paid_at ? $order->payments->where('status', 'paid')->first()->paid_at->format('d/m H:i') : '' }}</span>
+                                    </div>
+                                @endif
+
+                                @if ($isEntregue && !$orderPaid)
+                                    <div class="mt-2 flex items-center gap-2 text-[11px] text-neutral-500 bg-neutral-800/50 rounded-lg px-3 py-2">
+                                        <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2-1m2 1l2-1m2 1l2-1m2-2v2a1 1 0 001 1h2m0 0a1 1 0 100 2m-2-2a1 1 0 110 2m-10-4h.01M16 12h4m0 0l-3-3m3 3l-3 3"/></svg>
+                                        <span>Pedido entregue</span>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @empty
+                        <div class="text-center py-16 text-neutral-600 rounded-2xl bg-neutral-900/30 border border-dashed border-neutral-800">
+                            <svg class="w-14 h-14 mx-auto mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <p class="text-sm font-medium">Nenhum pedido no historico</p>
+                            <p class="text-xs text-neutral-700 mt-1">Seus pedidos finalizados aparecerao aqui</p>
+                        </div>
+                    @endforelse
                 </div>
 
             {{-- TAB: Settings --}}
@@ -813,6 +974,90 @@
                     </div>
                 </div>
             @endif
+
+            {{-- PIX Payment Modal --}}
+            <div x-data="{ open: @entangle('showPixModal') }"
+                 x-init="$watch('open', val => document.body.style.overflow = val ? 'hidden' : '')"
+                 x-show="open"
+                 x-transition:enter="transition-opacity duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition-opacity duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
+                 x-cloak>
+                <div class="absolute inset-0" wire:click="closePixModal"></div>
+                <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl"
+                     @click.stop>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold">Pagamento PIX</h3>
+                        <button wire:click="closePixModal" class="p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    <div wire:poll.5s="verifyPixPayment">
+                        @if ($generatingPix)
+                            <div class="flex flex-col items-center py-8">
+                                <svg class="w-12 h-12 animate-spin text-amber-400 mb-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                <p class="text-sm text-neutral-400">Gerando QR Code PIX...</p>
+                            </div>
+                        @elseif ($pixPaymentConfirmed)
+                            <div class="flex flex-col items-center py-8">
+                                <svg class="w-16 h-16 text-emerald-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <p class="text-lg font-bold text-emerald-400">Pagamento Confirmado!</p>
+                                <p class="text-sm text-neutral-400 mt-1">Pedido #{{ $pixOrderId }} pago.</p>
+                            </div>
+                        @elseif ($pixQrCode)
+                            <div class="space-y-4">
+                                <p class="text-sm text-neutral-400 text-center">Escaneie o QR Code para pagar</p>
+                                <div x-data="{ remaining: 3600, timer: null }"
+                                     x-init="timer = setInterval(() => { remaining > 0 ? remaining-- : clearInterval(timer) }, 1000)">
+                                    <div class="flex justify-center">
+                                        <img src="data:image/png;base64,{{ $pixQrCode }}" alt="QR Code PIX" class="w-56 h-56 rounded-2xl bg-white p-2">
+                                    </div>
+                                    <div class="flex items-center justify-center gap-2 mt-3 text-xs"
+                                         :class="remaining > 300 ? 'text-neutral-500' : remaining > 60 ? 'text-amber-400' : 'text-red-400'">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        <span x-text="'Expira em ' + Math.floor(remaining / 60) + 'min ' + (remaining % 60) + 's'"></span>
+                                    </div>
+                                </div>
+                                @if ($pixCopiaECola)
+                                    <div class="bg-neutral-800 rounded-xl p-3">
+                                        <p class="text-xs text-neutral-400 mb-1">PIX Copia e Cola</p>
+                                        <div class="flex gap-2">
+                                            <input type="text" readonly value="{{ $pixCopiaECola }}"
+                                                   class="flex-1 bg-neutral-700 text-xs text-neutral-300 rounded-lg px-3 py-2 border border-neutral-600 select-all"
+                                                   onclick="this.select()">
+                                            <button onclick="navigator.clipboard.writeText('{{ $pixCopiaECola }}'); this.textContent='Copiado!'; setTimeout(()=>this.textContent='Copiar', 2000)"
+                                                    class="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-semibold rounded-lg transition-all shrink-0">
+                                                Copiar
+                                            </button>
+                                        </div>
+                                    </div>
+                                @endif
+                                <div class="flex items-center justify-center gap-2 text-xs text-neutral-500">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <span>Codigo valido por 60 minutos</span>
+                                </div>
+                            </div>
+                        @elseif ($pixPaymentError)
+                            <div class="flex flex-col items-center py-8">
+                                <p class="text-sm text-red-400">Erro ao gerar PIX. Tente novamente.</p>
+                                @if ($pixPaymentErrorMsg)
+                                    <p class="text-xs text-neutral-500 mt-1">{{ $pixPaymentErrorMsg }}</p>
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+                    <div class="mt-4 flex gap-3">
+                        <button wire:click="closePixModal"
+                                class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all text-sm">
+                            Fechar
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             {{-- Table Picker Modal --}}
             @if ($showTablePicker)

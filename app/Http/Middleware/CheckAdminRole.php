@@ -14,7 +14,7 @@ class CheckAdminRole
         if (Auth::check() && !Auth::user()->isAdmin()) {
             if (Auth::user()->isStaff()) {
                 return redirect()->route('waiter.panel', Auth::user()->load('tenant')->tenant->slug)
-                    ->with('error', 'Acesso restrito a administradores.');
+                    ->with('error', ' 403 Acesso restrito a administradores.');
             }
             return redirect()->route('menu.show', Auth::user()->load('tenant')->tenant->slug)
                 ->with('error', 'Acesso restrito a administradores.');

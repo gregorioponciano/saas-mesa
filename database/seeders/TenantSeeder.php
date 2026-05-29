@@ -15,8 +15,8 @@ class TenantSeeder extends Seeder
             [
                 'name' => 'Classic Burger Artisan',
                 'email' => 'admin@classicburger.com',
-                'opening_time' => '08:00:00',
-                'closing_time' => '22:00:00',
+                'opening_time' => '00:00:00',
+                'closing_time' => '23:59:00',
                 'plan' => Tenant::PLAN_PAID,
                 'max_tables' => Tenant::PLAN_MAX_TABLES[Tenant::PLAN_PAID],
                 'status' => 'active',
