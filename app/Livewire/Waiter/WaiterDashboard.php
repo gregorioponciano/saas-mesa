@@ -239,6 +239,8 @@ class WaiterDashboard extends Component
             $hasOther = \App\Models\Table::hasOtherActiveOrders($order->table_id, $order->id);
             if (!$hasOther) {
                 $order->table()->update(['status' => 'free']);
+                $this->dispatch('tableFreed')->to('public.menu');
+                $this->dispatch('tableFreed')->to('public.cart');
             }
         }
 
@@ -434,7 +436,7 @@ class WaiterDashboard extends Component
             $efi = app(EfiPixService::class);
             $txid = 'pay' . $this->paymentOrderId . now()->format('YmdHis') . rand(100, 999);
             $charge = $efi->createImmediateCharge($this->paymentAmount, $txid);
-            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? $charge['pixCopiaECola'] ?? null;
+            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
             if ($this->pixCopiaECola) {
                 $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
             }
@@ -470,14 +472,23 @@ class WaiterDashboard extends Component
             'notes' => $this->paymentNotes,
         ]);
 
-        if ($order->pendingPaymentAmount() <= 0 && !$order->table_id) {
+        $tableWasFreed = false;
+        if ($order->pendingPaymentAmount() <= 0) {
             $order->update([
                 'status' => 'fechado',
                 'bill_closed_at' => now(),
             ]);
+            if ($order->table_id) {
+                $tableWasFreed = \App\Models\Table::tryFreeTable($order->table_id);
+            }
         }
 
         $this->showPaymentModal = false;
+
+        if ($tableWasFreed) {
+            $this->dispatch('tableFreed')->to('public.menu');
+            $this->dispatch('tableFreed')->to('public.cart');
+        }
         $this->paymentOrderId = null;
         $this->paymentAmount = 0;
         $this->paymentNotes = '';
@@ -543,7 +554,7 @@ class WaiterDashboard extends Component
             $efi = app(EfiPixService::class);
             $txid = 'mesa' . $this->closeTableId . now()->format('YmdHis') . rand(100, 999);
             $charge = $efi->createImmediateCharge($this->closeTableTotal, $txid);
-            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? $charge['pixCopiaECola'] ?? null;
+            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
             if ($this->pixCopiaECola) {
                 $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
             }
@@ -592,6 +603,8 @@ class WaiterDashboard extends Component
             }
 
             $table->update(['status' => 'free']);
+            $this->dispatch('tableFreed')->to('public.menu');
+            $this->dispatch('tableFreed')->to('public.cart');
             $this->dispatch('notify', message: "Conta da Mesa {$table->number} fechada! R$ " . number_format($totalPending, 2, ',', '.') . " em {$closedCount} pedido(s). Pagamento: PIX");
         } else {
             $this->dispatch('notify', message: "Nenhum pedido da Mesa {$table->number} pode ser fechado.");
@@ -646,6 +659,10 @@ class WaiterDashboard extends Component
 
     public function reopenAccount(int $orderId): void
     {
+        if (!Auth::user()?->isAdmin()) {
+            $this->dispatch('notify', message: 'Apenas administradores podem reabrir contas.');
+            return;
+        }
         $order = Order::findOrFail($orderId);
         if ($order->status !== 'fechado') {
             $this->dispatch('notify', message: 'Apenas contas fechadas podem ser reabertas.');
@@ -707,6 +724,8 @@ class WaiterDashboard extends Component
 
         $table->update(['status' => 'free']);
 
+        $this->dispatch('tableFreed')->to('public.menu');
+        $this->dispatch('tableFreed')->to('public.cart');
         $this->closeDetail();
         $this->dispatch('orderUpdated');
         $this->dispatch('notify', message: 'Mesa ' . $table->number . ' liberada!');
@@ -731,7 +750,21 @@ class WaiterDashboard extends Component
     public function setTableFree(int $tableId): void
     {
         if (!$this->isStaff()) return;
-        Table::findOrFail($tableId)->update(['status' => 'free']);
+
+        $table = Table::findOrFail($tableId);
+
+        $activeOrders = Order::where('table_id', $tableId)
+            ->whereNotIn('status', ['fechado', 'cancelado'])
+            ->exists();
+
+        if ($activeOrders) {
+            $this->dispatch('notify', message: 'Use "Fechar Conta" ou "Liberar Mesa" para mesas com pedidos ativos.');
+            return;
+        }
+
+        $table->update(['status' => 'free']);
+        $this->dispatch('tableFreed')->to('public.menu');
+        $this->dispatch('tableFreed')->to('public.cart');
         $this->dispatch('orderUpdated');
         $this->dispatch('notify', message: 'Mesa liberada!');
     }
@@ -1464,7 +1497,25 @@ class WaiterDashboard extends Component
             'reserved' => 'free',
             default => 'free',
         };
+
+        if ($newStatus === 'free') {
+            $activeOrders = Order::where('table_id', $id)
+                ->whereNotIn('status', ['fechado', 'cancelado'])
+                ->exists();
+
+            if ($activeOrders) {
+                $this->dispatch('notify', message: 'Use "Fechar Conta" ou "Liberar Mesa" para mesas com pedidos ativos.');
+                return;
+            }
+        }
+
         $table->update(['status' => $newStatus]);
+
+        if ($newStatus === 'free') {
+            $this->dispatch('tableFreed')->to('public.menu');
+            $this->dispatch('tableFreed')->to('public.cart');
+        }
+
         $this->dispatch('orderUpdated');
         $this->dispatch('notify', message: 'Mesa alterada para ' . match($newStatus) { 'free' => 'Livre', 'occupied' => 'Ocupada', 'reserved' => 'Reservada' });
     }

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin;
 
+use App\Models\Order;
 use App\Models\Table;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Encoding\Encoding;
@@ -128,12 +129,31 @@ class TablesPage extends Component
 
         if ($this->editingTableId) {
             $table = Table::findOrFail($this->editingTableId);
+
+            if ($this->status === 'free' && $table->status !== 'free') {
+                $activeOrders = Order::where('table_id', $table->id)
+                    ->whereNotIn('status', ['fechado', 'cancelado'])
+                    ->exists();
+
+                if ($activeOrders) {
+                    $this->addError('status', 'Mesa com pedidos ativos. Use "Fechar Conta" ou "Liberar Mesa".');
+                    return;
+                }
+            }
+
+            $wasFreed = $this->status === 'free' && $table->status !== 'free';
             $table->update([
                 'number' => $this->number,
                 'capacity' => $this->capacity,
                 'status' => $this->status,
                 'observation' => $this->observation ?: null,
             ]);
+
+            if ($wasFreed) {
+                $this->dispatch('tableFreed')->to('public.menu');
+                $this->dispatch('tableFreed')->to('public.cart');
+            }
+
             $this->dispatch('notify', message: 'Mesa ' . $this->number . ' atualizada!');
         } else {
             Table::create([
@@ -223,7 +243,26 @@ class TablesPage extends Component
             'reserved' => 'free',
             default => 'free',
         };
+
+        if ($newStatus === 'free') {
+            $activeOrders = Order::where('table_id', $id)
+                ->whereNotIn('status', ['fechado', 'cancelado'])
+                ->exists();
+
+            if ($activeOrders) {
+                $this->dispatch('notify', message: 'Use "Fechar Conta" ou "Liberar Mesa" para mesas com pedidos ativos.');
+                return;
+            }
+        }
+
         $table->update(['status' => $newStatus]);
+
+        if ($newStatus === 'free') {
+            $this->dispatch('tableFreed')->to('public.menu');
+            $this->dispatch('tableFreed')->to('public.cart');
+        }
+
+        $this->dispatch('notify', message: 'Mesa alterada para ' . match($newStatus) { 'free' => 'Livre', 'occupied' => 'Ocupada', 'reserved' => 'Reservada' });
     }
 
     public function showQrCode(int $id): void

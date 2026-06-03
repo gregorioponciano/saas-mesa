@@ -329,7 +329,7 @@
                              {{ $table->status === 'reserved' ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20' : '' }}">
                         {{ $table->status === 'free' ? 'Ocupar' : ($table->status === 'occupied' ? 'Reservar' : 'Liberar') }}
                     </button>
-                        <a href="{{ route('menu.show', ['slug' => $table->tenant->slug]) }}" target="_blank"
+                        <a href="{{ route('menu.show', ['slug' => $table->tenant->slug]) }}"
                            class="px-3 py-2 text-xs font-medium rounded-xl bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700 transition-all border border-neutral-700/50">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
@@ -399,7 +399,7 @@
                         </p>
 
                         <div class="flex gap-3">
-                            <a href="{{ $qrUrl }}" target="_blank"
+                            <a href="{{ $qrUrl }}"
                                class="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl text-center transition-all duration-200">
                                 Abrir Cardapio
                             </a>

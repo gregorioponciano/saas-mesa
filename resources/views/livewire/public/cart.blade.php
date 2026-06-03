@@ -92,7 +92,7 @@
         </div>
 
         {{-- Scrollable Content --}}
-        <div class="flex-1 overflow-y-auto p-6" wire:poll.5s="loadOrderTracking">
+        <div class="flex-1 overflow-y-auto p-6" wire:poll.15s="loadOrderTracking">
 
             {{-- Cart Items --}}
             @if (!empty($cartItems))
@@ -792,7 +792,6 @@
 
                 <div class="space-y-3">
                     <a href="{{ $this->getTableEntryUrl() }}"
-                       target="_blank"
                        class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
@@ -801,14 +800,14 @@
                     </a>
 
                     <button wire:click="confirmQrModal" wire:loading.attr="disabled"
-                             class="w-full px-6 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all disabled:opacity-50">
+                              class="w-full px-6 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all disabled:opacity-50">
                         Continuar
                     </button>
                 </div>
 
                 <p class="text-xs text-neutral-500 mt-4">
                     Ou compartilhe o link:
-                    <a href="{{ $this->getTableEntryUrl() }}" target="_blank"
+                    <a href="{{ $this->getTableEntryUrl() }}"
                        class="text-amber-400 hover:text-amber-300 underline break-all block mt-1">
                         {{ $this->getTableEntryUrl() }}
                     </a>

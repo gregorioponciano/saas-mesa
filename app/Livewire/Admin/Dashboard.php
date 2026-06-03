@@ -517,7 +517,7 @@ class Dashboard extends Component
             $efi = app(EfiPixService::class);
             $txid = 'pay' . $this->paymentOrderId . now()->format('YmdHis') . rand(100, 999);
             $charge = $efi->createImmediateCharge($this->paymentAmount, $txid);
-            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? $charge['pixCopiaECola'] ?? null;
+            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
             if ($this->pixCopiaECola) {
                 $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
             }
@@ -699,7 +699,7 @@ class Dashboard extends Component
             $efi = app(EfiPixService::class);
             $txid = 'mesa' . $this->closeTableId . now()->format('YmdHis') . rand(100, 999);
             $charge = $efi->createImmediateCharge($this->closeTableTotal, $txid);
-            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? $charge['pixCopiaECola'] ?? null;
+            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
             if ($this->pixCopiaECola) {
                 $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
             }

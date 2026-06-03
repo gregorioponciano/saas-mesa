@@ -88,7 +88,7 @@ class Cart extends Component
     public string $newAddressZipcode = '';
     public string $newAddressReference = '';
 
-    protected $listeners = ['addToCart', 'cartUpdated' => '$refresh', 'tableSelected' => 'onTableSelected'];
+    protected $listeners = ['addToCart', 'cartUpdated' => '$refresh', 'tableSelected' => 'onTableSelected', 'tableFreed' => 'clearTable'];
 
     public function mount($tenant, ?string $token = null): void
     {
@@ -128,9 +128,11 @@ class Cart extends Component
         }
 
         $this->restoreLastOrder();
+        $this->syncTableWithSession();
         $this->restorePendingCartItem();
 
         $this->previousTableNumber = $this->tableNumber;
+        $this->verifyTableAccess();
     }
 
     public function loadUserAddresses(): void
@@ -526,7 +528,7 @@ class Cart extends Component
             $efi = app(EfiPixService::class);
             $txid = 'ped' . $order->id . now()->format('YmdHis') . rand(100, 999);
             $charge = $efi->createImmediateCharge($order->total, $txid, $order->customer_name);
-            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? $charge['pixCopiaECola'] ?? null;
+            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
             $this->pixTxid = $charge['txid'] ?? $txid;
             if ($this->pixCopiaECola) {
                 $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
@@ -623,8 +625,30 @@ class Cart extends Component
         ]);
     }
 
+    protected function syncTableWithSession(): void
+    {
+        $sessionToken = Session::get("table_token_{$this->tenant->id}");
+        if ($sessionToken) {
+            $table = Table::where('tenant_id', $this->tenant->id)
+                ->where('token', $sessionToken)
+                ->first();
+            if ($table) {
+                $this->tableNumber = $table->number;
+                $this->qrTableNumber = $table->number;
+                $this->qrTableToken = $table->token;
+                return;
+            }
+            Session::forget("table_token_{$this->tenant->id}");
+        }
+        $this->tableNumber = '';
+        $this->qrTableNumber = null;
+        $this->qrTableToken = null;
+    }
+
     public function loadOrderTracking(): void
     {
+        $this->verifyTableAccess();
+
         if (!$this->lastOrderId) {
             $this->orderTracking = null;
             return;
@@ -710,6 +734,53 @@ class Cart extends Component
             && Auth::check();
     }
 
+    public function clearTable(): void
+    {
+        $this->tableNumber = '';
+        $this->previousTableNumber = '';
+        $this->qrTableNumber = null;
+        $this->qrTableToken = null;
+        $this->showQrModal = false;
+        $this->showPixCheckoutModal = false;
+        $this->pixQrCode = null;
+        $this->pixCopiaECola = null;
+        $this->pixPaymentConfirmed = false;
+    }
+
+    public function verifyTableAccess(): void
+    {
+        if (!Auth::check()) return;
+
+        $sessionToken = Session::get("table_token_{$this->tenant->id}");
+
+        if (!$sessionToken) {
+            if ($this->tableNumber !== '' && $this->tableNumber !== null) {
+                $this->clearTable();
+            }
+            return;
+        }
+
+        $table = Table::where('tenant_id', $this->tenant->id)
+            ->where('token', $sessionToken)
+            ->first();
+
+        if (!$table) {
+            $this->clearTable();
+            Session::forget("table_token_{$this->tenant->id}");
+            return;
+        }
+
+        if ($table->status === 'free') {
+            $tableEverHadOrders = Order::where('table_id', $table->id)->exists();
+
+            if ($tableEverHadOrders && !$table->hasOpenBillableOrders()) {
+                $this->clearTable();
+                Session::forget("table_token_{$this->tenant->id}");
+                $this->dispatch('tableFreed')->to('public.menu');
+            }
+        }
+    }
+
     public function clearQrTable(): void
     {
         if ($this->hasTableLocked()) {
@@ -727,6 +798,21 @@ class Cart extends Component
         if ($this->previousTableNumber && $value !== $this->previousTableNumber) {
             $this->tableNumber = $this->previousTableNumber;
             $this->dispatch('notify', message: 'Mesa fixa. A mesa so pode ser alterada no painel administrativo.');
+            return;
+        }
+
+        if ($value) {
+            $table = Table::where('tenant_id', $this->tenant->id)
+                ->where('number', $value)
+                ->first();
+            if ($table) {
+                $this->tableNumber = $table->number;
+                $this->qrTableNumber = $table->number;
+                $this->qrTableToken = $table->token;
+                $this->previousTableNumber = $table->number;
+                $this->orderType = 'mesa';
+                $this->dispatch('tableSelected', tableId: $table->id)->to('public.menu');
+            }
         }
     }
 
@@ -740,6 +826,8 @@ class Cart extends Component
             $this->tableNumber = $table->number;
             $this->qrTableNumber = $table->number;
             $this->qrTableToken = $table->token;
+            $this->previousTableNumber = $table->number;
+            $this->orderType = 'mesa';
         }
     }
 

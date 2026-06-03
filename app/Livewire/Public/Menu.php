@@ -44,6 +44,7 @@ class Menu extends Component
         'notifyNewOrder' => '$refresh',
         'tableSelected' => 'onTableSelectedFromCart',
         'cartUpdated' => '$refresh',
+        'tableFreed' => 'clearTableSession',
     ];
 
     public function mount($tenant): void
@@ -56,6 +57,7 @@ class Menu extends Component
 
         $this->restoreTableFromSession();
         $this->restoreTableFromToken();
+        $this->verifyTableAccess();
     }
 
     protected function restoreTableFromSession(): void
@@ -84,6 +86,35 @@ class Menu extends Component
                 $this->selectedTableNumber = $table->number;
                 $this->selectedTableToken = $table->token;
                 Session::put("table_token_{$this->tenant->id}", $table->token);
+            }
+        }
+    }
+
+    public function clearTableSession(): void
+    {
+        $this->selectedTableId = null;
+        $this->selectedTableNumber = null;
+        $this->selectedTableToken = null;
+        $this->showQrModal = false;
+        $this->showCloseTablePix = false;
+        $this->closeTablePixQr = null;
+        $this->closeTablePixCopia = null;
+        Session::forget("table_token_{$this->tenant->id}");
+        $this->dispatch('tableFreed')->to('public.cart');
+    }
+
+    public function verifyTableAccess(): void
+    {
+        if (!$this->selectedTableId || !Auth::check()) return;
+
+        $table = Table::where('tenant_id', $this->tenant->id)->find($this->selectedTableId);
+
+        if ($table && $table->status === 'free') {
+            $tableEverHadOrders = Order::where('table_id', $table->id)->exists();
+
+            if ($tableEverHadOrders && !$table->hasOpenBillableOrders()) {
+                $this->clearTableSession();
+                $this->dispatch('notify', message: 'Voce foi liberado da mesa.');
             }
         }
     }
@@ -225,7 +256,7 @@ class Menu extends Component
             $efi = app(EfiPixService::class);
             $txid = 'ord' . $order->id . now()->format('YmdHis') . rand(100, 999);
             $charge = $efi->createImmediateCharge($order->total, $txid, $order->customer_name ?: Auth::user()->name);
-            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? $charge['pixCopiaECola'] ?? null;
+            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
             $this->pixTxid = $charge['txid'] ?? $txid;
             if ($this->pixCopiaECola) {
                 $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
@@ -274,6 +305,11 @@ class Menu extends Component
                         'paid_at' => now(),
                         'notes' => 'Pagamento PIX confirmado via API',
                     ]);
+                }
+
+                if ($order && $order->table_id) {
+                    Table::tryFreeTable($order->table_id);
+                    $this->clearTableSession();
                 }
 
                 $this->showPixModal = false;
@@ -359,7 +395,7 @@ class Menu extends Component
             $efi = app(EfiPixService::class);
             $txid = 'clt' . $tableId . now()->format('YmdHis') . rand(100, 999);
             $charge = $efi->createImmediateCharge($pending, $txid, Auth::user()->name);
-            $this->closeTablePixCopia = $charge['pixCopiaECola'] ?? $charge['pixCopiaECola'] ?? null;
+            $this->closeTablePixCopia = $charge['pixCopiaECola'] ?? null;
             if ($this->closeTablePixCopia) {
                 $this->closeTablePixQr = $efi->generateQrCodeImage($this->closeTablePixCopia);
                 $this->showCloseTablePix = true;
@@ -408,6 +444,7 @@ class Menu extends Component
         $this->showCloseTablePix = false;
         $this->closeTablePixQr = null;
         $this->closeTablePixCopia = null;
+        $this->clearTableSession();
         $this->dispatch('orderUpdated');
         $this->dispatch('notify', message: 'Mesa liberada e pagamento confirmado!');
     }
@@ -630,11 +667,24 @@ class Menu extends Component
             ->get();
     }
 
+    public function userHasPendingPaymentOnTable(): bool
+    {
+        if (!Auth::check() || !$this->selectedTableId) return false;
+
+        return Order::where('user_id', Auth::id())
+            ->where('table_id', $this->selectedTableId)
+            ->whereNotIn('status', ['fechado', 'cancelado'])
+            ->exists();
+    }
+
     public function selectTable(int $tableId): void
     {
         if ($this->selectedTableId && $this->selectedTableId !== $tableId) {
-            $this->dispatch('notify', message: "Voce ja esta na Mesa {$this->selectedTableNumber}. A mesa so pode ser alterada no painel administrativo.");
-            return;
+            if ($this->userHasPendingPaymentOnTable()) {
+                $this->dispatch('notify', message: "Voce ja esta na Mesa {$this->selectedTableNumber}. Finalize os pedidos pendentes antes de trocar.");
+                return;
+            }
+            $this->clearTableSession();
         }
 
         $table = Table::where('tenant_id', $this->tenant->id)->find($tableId);
@@ -662,7 +712,21 @@ class Menu extends Component
 
     public function leaveTable(): void
     {
-        $this->dispatch('notify', message: 'A mesa so pode ser alterada no painel administrativo.');
+        if (!Auth::check()) return;
+
+        if ($this->userHasPendingPaymentOnTable()) {
+            $this->dispatch('notify', message: 'Existem pedidos pendentes de pagamento nesta mesa. Quite-os antes de sair ou solicite ao atendente.');
+            return;
+        }
+
+        $tableId = $this->selectedTableId;
+        $this->clearTableSession();
+
+        if ($tableId) {
+            Table::tryFreeTable($tableId);
+        }
+
+        $this->dispatch('notify', message: 'Voce saiu da mesa.');
     }
 
     public function showQrCode(): void

@@ -143,7 +143,11 @@ class TableGrid extends Component
         }
 
         if ($order->table_id && $status === 'fechado') {
-            \App\Models\Table::tryFreeTable($order->table_id);
+            $wasFreed = \App\Models\Table::tryFreeTable($order->table_id);
+            if ($wasFreed) {
+                $this->dispatch('tableFreed')->to('public.menu');
+                $this->dispatch('tableFreed')->to('public.cart');
+            }
         }
 
         $this->loadOrderDetail();
@@ -177,7 +181,7 @@ class TableGrid extends Component
             $efi = app(EfiPixService::class);
             $txid = 'pay' . $this->paymentOrderId . now()->format('YmdHis') . rand(100, 999);
             $charge = $efi->createImmediateCharge($this->paymentAmount, $txid);
-            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? $charge['pixCopiaECola'] ?? null;
+            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
             if ($this->pixCopiaECola) {
                 $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
             }
@@ -213,6 +217,7 @@ class TableGrid extends Component
             'notes' => $this->paymentNotes,
         ]);
 
+        $tableWasFreed = false;
         if ($order->pendingPaymentAmount() <= 0) {
             $order->update([
                 'status' => 'fechado',
@@ -220,7 +225,7 @@ class TableGrid extends Component
             ]);
 
             if ($order->table_id) {
-                \App\Models\Table::tryFreeTable($order->table_id);
+                $tableWasFreed = \App\Models\Table::tryFreeTable($order->table_id);
             }
         }
 
@@ -230,6 +235,12 @@ class TableGrid extends Component
         $this->paymentNotes = '';
         $this->pixQrCode = null;
         $this->pixCopiaECola = null;
+
+        if ($tableWasFreed) {
+            $this->dispatch('tableFreed')->to('public.menu');
+            $this->dispatch('tableFreed')->to('public.cart');
+        }
+
         $this->loadOrderDetail();
         $this->dispatch('orderUpdated');
         $this->dispatch('notify', message: 'Pagamento registrado com sucesso!');
@@ -282,7 +293,7 @@ class TableGrid extends Component
             $efi = app(EfiPixService::class);
             $txid = 'mesa' . $this->closeTableId . now()->format('YmdHis') . rand(100, 999);
             $charge = $efi->createImmediateCharge($this->closeTableTotal, $txid);
-            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? $charge['pixCopiaECola'] ?? null;
+            $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
             if ($this->pixCopiaECola) {
                 $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
             }
@@ -331,6 +342,8 @@ class TableGrid extends Component
             }
 
             $table->update(['status' => 'free']);
+            $this->dispatch('tableFreed')->to('public.menu');
+            $this->dispatch('tableFreed')->to('public.cart');
             $this->dispatch('notify', message: "Conta da Mesa {$table->number} fechada! R$ " . number_format($totalPending, 2, ',', '.') . " em {$closedCount} pedido(s). Pagamento: " . ($this->closeTablePaymentMethod === 'pix' ? 'PIX' : ($this->closeTablePaymentMethod === 'credit_card' ? 'Cartao Credito' : ($this->closeTablePaymentMethod === 'debit_card' ? 'Cartao Debito' : 'Dinheiro'))));
         } else {
             $this->dispatch('notify', message: "Nenhum pedido da Mesa {$table->number} pode ser fechado.");
@@ -370,6 +383,8 @@ class TableGrid extends Component
 
         $table->update(['status' => 'free']);
 
+        $this->dispatch('tableFreed')->to('public.menu');
+        $this->dispatch('tableFreed')->to('public.cart');
         $this->closeDetail();
         $this->dispatch('orderUpdated');
         $this->dispatch('notify', message: 'Mesa ' . $table->number . ' liberada!');

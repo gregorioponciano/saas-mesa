@@ -36,7 +36,7 @@
         </div>
 
         <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-            <a href="{{ route('menu.show', $tenant->slug) }}" target="_blank"
+            <a href="{{ route('menu.show', $tenant->slug) }}"
                class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs font-medium rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-all whitespace-nowrap">
                 <svg class="w-3 sm:w-3.5 h-3 sm:h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
@@ -74,7 +74,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
                         </svg>
                         <p class="text-lg font-medium text-neutral-300 mb-2">Nenhum pedido ainda</p>
-                        <a href="{{ route('menu.show', $tenant->slug) }}" target="_blank"
+                        <a href="{{ route('menu.show', $tenant->slug) }}"
                            class="inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]">
                              Fazer Pedido
                         </a>
@@ -122,7 +122,7 @@
                                             <span class="text-xs text-purple-400 font-medium">Conta fechada</span>
                                         @endif
                                         @if ($order->isFinished())
-                                            <a href="{{ route('menu.show', $tenant->slug) }}" target="_blank"
+                                            <a href="{{ route('menu.show', $tenant->slug) }}"
                                                class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-all">
                                                 Novo Pedido
                                             </a>
@@ -442,7 +442,7 @@
                         </div>
                     </div>
 
-                    <a href="{{ route('menu.show', $tenant->slug) }}" target="_blank"
+                    <a href="{{ route('menu.show', $tenant->slug) }}"
                        class="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all text-sm hover:scale-[1.02] active:scale-[0.98]">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>

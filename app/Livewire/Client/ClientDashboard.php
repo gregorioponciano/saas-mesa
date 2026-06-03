@@ -296,6 +296,9 @@ class ClientDashboard extends Component
         }
 
         Table::tryFreeTable($tableId);
+        session()->forget("table_token_{$this->tenant->id}");
+        $this->dispatch('tableFreed')->to('public.menu');
+        $this->dispatch('tableFreed')->to('public.cart');
         $this->dispatch('notify', message: 'Mesa liberada com sucesso!');
     }
 

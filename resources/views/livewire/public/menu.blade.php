@@ -1,4 +1,4 @@
-<div x-data="{ sidebarOpen: false }" class="min-h-screen flex" wire:poll.15s>
+<div x-data="{ sidebarOpen: false }" class="min-h-screen flex" wire:poll.30s>
     {{-- Backdrop --}}
     <div x-show="sidebarOpen" x-cloak
          class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
@@ -544,6 +544,19 @@
                             <p class="text-xs text-neutral-700 mt-1">Todos os pedidos desse tipo estao pagos ou finalizados</p>
                         </div>
                     @endforelse
+
+                    @if ($filterType === 'mesa' && $filteredUnpaid->count() > 0)
+                        <div class="pt-4 border-t border-neutral-800">
+                            <button wire:click="closeMyTableBill" wire:loading.attr="disabled"
+                                    class="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-neutral-950 font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-emerald-500/25 disabled:opacity-50">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <span wire:loading.remove wire:target="closeMyTableBill">Fechar Conta da Mesa</span>
+                                <span wire:loading wire:target="closeMyTableBill">Gerando PIX...</span>
+                            </button>
+                        </div>
+                    @endif
                 </div>
 
             {{-- TAB: History --}}
@@ -1059,6 +1072,70 @@
                 </div>
             </div>
 
+            {{-- Close Table PIX Modal --}}
+            <div x-data="{ open: @entangle('showCloseTablePix') }"
+                 x-init="$watch('open', val => document.body.style.overflow = val ? 'hidden' : '')"
+                 x-show="open"
+                 x-transition:enter="transition-opacity duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition-opacity duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
+                 x-cloak>
+                <div class="absolute inset-0" wire:click="cancelTablePixPayment"></div>
+                <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl"
+                     @click.stop>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold">Pagamento PIX - Mesa {{ $selectedTableNumber }}</h3>
+                        <button wire:click="cancelTablePixPayment" class="p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    @if ($generatingTablePix)
+                        <div class="flex flex-col items-center py-8">
+                            <svg class="w-12 h-12 animate-spin text-amber-400 mb-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                            <p class="text-sm text-neutral-400">Gerando QR Code PIX...</p>
+                        </div>
+                    @elseif ($closeTablePixQr)
+                        <div class="space-y-4">
+                            <p class="text-lg font-bold text-amber-400 text-center">R$ {{ number_format($tableBillTotal, 2, ',', '.') }}</p>
+                            <p class="text-sm text-neutral-400 text-center">Escaneie o QR Code para pagar</p>
+                            <div class="flex justify-center">
+                                <img src="data:image/png;base64,{{ $closeTablePixQr }}" alt="QR Code PIX" class="w-56 h-56 rounded-2xl bg-white p-2">
+                            </div>
+                            @if ($closeTablePixCopia)
+                                <div class="bg-neutral-800 rounded-xl p-3">
+                                    <p class="text-xs text-neutral-400 mb-1">PIX Copia e Cola</p>
+                                    <div class="flex gap-2">
+                                        <input type="text" readonly value="{{ $closeTablePixCopia }}"
+                                               class="flex-1 bg-neutral-700 text-xs text-neutral-300 rounded-lg px-3 py-2 border border-neutral-600 select-all"
+                                               onclick="this.select()">
+                                        <button onclick="navigator.clipboard.writeText('{{ $closeTablePixCopia }}'); this.textContent='Copiado!'; setTimeout(()=>this.textContent='Copiar', 2000)"
+                                                class="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-semibold rounded-lg transition-all shrink-0">
+                                            Copiar
+                                        </button>
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
+                        <div class="mt-6 flex gap-3">
+                            <button wire:click="cancelTablePixPayment"
+                                    class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all text-sm">
+                                Cancelar
+                            </button>
+                            <button wire:click="confirmTablePixPayment"
+                                    wire:loading.attr="disabled"
+                                    class="flex-1 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold transition-all text-sm">
+                                <span wire:loading.remove>Paguei - Confirmar</span>
+                                <span wire:loading>Confirmando...</span>
+                            </button>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
             {{-- Table Picker Modal --}}
             @if ($showTablePicker)
                 <div class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4"
@@ -1132,7 +1209,6 @@
 
                         <div class="space-y-3">
                             <a href="{{ $tableEntryUrl }}"
-                               target="_blank"
                                class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
@@ -1141,14 +1217,14 @@
                             </a>
 
                             <button wire:click="confirmTable" wire:loading.attr="disabled"
-                                     class="w-full px-6 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all disabled:opacity-50">
+                                      class="w-full px-6 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all disabled:opacity-50">
                                 Continuar no Cardapio
                             </button>
                         </div>
 
                         <p class="text-xs text-neutral-500 mt-4">
                             Ou compartilhe o link:
-                            <a href="{{ $tableEntryUrl }}" target="_blank"
+                            <a href="{{ $tableEntryUrl }}"
                                class="text-amber-400 hover:text-amber-300 underline break-all block mt-1">
                                 {{ $tableEntryUrl }}
                             </a>

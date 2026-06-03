@@ -1,4 +1,4 @@
-<div wire:poll.10s
+<div wire:poll.20s
      x-data="{
          selectedTableId: @entangle('selectedTableId'),
          init() {
@@ -246,7 +246,6 @@
                                         Novo Pedido - Mesa
                                     </button>
                                     <a href="{{ route('menu.show', ['slug' => $selectedTable->tenant->slug, 'token' => $selectedTable->token]) }}"
-                                       target="_blank"
                                        class="inline-block px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-semibold rounded-xl transition-all duration-200 text-center">
                                         Cardapio Publico
                                     </a>
