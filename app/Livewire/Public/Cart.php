@@ -479,6 +479,8 @@ class Cart extends Component
         $this->notes = '';
         $this->showCart = false;
 
+        $this->dispatch('goToMyOrders')->to('public.menu');
+
         $willGeneratePix = $this->orderType !== 'mesa' && $this->paymentMethod === 'pix' && $order;
 
         if ($willGeneratePix) {

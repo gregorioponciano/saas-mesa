@@ -1198,6 +1198,7 @@
                                     <select wire:model="paymentMethod"
                                             class="w-full px-4 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
                                         <option value="pix">Pix</option>
+                                        <option value="cash">Dinheiro</option>
                                     </select>
                                 </div>
                                 <div>

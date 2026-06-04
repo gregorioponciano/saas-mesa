@@ -482,9 +482,20 @@
                                     <span class="text-[10px] font-medium {{ $order->type === 'mesa' ? 'bg-neutral-800 text-neutral-400 border border-neutral-700' : ($order->type === 'entrega' ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20' : 'text-purple-400 bg-purple-500/10 border border-purple-500/20') }} px-1.5 py-0.5 rounded-full">
                                         {{ $typeLabel }}
                                     </span>
-                                    @if ($order->payment_method)
+                                    @php
+                                        $pendingAmount = $order->pendingPaymentAmount();
+                                        $paidPayments = $order->payments->where('status', 'paid');
+                                        $hasPaid = $paidPayments->count() > 0;
+                                        $paymentMethodOnOrder = $order->payment_method ? \App\Models\Payment::PAYMENT_METHODS[$order->payment_method] ?? $order->payment_method : null;
+                                    @endphp
+                                    @if ($paymentMethodOnOrder)
                                         <span class="text-[10px] font-medium bg-neutral-800 text-neutral-400 border border-neutral-700 px-1.5 py-0.5 rounded-full">
-                                            {{ $order->payment_method === 'pix' ? 'PIX' : ($order->payment_method === 'credit_card' ? 'Cartao' : ($order->payment_method === 'money' ? 'Dinheiro' : $order->payment_method)) }}
+                                            {{ $paymentMethodOnOrder }}
+                                        </span>
+                                    @endif
+                                    @if ($pendingAmount > 0)
+                                        <span class="text-[10px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20 px-1.5 py-0.5 rounded-full">
+                                            R$ {{ number_format($pendingAmount, 2, ',', '.') }} pendente
                                         </span>
                                     @endif
                                 </div>
@@ -501,6 +512,13 @@
                                     </div>
                                 @endforeach
                             </div>
+
+                            @if ($order->notes)
+                                <div class="mb-3 p-2.5 rounded-lg bg-neutral-800/30 border border-neutral-700/50 text-xs text-neutral-400 flex items-start gap-2">
+                                    <svg class="w-3.5 h-3.5 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
+                                    <span>{{ $order->notes }}</span>
+                                </div>
+                            @endif
 
                             <div class="pt-2 border-t border-neutral-800">
                                 <div class="flex items-center justify-between">
@@ -524,17 +542,29 @@
                                     <span class="font-bold text-amber-400">R$ {{ number_format($order->total, 2, ',', '.') }}</span>
                                 </div>
 
-                                <div class="mt-3 flex items-center gap-2 text-[11px] text-rose-400/80 bg-rose-500/5 rounded-lg px-3 py-2">
-                                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    <span>Aguardando pagamento</span>
-                                </div>
+                                {{-- Pagamentos --}}
+                                @if ($hasPaid)
+                                    @foreach ($paidPayments as $payment)
+                                        <div class="mt-2 flex items-center gap-2 text-[11px] text-emerald-400/80 bg-emerald-500/5 rounded-lg px-3 py-2">
+                                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            <span>{{ $payment->paymentMethodLabel() }} — R$ {{ number_format($payment->amount, 2, ',', '.') }} — {{ $payment->paid_at?->format('d/m H:i') }}</span>
+                                        </div>
+                                    @endforeach
+                                @else
+                                    <div class="mt-3 flex items-center gap-2 text-[11px] text-rose-400/80 bg-rose-500/5 rounded-lg px-3 py-2">
+                                        <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        <span>Aguardando pagamento</span>
+                                    </div>
+                                @endif
 
+                                @if ($pendingAmount > 0)
                                 <button wire:click="generateOrderPix({{ $order->id }})" wire:loading.attr="disabled"
                                         class="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold transition-all text-sm shadow-lg shadow-emerald-500/20">
                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                     <span wire:loading.remove wire:target="generateOrderPix({{ $order->id }})">Pagar com PIX</span>
                                     <span wire:loading wire:target="generateOrderPix({{ $order->id }})">Gerando...</span>
                                 </button>
+                                @endif
                             </div>
                         </div>
                     @empty
@@ -619,22 +649,27 @@
                             };
                         @endphp
                         <div class="p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800/80 {{ $orderPaid ? 'border-emerald-500/10' : '' }}">
-                            <div class="flex items-start justify-between mb-3">
+                                <div class="flex items-start justify-between mb-3">
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <span class="font-semibold">Pedido #{{ $order->id }}</span>
                                     <span class="text-xs text-neutral-500">{{ $order->created_at->format('d/m/Y H:i') }}</span>
                                     <span class="text-[10px] font-medium {{ $order->type === 'mesa' ? 'bg-neutral-800 text-neutral-400 border border-neutral-700' : ($order->type === 'entrega' ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20' : 'text-purple-400 bg-purple-500/10 border border-purple-500/20') }} px-1.5 py-0.5 rounded-full">
                                         {{ $typeLabel }}
                                     </span>
-                                    @if ($order->payment_method)
+                                    @php
+                                        $paymentMethodOnOrder = $order->payment_method ? \App\Models\Payment::PAYMENT_METHODS[$order->payment_method] ?? $order->payment_method : null;
+                                        $paidPayments = $order->payments->where('status', 'paid');
+                                        $hasPaid = $paidPayments->count() > 0;
+                                    @endphp
+                                    @if ($paymentMethodOnOrder)
                                         <span class="text-[10px] font-medium bg-neutral-800 text-neutral-400 border border-neutral-700 px-1.5 py-0.5 rounded-full">
-                                            {{ $order->payment_method === 'pix' ? 'PIX' : ($order->payment_method === 'credit_card' ? 'Cartao' : ($order->payment_method === 'money' ? 'Dinheiro' : $order->payment_method)) }}
+                                            {{ $paymentMethodOnOrder }}
                                         </span>
                                     @endif
                                     @if ($isEntregue)
                                         <span class="text-[10px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded-full">Entregue</span>
                                     @endif
-                                    @if ($orderPaid)
+                                    @if ($hasPaid)
                                         <span class="text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">Pago</span>
                                     @else
                                         <span class="text-[10px] font-semibold bg-neutral-800 text-neutral-500 border border-neutral-700 px-1.5 py-0.5 rounded-full">Nao Pago</span>
@@ -653,6 +688,13 @@
                                     </div>
                                 @endforeach
                             </div>
+
+                            @if ($order->notes)
+                                <div class="mb-3 p-2.5 rounded-lg bg-neutral-800/30 border border-neutral-700/50 text-xs text-neutral-400 flex items-start gap-2">
+                                    <svg class="w-3.5 h-3.5 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
+                                    <span>{{ $order->notes }}</span>
+                                </div>
+                            @endif
 
                             <div class="pt-2 border-t border-neutral-800">
                                 <div class="flex items-center justify-between">
@@ -678,14 +720,17 @@
                                     <span class="font-bold text-amber-400">R$ {{ number_format($order->total, 2, ',', '.') }}</span>
                                 </div>
 
-                                @if ($orderPaid)
-                                    <div class="mt-2 flex items-center gap-2 text-[11px] text-emerald-400/80 bg-emerald-500/5 rounded-lg px-3 py-2">
-                                        <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                        <span>Pagamento confirmado {{ $order->payments->where('status', 'paid')->first()?->paid_at ? $order->payments->where('status', 'paid')->first()->paid_at->format('d/m H:i') : '' }}</span>
-                                    </div>
+                                {{-- Pagamentos --}}
+                                @if ($hasPaid)
+                                    @foreach ($paidPayments as $payment)
+                                        <div class="mt-2 flex items-center gap-2 text-[11px] text-emerald-400/80 bg-emerald-500/5 rounded-lg px-3 py-2">
+                                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            <span>{{ $payment->paymentMethodLabel() }} — R$ {{ number_format($payment->amount, 2, ',', '.') }} — {{ $payment->paid_at?->format('d/m H:i') }}</span>
+                                        </div>
+                                    @endforeach
                                 @endif
 
-                                @if ($isEntregue && !$orderPaid)
+                                @if ($isEntregue && !$hasPaid)
                                     <div class="mt-2 flex items-center gap-2 text-[11px] text-neutral-500 bg-neutral-800/50 rounded-lg px-3 py-2">
                                         <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2-1m2 1l2-1m2 1l2-1m2-2v2a1 1 0 001 1h2m0 0a1 1 0 100 2m-2-2a1 1 0 110 2m-10-4h.01M16 12h4m0 0l-3-3m3 3l-3 3"/></svg>
                                         <span>Pedido entregue</span>

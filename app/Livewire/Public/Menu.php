@@ -45,7 +45,13 @@ class Menu extends Component
         'tableSelected' => 'onTableSelectedFromCart',
         'cartUpdated' => '$refresh',
         'tableFreed' => 'clearTableSession',
+        'goToMyOrders' => 'goToMyOrders',
     ];
+
+    public function goToMyOrders(): void
+    {
+        $this->switchClientTab('orders');
+    }
 
     public function mount($tenant): void
     {

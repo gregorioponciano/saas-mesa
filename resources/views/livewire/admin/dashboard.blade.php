@@ -1064,10 +1064,20 @@
                         <span class="text-sm text-neutral-400">Total da Mesa</span>
                         <span class="text-2xl font-bold text-amber-400">R$ {{ number_format($closeTableTotal, 2, ',', '.') }}</span>
                     </div>
-                    <p class="text-xs text-neutral-500">Pagamento via PIX. Todos os pedidos serao fechados e a mesa liberada.</p>
                 </div>
                 <div class="space-y-4">
-                    @if ($pixQrCode)
+                    <div>
+                        <label class="block text-xs font-medium text-neutral-400 mb-1.5">Forma de Pagamento</label>
+                        <select wire:model="closeTablePaymentMethod"
+                                class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                            <option value="pix">PIX</option>
+                            <option value="credit_card">Cartão de Crédito</option>
+                            <option value="debit_card">Cartão de Débito</option>
+                            <option value="cash">Dinheiro</option>
+                            <option value="other">Outro</option>
+                        </select>
+                    </div>
+                    @if ($closeTablePaymentMethod === 'pix' && $pixQrCode)
                         <x-pix-qr-code
                             :qr-code="$pixQrCode"
                             :copia-e-cola="$pixCopiaECola"
@@ -1085,7 +1095,7 @@
                             Cancelar
                         </button>
                         <div class="flex-1 flex gap-2">
-                            @if (!$pixQrCode)
+                            @if ($closeTablePaymentMethod === 'pix' && !$pixQrCode)
                                 <button wire:click="generateCloseTablePix" wire:loading.attr="disabled"
                                         class="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold transition-all flex items-center justify-center gap-2">
                                     @if ($generatingPix)
