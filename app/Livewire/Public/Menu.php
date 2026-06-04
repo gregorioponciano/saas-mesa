@@ -124,7 +124,7 @@ class Menu extends Component
     {
         return Category::where('tenant_id', $this->tenant->id)
             ->with(['products' => function ($q) {
-                $q->active()->with('attributes.options');
+                $q->active()->with('attributes.options.ingredient');
             }])
             ->orderBy('position')
             ->get();
@@ -136,7 +136,7 @@ class Menu extends Component
         if (!$this->selectedProductId) {
             return null;
         }
-        return Product::with('attributes.options')
+        return Product::with('attributes.options.ingredient')
             ->where('tenant_id', $this->tenant->id)
             ->findOrFail($this->selectedProductId);
     }
@@ -144,6 +144,7 @@ class Menu extends Component
     public function showProduct($productId): void
     {
         $this->selectedProductId = $productId;
+        $this->dispatch('product-selected');
     }
 
     public function closeProduct(): void

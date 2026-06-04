@@ -377,7 +377,7 @@
                             @else
                                 <div class="grid grid-cols-1 gap-4">
                                     @foreach ($category->products as $product)
-                                        <button wire:click="$dispatch('productSelected', {productId: {{ $product->id }}})"
+                                        <button wire:click="showProduct({{ $product->id }})"
                                                 x-data="{ added: false }"
                                                 x-show="matchProduct($el)"
                                                 data-product-card
@@ -1322,7 +1322,12 @@
                                     @foreach ($selectedProduct->attributes as $attribute)
                                         <div class="mb-5">
                                             <div class="flex items-center justify-between mb-3">
-                                                <label class="font-medium text-sm">{{ $attribute->name }}</label>
+                                                <div class="flex items-center gap-2">
+                                                    <label class="font-medium text-sm">{{ $attribute->name }}</label>
+                                                    @if ($attribute->price > 0)
+                                                        <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">R$ {{ number_format($attribute->price, 2, ',', '.') }}</span>
+                                                    @endif
+                                                </div>
                                                 @if ($attribute->is_required)
                                                     <span class="text-xs text-red-400/80">*Obrigatorio</span>
                                                 @endif
@@ -1335,27 +1340,33 @@
                                                             <div class="flex items-center gap-3">
                                                                 <input type="radio"
                                                                        name="attr_{{ $attribute->id }}"
-                                                                       value='{{ json_encode(['attribute_id' => $attribute->id, 'attribute_name' => $attribute->name, 'option_id' => $option->id, 'option_name' => $option->name, 'price_additional' => $option->price_additional]) }}'
-                                                                       class="text-amber-500 focus:ring-amber-500 bg-neutral-800 border-neutral-600"
-                                                                       {{ $loop->first ? 'checked' : '' }}>
-                                                                <span class="text-sm">{{ $option->name }}</span>
-                                                            </div>
-                                                            @if ($option->price_additional > 0)
-                                                                <span class="text-xs text-amber-400">+R$ {{ number_format($option->price_additional, 2, ',', '.') }}</span>
-                                                            @endif
-                                                        </label>
-                                                    @endforeach
-                                                </div>
-                                            @else
-                                                <div class="space-y-2">
-                                                    @foreach ($attribute->options as $option)
-                                                        <label class="flex items-center justify-between p-3 rounded-xl bg-neutral-800/40 border border-neutral-700/50 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-500/10 transition-all cursor-pointer hover:bg-neutral-800/80">
-                                                            <div class="flex items-center gap-3">
-                                                                <input type="checkbox"
-                                                                       name="attr_{{ $attribute->id }}[]"
-                                                                       value='{{ json_encode(['attribute_id' => $attribute->id, 'attribute_name' => $attribute->name, 'option_id' => $option->id, 'option_name' => $option->name, 'price_additional' => $option->price_additional]) }}'
+                                                                 value='{{ json_encode(['attribute_id' => $attribute->id, 'attribute_name' => $attribute->name, 'option_id' => $option->id, 'option_name' => $option->name, 'price_additional' => $option->price_additional, 'attribute_price' => $attribute->price]) }}'
+                                                                        class="text-amber-500 focus:ring-amber-500 bg-neutral-800 border-neutral-600"
+                                                                        {{ $loop->first ? 'checked' : '' }}>
+                                                                 <span class="text-sm">{{ $option->name }}</span>
+                                                                 @if ($option->relationLoaded('ingredient') && $option->ingredient)
+                                                                     <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">{{ $option->ingredient->name }}</span>
+                                                                 @endif
+                                                             </div>
+                                                             @if ($option->price_additional > 0)
+                                                                 <span class="text-xs text-amber-400">+R$ {{ number_format($option->price_additional, 2, ',', '.') }}</span>
+                                                             @endif
+                                                         </label>
+                                                     @endforeach
+                                                 </div>
+                                             @else
+                                                 <div class="space-y-2">
+                                                     @foreach ($attribute->options as $option)
+                                                         <label class="flex items-center justify-between p-3 rounded-xl bg-neutral-800/40 border border-neutral-700/50 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-500/10 transition-all cursor-pointer hover:bg-neutral-800/80">
+                                                             <div class="flex items-center gap-3">
+                                                                 <input type="checkbox"
+                                                                        name="attr_{{ $attribute->id }}[]"
+                                                                        value='{{ json_encode(['attribute_id' => $attribute->id, 'attribute_name' => $attribute->name, 'option_id' => $option->id, 'option_name' => $option->name, 'price_additional' => $option->price_additional, 'attribute_price' => $attribute->price]) }}'
                                                                        class="rounded text-amber-500 focus:ring-amber-500 bg-neutral-800 border-neutral-600">
                                                                 <span class="text-sm">{{ $option->name }}</span>
+                                                                @if ($option->relationLoaded('ingredient') && $option->ingredient)
+                                                                    <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">{{ $option->ingredient->name }}</span>
+                                                                @endif
                                                             </div>
                                                             @if ($option->price_additional > 0)
                                                                 <span class="text-xs text-amber-400">+R$ {{ number_format($option->price_additional, 2, ',', '.') }}</span>

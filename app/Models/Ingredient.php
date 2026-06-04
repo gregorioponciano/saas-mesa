@@ -7,23 +7,21 @@ use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Model;
 
 #[ScopedBy([TenantScope::class])]
-class ProductAttribute extends Model
+class Ingredient extends Model
 {
     protected $fillable = [
         'tenant_id',
-        'product_id',
         'name',
-        'type',
-        'is_required',
-        'price',
+        'description',
+        'category',
+        'is_active',
         'position',
     ];
 
     protected function casts(): array
     {
         return [
-            'is_required' => 'boolean',
-            'price' => 'decimal:2',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -32,13 +30,18 @@ class ProductAttribute extends Model
         return $this->belongsTo(Tenant::class);
     }
 
-    public function product()
-    {
-        return $this->belongsTo(Product::class);
-    }
-
     public function options()
     {
-        return $this->hasMany(ProductAttributeOption::class);
+        return $this->hasMany(ProductAttributeOption::class, 'ingredient_id');
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopeByCategory($query)
+    {
+        return $query->orderBy('category')->orderBy('position');
     }
 }

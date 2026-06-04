@@ -89,7 +89,8 @@ Route::middleware(['auth', 'tenant.scope', 'check.subscription', 'check.admin'])
     // Gerenciamento de entregadores cadastrados
     // Como usar: GET para '/dashboard/entregadores' ou route('dashboard.delivery-people')
     Route::get('/dashboard/entregadores', DeliveryPeopleManager::class)->name('dashboard.delivery-people');
-    
+
+
     // Configurações gerais da empresa (nome, horários, endereço, etc.)
     // Como usar: GET para '/dashboard/configuracoes' ou route('dashboard.settings')
     Route::get('/dashboard/configuracoes', Settings::class)->name('dashboard.settings');

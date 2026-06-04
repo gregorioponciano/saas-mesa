@@ -105,9 +105,12 @@
                                 @if (!empty($item['options']))
                                     <div class="flex flex-wrap gap-1 mt-1">
                                         @foreach ($item['options'] as $opt)
-                                            <span class="text-xs text-neutral-400 bg-neutral-800 px-1.5 py-0.5 rounded">{{ $opt['option_name'] ?? '' }}</span>
+                                            <span class="text-xs text-neutral-400 bg-neutral-800 px-1.5 py-0.5 rounded">{{ $opt['option_name'] ?? '' }}{{ isset($opt['price_additional']) && $opt['price_additional'] > 0 ? ' +R$'.number_format($opt['price_additional'], 2, ',', '.') : '' }}</span>
                                         @endforeach
                                     </div>
+                                    @if (($item['attribute_price_total'] ?? 0) > 0)
+                                        <p class="text-xs text-amber-400/70 mt-1">Base personalização: +R$ {{ number_format($item['attribute_price_total'], 2, ',', '.') }}</p>
+                                    @endif
                                 @endif
                                 <p class="text-xs text-neutral-400 mt-1">R$ {{ number_format($item['unit_price'], 2, ',', '.') }} un.</p>
                             </div>

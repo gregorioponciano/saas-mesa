@@ -34,14 +34,19 @@ trait HasCart
         if (isset($this->cartItems[$key])) {
             $this->cartItems[$key]['quantity'] += $quantity;
         } else {
-            $optionsTotal = collect($selectedOptions)->sum('price_additional');
+            $selected = collect($selectedOptions);
+            $optionsTotal = $selected->sum('price_additional');
+            $attributePriceTotal = $selected->pluck('attribute_id')->unique()->sum(fn($id) =>
+                (float) ($selected->firstWhere('attribute_id', $id)['attribute_price'] ?? 0)
+            );
             $this->cartItems[$key] = [
                 'product_id' => $productId,
                 'product_name' => $productName,
                 'base_price' => $price,
                 'options' => $selectedOptions,
                 'options_total' => $optionsTotal,
-                'unit_price' => $price + $optionsTotal,
+                'attribute_price_total' => $attributePriceTotal,
+                'unit_price' => $price + $optionsTotal + $attributePriceTotal,
                 'quantity' => $quantity,
             ];
         }

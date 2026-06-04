@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Category;
+use App\Models\Ingredient;
 use App\Models\Product;
 use App\Models\ProductAttribute;
 use App\Models\ProductAttributeOption;
@@ -41,6 +42,7 @@ class MenuManager extends Component
     public string $attributeName = '';
     public string $attributeType = 'single';
     public bool $attributeRequired = false;
+    public string $attributePrice = '0';
     public ?int $attributeProductId = null;
 
     public ?int $editingOptionId = null;
@@ -63,6 +65,7 @@ class MenuManager extends Component
                 'attributeName' => 'required|string|max:100',
                 'attributeType' => 'required|in:single,multiple',
                 'attributeRequired' => 'boolean',
+                'attributePrice' => 'required|numeric|min:0|max:999',
             ];
         }
         if ($this->showOptionForm) {
@@ -107,7 +110,7 @@ class MenuManager extends Component
             'showCategoryForm', 'editingCategoryId', 'categoryName', 'categorySlug', 'categoryPosition',
             'showProductForm', 'editingProductId', 'productName', 'productDescription', 'productPrice',
             'productImageUrl', 'productImage', 'productStatus', 'productCategoryId',
-            'showAttributeForm', 'editingAttributeId', 'attributeName', 'attributeType', 'attributeRequired',
+            'showAttributeForm', 'editingAttributeId', 'attributeName', 'attributeType', 'attributeRequired', 'attributePrice',
             'showOptionForm', 'editingOptionId', 'optionName', 'optionPrice',
             'confirmDeleteCategoryId', 'confirmDeleteProductId', 'confirmDeleteAttributeId',
         ]);
@@ -130,7 +133,7 @@ class MenuManager extends Component
         $this->showAttributeForm = false;
         $this->editingAttributeId = null;
         $this->reset([
-            'attributeName', 'attributeType', 'attributeRequired',
+            'attributeName', 'attributeType', 'attributeRequired', 'attributePrice',
             'showOptionForm', 'editingOptionId', 'optionName', 'optionPrice',
         ]);
         $this->resetValidation();
@@ -309,7 +312,7 @@ class MenuManager extends Component
     {
         $this->reset([
             'showAttributeForm', 'showOptionForm', 'editingAttributeId', 'editingOptionId',
-            'attributeName', 'attributeType', 'attributeRequired',
+            'attributeName', 'attributeType', 'attributeRequired', 'attributePrice',
             'optionName', 'optionPrice',
         ]);
         $this->resetValidation();
@@ -324,6 +327,7 @@ class MenuManager extends Component
         $this->attributeName = $attr->name;
         $this->attributeType = $attr->type;
         $this->attributeRequired = $attr->is_required;
+        $this->attributePrice = (string) $attr->price;
         $this->attributeProductId = $attr->product_id;
         $this->showAttributeForm = true;
     }
@@ -332,12 +336,14 @@ class MenuManager extends Component
     {
         $this->validateOnly('attributeName');
         $this->validateOnly('attributeType');
+        $this->validateOnly('attributePrice');
 
         $tenant = auth()->user()->tenant;
         $data = [
             'name' => $this->attributeName,
             'type' => $this->attributeType,
             'is_required' => $this->attributeRequired,
+            'price' => $this->attributePrice,
         ];
 
         if ($this->editingAttributeId) {
@@ -397,9 +403,18 @@ class MenuManager extends Component
         $this->validateOnly('optionName');
         $this->validateOnly('optionPrice');
 
+        $tenant = auth()->user()->tenant;
+
+        // Auto-create or find ingredient with this name for this tenant
+        $ingredient = Ingredient::firstOrCreate(
+            ['tenant_id' => $tenant->id, 'name' => $this->optionName],
+            ['position' => Ingredient::where('tenant_id', $tenant->id)->count()]
+        );
+
         $data = [
             'name' => $this->optionName,
             'price_additional' => $this->optionPrice,
+            'ingredient_id' => $ingredient->id,
         ];
 
         if ($this->editingOptionId) {
@@ -431,7 +446,7 @@ class MenuManager extends Component
 
     public function getProductsProperty()
     {
-        $query = Product::with(['category', 'attributes.options']);
+        $query = Product::with(['category', 'attributes.options.ingredient']);
         if ($this->view === 'categories') {
             $query->whereIn('category_id', $this->categories->pluck('id'));
         }

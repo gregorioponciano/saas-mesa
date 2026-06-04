@@ -85,6 +85,11 @@ class Tenant extends Model
         return $this->hasMany(DeliveryPerson::class);
     }
 
+    public function ingredients()
+    {
+        return $this->hasMany(Ingredient::class);
+    }
+
     public function isActive(): bool
     {
         return in_array($this->status, ['active', 'trial']);
