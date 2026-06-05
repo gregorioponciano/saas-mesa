@@ -29,7 +29,7 @@ class SidebarCounts extends Component
     #[Computed]
     public function usersCount(): int
     {
-        return User::count();
+        return User::where('tenant_id', Auth::user()->tenant_id)->count();
     }
 
     #[Computed]
