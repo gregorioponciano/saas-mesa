@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/image/imgem.png" alt="MarioBET Logo" width="500">
+  <img src="public/image/imagem.png" alt="MarioBET Logo" width="500">
 </p>
 
 
