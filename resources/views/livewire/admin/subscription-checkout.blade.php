@@ -125,7 +125,7 @@
             @else
                 <form method="POST" action="{{ route('subscription.checkout.store') }}">
                     @csrf
-                    <input type="hidden" name="plan" value="paid">
+                    <input type="hidden" name="plan" value="premium">
                     <button type="submit"
                             class="w-full py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
                         Assinar Premium

@@ -145,6 +145,11 @@ class Tenant extends Model
         return $this->status === 'suspended';
     }
 
+    public function efiCredentials()
+    {
+        return $this->hasOne(TenantEfiCredentials::class);
+    }
+
     public function isOpen(): bool
     {
         if (!$this->opening_time || !$this->closing_time) {

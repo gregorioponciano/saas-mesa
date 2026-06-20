@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\SubscriptionController;
+use App\Http\Controllers\Webhook\SaasWebhookController;
+use App\Http\Controllers\Webhook\TenantWebhookController;
 use App\Livewire\Admin\CouponManager;
 use App\Livewire\Admin\Dashboard;
 use App\Livewire\Admin\DeliveryPeopleManager;
@@ -95,9 +97,14 @@ Route::middleware(['auth', 'tenant.scope', 'check.subscription', 'check.admin'])
     // Como usar: GET para '/dashboard/configuracoes' ou route('dashboard.settings')
     Route::get('/dashboard/configuracoes', Settings::class)->name('dashboard.settings');
 
+    // Credenciais EfiBank do tenant (receber pagamentos dos clientes)
+    // Como usar: GET para '/dashboard/efi-credentials' ou route('dashboard.efi-credentials')
+    Route::get('/dashboard/efi-credentials', \App\Livewire\Admin\EfiCredentialsManager::class)
+        ->name('dashboard.efi-credentials');
+
     // Tela de checkout de assinatura do plano da plataforma
     // Como usar: GET para '/subscription' ou route('subscription.checkout')
-    Route::get('/subscription', SubscriptionCheckout::class)->name('subscription.checkout');
+    Route::get('/subscription', [\App\Http\Controllers\SubscriptionController::class, 'checkout'])->name('subscription.checkout');
 
     // Processa o pagamento/ativação da assinatura da empresa
     // Como usar: POST para '/subscription' enviando os dados de pagamento
@@ -191,3 +198,15 @@ Route::middleware(['auth', 'tenant.scope'])->prefix('/conta')->group(function ()
         return view('client-panel', ['tenant' => $slug]);
     })->name('client.panel');
 });
+
+/**
+ * --------------------------------------------------------------------------
+ * Webhooks EfiBank (sem CSRF, com validação HMAC)
+ * --------------------------------------------------------------------------
+ */
+Route::prefix('webhook/efi')
+    ->middleware(['validate.webhook.signature'])
+    ->group(function () {
+        Route::post('/saas', [SaasWebhookController::class, 'handle']);
+        Route::post('/tenant/{tenantId}', [TenantWebhookController::class, 'handle']);
+    });

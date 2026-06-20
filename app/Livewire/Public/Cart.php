@@ -9,7 +9,7 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Table;
 use App\Models\UserAddress;
-use App\Services\EfiPixService;
+use App\Services\EfiBank\TenantEfiBankService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -527,13 +527,14 @@ class Cart extends Component
         $this->pixPaymentErrorMsg = '';
 
         try {
-            $efi = app(EfiPixService::class);
             $txid = 'ped' . $order->id . now()->format('YmdHis') . rand(100, 999);
-            $charge = $efi->createImmediateCharge($order->total, $txid, $order->customer_name);
+            $charge = app(TenantEfiBankService::class)->generatePixChargeData(
+                $this->tenant, $order->total, $txid, $order->customer_name
+            );
             $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
             $this->pixTxid = $charge['txid'] ?? $txid;
+            $this->pixQrCode = $charge['qrcode'] ?? null;
             if ($this->pixCopiaECola) {
-                $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
                 $this->showPixCheckoutModal = true;
             }
         } catch (\Throwable $e) {
@@ -557,10 +558,10 @@ class Cart extends Component
         }
 
         try {
-            $efi = app(EfiPixService::class);
-            $charge = $efi->verifyPayment($this->pixTxid);
+            $client = \App\Services\EfiBank\EfiBankClient::forTenant($this->tenant);
+            $charge = $client->pixGetCharge($this->pixTxid);
 
-            if ($efi->paymentIsConfirmed($charge)) {
+            if (($charge['status'] ?? '') === 'CONCLUIDA') {
                 $this->pixPaymentConfirmed = true;
                 $this->pixPaymentError = false;
 

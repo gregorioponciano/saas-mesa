@@ -1,9 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Http\Middleware\CheckAdminRole;
 use App\Http\Middleware\CheckStaffRole;
 use App\Http\Middleware\CheckSubscription;
+use App\Http\Middleware\CheckTenantSubscription;
+use App\Http\Middleware\ResolveTenant;
+use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\TenantScopeMiddleware;
+use App\Http\Middleware\ValidateWebhookSignature;
+use App\Models\SaasSubscription;
+use App\Observers\SaasSubscriptionObserver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -22,9 +30,25 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'tenant.scope' => TenantScopeMiddleware::class,
             'check.subscription' => CheckSubscription::class,
+            'check.tenant.subscription' => CheckTenantSubscription::class,
             'check.admin' => CheckAdminRole::class,
             'check.staff' => CheckStaffRole::class,
             'staff.access' => \App\Http\Middleware\EnsureStaffAccess::class,
+            'resolve.tenant' => ResolveTenant::class,
+            'security.headers' => SecurityHeaders::class,
+            'validate.webhook.signature' => ValidateWebhookSignature::class,
+        ]);
+
+        $middleware->api(prepend: [
+            SecurityHeaders::class,
+        ]);
+
+        $middleware->web(prepend: [
+            SecurityHeaders::class,
+        ]);
+
+        $middleware->validateCsrfTokens(except: [
+            'webhook/efi/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

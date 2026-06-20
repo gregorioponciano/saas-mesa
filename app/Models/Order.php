@@ -3,12 +3,17 @@
 namespace App\Models;
 
 use App\Scopes\TenantScope;
+use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 #[ScopedBy([TenantScope::class])]
 class Order extends Model
 {
+    /** @use HasFactory<OrderFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'tenant_id',
         'user_id',
@@ -28,6 +33,9 @@ class Order extends Model
         'payment_change',
         'delivery_person_id',
         'delivery_cost',
+        'payment_status',
+        'efi_charge_id',
+        'paid_at',
     ];
 
     protected function casts(): array

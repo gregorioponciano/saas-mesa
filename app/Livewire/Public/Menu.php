@@ -9,7 +9,7 @@ use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Table;
 use App\Models\UserAddress;
-use App\Services\EfiPixService;
+use App\Services\EfiBank\TenantEfiBankService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -260,13 +260,14 @@ class Menu extends Component
         $this->pixPaymentErrorMsg = '';
 
         try {
-            $efi = app(EfiPixService::class);
             $txid = 'ord' . $order->id . now()->format('YmdHis') . rand(100, 999);
-            $charge = $efi->createImmediateCharge($order->total, $txid, $order->customer_name ?: Auth::user()->name);
+            $charge = app(TenantEfiBankService::class)->generatePixChargeData(
+                $this->tenant, $order->total, $txid, $order->customer_name ?: Auth::user()->name
+            );
             $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
             $this->pixTxid = $charge['txid'] ?? $txid;
+            $this->pixQrCode = $charge['qrcode'] ?? null;
             if ($this->pixCopiaECola) {
-                $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
                 $this->showPixModal = true;
             }
         } catch (\Throwable $e) {
@@ -294,10 +295,10 @@ class Menu extends Component
         }
 
         try {
-            $efi = app(EfiPixService::class);
-            $charge = $efi->verifyPayment($this->pixTxid);
+            $client = \App\Services\EfiBank\EfiBankClient::forTenant($this->tenant);
+            $charge = $client->pixGetCharge($this->pixTxid);
 
-            if ($efi->paymentIsConfirmed($charge)) {
+            if (($charge['status'] ?? '') === 'CONCLUIDA') {
                 $this->pixPaymentConfirmed = true;
                 $this->pixPaymentError = false;
 
@@ -399,12 +400,13 @@ class Menu extends Component
         $this->closeTablePixCopia = null;
 
         try {
-            $efi = app(EfiPixService::class);
             $txid = 'clt' . $tableId . now()->format('YmdHis') . rand(100, 999);
-            $charge = $efi->createImmediateCharge($pending, $txid, Auth::user()->name);
+            $charge = app(TenantEfiBankService::class)->generatePixChargeData(
+                $this->tenant, $pending, $txid, Auth::user()->name
+            );
             $this->closeTablePixCopia = $charge['pixCopiaECola'] ?? null;
+            $this->closeTablePixQr = $charge['qrcode'] ?? null;
             if ($this->closeTablePixCopia) {
-                $this->closeTablePixQr = $efi->generateQrCodeImage($this->closeTablePixCopia);
                 $this->showCloseTablePix = true;
             }
         } catch (\Throwable $e) {

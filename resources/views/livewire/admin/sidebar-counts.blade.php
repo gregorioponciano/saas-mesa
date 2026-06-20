@@ -114,6 +114,14 @@
             Ver Cardápio
         </a>
 
+        <a href="{{ route('dashboard.efi-credentials') }}"
+           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ request()->routeIs('dashboard.efi-credentials') ? 'bg-amber-500/10 text-amber-400' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50' }}">
+            <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+            </svg>
+            Pagamento EfiBank
+        </a>
+
         <div class="pt-4 mt-4 border-t border-neutral-800">
             <p class="px-4 text-xs font-medium text-neutral-500 uppercase tracking-wider">Assinatura</p>
         </div>

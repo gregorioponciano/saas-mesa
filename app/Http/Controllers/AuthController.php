@@ -1,18 +1,31 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
+use App\Models\SaasPlan;
+use App\Models\SaasSubscription;
 use App\Models\Table;
 use App\Models\Tenant;
+use App\Models\TenantBillingConfig;
 use App\Models\User;
+use App\Services\SubscriptionService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class AuthController extends Controller
 {
+    public function __construct(
+        private readonly SubscriptionService $subscriptionService
+    ) {}
+
     public function loginForm(): View|RedirectResponse
     {
         if (Auth::check()) {
@@ -31,7 +44,6 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
-
             $user = Auth::user()->load('tenant');
             return $this->redirectByRole($user);
         }
@@ -60,14 +72,16 @@ class AuthController extends Controller
             'password' => ['required', 'confirmed', 'min:8'],
         ]);
 
-        DB::transaction(function () use ($validated) {
+        $freePlan = SaasPlan::where('slug', 'free')->first();
+
+        DB::transaction(function () use ($validated, $freePlan) {
             $tenant = Tenant::create([
                 'name' => $validated['tenant_name'],
                 'email' => $validated['tenant_email'],
                 'slug' => $validated['slug'],
                 'plan' => Tenant::PLAN_FREE,
                 'max_tables' => Tenant::PLAN_MAX_TABLES[Tenant::PLAN_FREE],
-                'status' => 'active',
+                'status' => 'trial',
             ]);
 
             $user = User::create([
@@ -76,6 +90,26 @@ class AuthController extends Controller
                 'email' => $validated['email'],
                 'password' => $validated['password'],
                 'role' => 'admin',
+            ]);
+
+            if ($freePlan) {
+                SaasSubscription::create([
+                    'tenant_id' => $tenant->id,
+                    'plan_id' => $freePlan->id,
+                    'status' => 'trial',
+                    'trial_ends_at' => now()->addDays(7),
+                    'current_period_start' => now(),
+                    'current_period_end' => now()->addMonth(),
+                    'next_billing_date' => now()->addMonth(),
+                ]);
+            }
+
+            TenantBillingConfig::create([
+                'tenant_id' => $tenant->id,
+                'billing_type' => 'fixed',
+                'monthly_fee_cents' => 0,
+                'billing_day' => 1,
+                'is_active' => false,
             ]);
 
             $tableCount = min($tenant->maxTablesAllowed(), 10);
@@ -171,6 +205,27 @@ class AuthController extends Controller
         $request->session()->regenerate();
 
         return redirect()->route('menu.show', $slug->slug);
+    }
+
+    public function refreshToken(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+
+        $request->session()->regenerate();
+
+        return response()->json([
+            'message' => 'Token refreshed',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+            ],
+        ]);
     }
 
     private function redirectByRole($user): RedirectResponse

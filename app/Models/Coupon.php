@@ -3,12 +3,17 @@
 namespace App\Models;
 
 use App\Scopes\TenantScope;
+use Database\Factories\CouponFactory;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 #[ScopedBy([TenantScope::class])]
 class Coupon extends Model
 {
+    /** @use HasFactory<CouponFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'tenant_id',
         'code',

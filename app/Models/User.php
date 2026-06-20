@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Database\Factories\UserFactory;
@@ -16,17 +18,20 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
+    public const ROLE_SUPERADMIN = 'superadmin';
     public const ROLE_ADMIN = 'admin';
     public const ROLE_ATENDENTE = 'atendente';
     public const ROLE_CLIENTE = 'cliente';
 
     public const ROLE_LABELS = [
+        self::ROLE_SUPERADMIN => 'Super Admin',
         self::ROLE_ADMIN => 'Administrador',
         self::ROLE_ATENDENTE => 'Atendente',
         self::ROLE_CLIENTE => 'Cliente',
     ];
 
     public const ROLE_COLORS = [
+        self::ROLE_SUPERADMIN => 'bg-red-500/10 text-red-400 border border-red-500/20',
         self::ROLE_ADMIN => 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
         self::ROLE_ATENDENTE => 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
         self::ROLE_CLIENTE => 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
@@ -62,9 +67,14 @@ class User extends Authenticatable
         return $this->hasOne(UserAddress::class)->where('is_default', true);
     }
 
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === self::ROLE_SUPERADMIN;
+    }
+
     public function isAdmin(): bool
     {
-        return $this->role === self::ROLE_ADMIN;
+        return in_array($this->role, [self::ROLE_ADMIN, self::ROLE_SUPERADMIN]);
     }
 
     public function isAtendente(): bool
@@ -79,12 +89,13 @@ class User extends Authenticatable
 
     public function isStaff(): bool
     {
-        return $this->is_staff || $this->isAdmin();
+        return $this->is_staff || $this->isAdmin() || $this->isAtendente();
     }
 
     public function scopeStaff($query)
     {
-        return $query->where('is_staff', true)->orWhere('role', self::ROLE_ADMIN);
+        return $query->where('is_staff', true)
+            ->orWhereIn('role', [self::ROLE_ADMIN, self::ROLE_SUPERADMIN]);
     }
 
     public function scopeClients($query)

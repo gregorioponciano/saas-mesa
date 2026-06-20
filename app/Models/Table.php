@@ -3,13 +3,18 @@
 namespace App\Models;
 
 use App\Scopes\TenantScope;
+use Database\Factories\TableFactory;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 #[ScopedBy([TenantScope::class])]
 class Table extends Model
 {
+    /** @use HasFactory<TableFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'tenant_id', 'token', 'number', 'capacity', 'status', 'observation',
     ];
