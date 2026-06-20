@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\OrderPayment;
+use App\Models\SaasPaymentHistory;
 use App\Models\SaasSubscription;
 use App\Models\Tenant;
 use App\Models\WebhookLog;
@@ -120,14 +121,17 @@ class ProcessEfiBankWebhook implements ShouldQueue
                 $tenant->update(['status' => 'active']);
             }
 
-            $subscription->paymentHistory()->create([
-                'tenant_id' => $subscription->tenant_id,
-                'amount_cents' => $subscription->plan?->price_cents ?? 0,
-                'status' => 'paid',
-                'efi_charge_id' => $identifier,
-                'method' => 'pix',
-                'paid_at' => now(),
-            ]);
+            SaasPaymentHistory::updateOrCreate(
+                ['efi_charge_id' => $identifier],
+                [
+                    'subscription_id' => $subscription->id,
+                    'tenant_id' => $subscription->tenant_id,
+                    'amount_cents' => $subscription->plan?->price_cents ?? 0,
+                    'status' => 'paid',
+                    'method' => 'pix',
+                    'paid_at' => now(),
+                ]
+            );
 
             Log::info('Saas subscription activated via webhook', [
                 'subscription_id' => $subscription->id,

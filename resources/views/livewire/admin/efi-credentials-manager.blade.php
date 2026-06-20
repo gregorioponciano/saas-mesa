@@ -1,37 +1,25 @@
-<div class="p-4 lg:p-8 max-w-3xl mx-auto">
-    <div class="mb-8">
-        <h1 class="text-2xl font-bold">Configuração EfiBank</h1>
-        <p class="text-neutral-400 mt-1 text-sm">
-            Sua conta EfiBank para receber pagamentos dos clientes via PIX
-        </p>
-    </div>
+<div class="p-4 lg:p-8 space-y-6">
+    <x-admin.page-header
+        title="Configuração EfiBank"
+        subtitle="Sua conta EfiBank para receber pagamentos dos clientes via PIX"
+    />
 
     {{-- Status atual --}}
     @if ($has_credentials && !$saved && !$error)
-        <div class="mb-8 p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
-            <div class="flex items-start gap-4">
-                <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
-                    <svg class="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                    </svg>
-                </div>
-                <div>
-                    <h3 class="font-semibold text-emerald-400">Credenciais configuradas</h3>
-                    <p class="text-sm text-neutral-400 mt-1">
-                        Client ID: <span class="font-mono text-neutral-300">{{ $masked_client_id }}</span><br>
-                        Pix: <span class="font-mono text-neutral-300">{{ $masked_pix_key ?? '---' }}</span><br>
-                        Ambiente: <span class="font-semibold text-neutral-300">{{ $account_type_display }}</span>
-                    </p>
-                </div>
-            </div>
-        </div>
+        <x-admin.alert variant="success">
+            <h3 class="font-semibold text-emerald-400">Credenciais configuradas</h3>
+            <p class="text-sm text-neutral-400 mt-1">
+                Client ID: <span class="font-mono text-neutral-300">{{ $masked_client_id }}</span><br>
+                Pix: <span class="font-mono text-neutral-300">{{ $masked_pix_key ?? '---' }}</span><br>
+                Ambiente: <span class="font-semibold text-neutral-300">{{ $account_type_display }}</span>
+            </p>
+        </x-admin.alert>
     @endif
 
     {{-- Teste de conexão --}}
     @if ($has_credentials)
-        <div class="mb-8">
-            <button wire:click="testConnection" wire:loading.attr="disabled"
-                    class="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-semibold rounded-xl transition-all text-sm flex items-center gap-2">
+        <div>
+            <x-admin.button wire:click="testConnection" wire:loading.attr="disabled" variant="secondary">
                 @if ($testing)
                     <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -44,48 +32,34 @@
                     </svg>
                     Testar Conexão
                 @endif
-            </button>
+            </x-admin.button>
 
             @if ($test_message)
-                <div class="mt-4 p-4 rounded-xl {{ $test_result ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20' }}">
-                    <div class="flex items-start gap-3">
-                        @if ($test_result)
-                            <svg class="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                        @else
-                            <svg class="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                        @endif
-                        <p class="text-sm">{{ $test_message }}</p>
-                    </div>
+                <div class="mt-4">
+                    <x-admin.alert variant="{{ $test_result ? 'success' : 'error' }}">
+                        {{ $test_message }}
+                    </x-admin.alert>
                 </div>
             @endif
         </div>
     @endif
 
     {{-- Formulario --}}
-    <div class="rounded-2xl bg-neutral-900/50 border border-neutral-800 p-6 lg:p-8">
+    <x-admin.card class="lg:p-8">
         <h2 class="text-lg font-semibold mb-6">
             {{ $has_credentials ? 'Atualizar Credenciais' : 'Configurar Credenciais' }}
         </h2>
 
-        {{-- Erro --}}
         @if ($error)
-            <div class="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            <x-admin.alert variant="error" class="mb-6">
                 {{ $error }}
-            </div>
+            </x-admin.alert>
         @endif
 
-        {{-- Sucesso --}}
         @if ($saved)
-            <div class="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm flex items-center gap-3">
-                <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
+            <x-admin.alert variant="success" class="mb-6">
                 Credenciais salvas com sucesso!
-            </div>
+            </x-admin.alert>
         @endif
 
         <form wire:submit="save" class="space-y-5">
@@ -153,12 +127,22 @@
                 </p>
             </div>
 
-            <input type="hidden" wire:model="account_type" value="production">
+            {{-- Ambiente --}}
+            <div>
+                <label for="account_type" class="block text-sm font-medium text-neutral-300 mb-2">
+                    Ambiente
+                </label>
+                <select id="account_type" wire:model="account_type"
+                        class="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all">
+                    <option value="production">Produção</option>
+                    <option value="sandbox">Sandbox (Testes)</option>
+                </select>
+                @error('account_type') <p class="text-red-400 text-xs mt-1">{{ $message }}</p> @enderror
+            </div>
 
             {{-- Buttons --}}
             <div class="flex items-center gap-3 pt-4">
-                <button type="submit" wire:loading.attr="disabled" wire:target="save"
-                        class="px-8 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all flex items-center gap-2 disabled:opacity-60">
+                <x-admin.button type="submit" wire:loading.attr="disabled" wire:target="save" variant="primary">
                     @if ($saving)
                         <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
@@ -171,20 +155,19 @@
                         </svg>
                         Salvar Credenciais
                     @endif
-                </button>
+                </x-admin.button>
 
                 @if ($has_credentials)
-                    <button type="button" wire:click="clearFields"
-                            class="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-semibold rounded-xl transition-all text-sm">
+                    <x-admin.button type="button" wire:click="clearFields" variant="secondary">
                         Limpar Campos
-                    </button>
+                    </x-admin.button>
                 @endif
             </div>
         </form>
-    </div>
+    </x-admin.card>
 
     {{-- Info --}}
-    <div class="mt-8 p-5 rounded-2xl bg-neutral-900/50 border border-neutral-800">
+    <x-admin.card>
         <div class="flex items-start gap-3">
             <svg class="w-5 h-5 text-neutral-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -195,5 +178,5 @@
                 <p class="mt-1">Suas credenciais são criptografadas (AES-256-GCM) antes de salvar no banco de dados. O certificado .p12 contém o certificado + chave privada em um único arquivo protegido por senha.</p>
             </div>
         </div>
-    </div>
+    </x-admin.card>
 </div>

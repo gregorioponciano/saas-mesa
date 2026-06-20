@@ -1,11 +1,11 @@
-<div class="p-4 lg:p-8 space-y-8">
-    <div>
-        <h1 class="text-2xl font-bold">Configurações</h1>
-        <p class="text-sm text-neutral-400 mt-1">Gerencie as informações do restaurante e seu perfil</p>
-    </div>
+<div class="p-4 lg:p-8 space-y-6">
+    <x-admin.page-header
+        title="Configurações"
+        subtitle="Gerencie as informações do restaurante e seu perfil"
+    />
 
     {{-- Restaurant Info --}}
-    <div class="p-6 rounded-2xl bg-neutral-900/50 border border-neutral-800">
+    <x-admin.card>
         <div class="flex items-center gap-3 mb-6">
             <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
                 <svg class="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -36,14 +36,14 @@
             </div>
             <div>
                 <label class="block text-sm font-medium text-neutral-300 mb-2">Horário de Abertura</label>
-                <input wire:model="openingTime" type="time" step="60" 
+                <input wire:model="openingTime" type="time" step="60"
                        placeholder="08:00"
                        class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('openingTime') border-red-500 @enderror">
                 @error('openingTime') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
             </div>
             <div>
                 <label class="block text-sm font-medium text-neutral-300 mb-2">Horário de Fechamento</label>
-                <input wire:model="closingTime" type="time" step="60" 
+                <input wire:model="closingTime" type="time" step="60"
                        placeholder="22:00"
                        class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('closingTime') border-red-500 @enderror">
                 @error('closingTime') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
@@ -78,16 +78,15 @@
                 @error('deliveryCostPerOrder') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
             </div>
             <div class="md:col-span-2 flex items-center gap-3 pt-2">
-                <button type="submit"
-                        class="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
+                <x-admin.button variant="primary" type="submit">
                     Salvar Restaurante
-                </button>
+                </x-admin.button>
             </div>
         </form>
-    </div>
+    </x-admin.card>
 
     {{-- User Profile --}}
-    <div class="p-6 rounded-2xl bg-neutral-900/50 border border-neutral-800">
+    <x-admin.card>
         <div class="flex items-center gap-3 mb-6">
             <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
                 <svg class="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -123,20 +122,20 @@
                 @error('passwordConfirmation') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
             </div>
             <div class="md:col-span-2 flex items-center gap-3 pt-2">
-                <button type="submit"
-                        class="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
+                <x-admin.button variant="primary" type="submit">
                     Salvar Perfil
-                </button>
+                </x-admin.button>
             </div>
         </form>
-    </div>
+    </x-admin.card>
 
     {{-- LGPD & Privacy --}}
-    <div class="p-6 rounded-2xl bg-neutral-900/50 border border-neutral-800"
-         x-data="{
-             showAccountDelete: @entangle('showAccountDeleteConfirm'),
-             showTenantDelete: @entangle('showTenantDeleteConfirm'),
-         }">
+    <x-admin.card
+        x-data="{
+            showAccountDelete: @entangle('showAccountDeleteConfirm'),
+            showTenantDelete: @entangle('showTenantDeleteConfirm'),
+        }"
+    >
         <div class="flex items-center gap-3 mb-6">
             <div class="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center">
                 <svg class="w-5 h-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -154,15 +153,10 @@
                         <h3 class="text-sm font-semibold text-neutral-200">Exportar meus dados</h3>
                         <p class="text-xs text-neutral-500 mt-1">Baixe um arquivo JSON com todos os seus dados pessoais e do restaurante.</p>
                     </div>
-                    <button wire:click="exportData"
-                            wire:loading.attr="disabled"
-                            class="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-all duration-200 shrink-0">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                        </svg>
-                        <span wire:loading.remove>Exportar</span>
-                        <span wire:loading>Exportando...</span>
-                    </button>
+                    <x-admin.button variant="secondary" wire:click="exportData" wire:loading.attr="disabled" wire:target="exportData">
+                        <span wire:loading.remove.delay wire:target="exportData">Exportar</span>
+                        <span wire:loading wire:target="exportData">Exportando...</span>
+                    </x-admin.button>
                 </div>
             </div>
 
@@ -173,13 +167,9 @@
                         <h3 class="text-sm font-semibold text-red-400">Excluir minha conta</h3>
                         <p class="text-xs text-neutral-500 mt-1">Remove seu usuario do restaurante. Pedidos feitos por voce serao anonimizados.</p>
                     </div>
-                    <button @click="$wire.openAccountDelete()"
-                            class="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all duration-200 shrink-0">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
+                    <x-admin.button variant="danger" @click="$wire.openAccountDelete()">
                         Excluir Conta
-                    </button>
+                    </x-admin.button>
                 </div>
             </div>
 
@@ -190,13 +180,9 @@
                         <h3 class="text-sm font-semibold text-red-400">Excluir restaurante e todos os dados</h3>
                         <p class="text-xs text-neutral-500 mt-1">Remove permanentemente seu restaurante, usuarios, mesas, cardapio e historico de pedidos. Esta acao nao pode ser desfeita.</p>
                     </div>
-                    <button @click="$wire.openTenantDelete()"
-                            class="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all duration-200 shrink-0">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
+                    <x-admin.button variant="danger" @click="$wire.openTenantDelete()">
                         Excluir Tudo
-                    </button>
+                    </x-admin.button>
                 </div>
             </div>
         </div>
@@ -234,14 +220,12 @@
                         @error('deleteConfirmation') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                     </div>
                     <div class="flex gap-2">
-                        <button type="button" @click="$wire.cancelAccountDelete()"
-                                class="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-all">
+                        <x-admin.button variant="secondary" type="button" @click="$wire.cancelAccountDelete()" class="flex-1">
                             Cancelar
-                        </button>
-                        <button type="submit"
-                                class="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl bg-red-500 hover:bg-red-400 text-white transition-all duration-200 disabled:opacity-50">
+                        </x-admin.button>
+                        <x-admin.button variant="danger" type="submit" class="flex-1">
                             Excluir Conta
-                        </button>
+                        </x-admin.button>
                     </div>
                 </form>
             </div>
@@ -289,17 +273,15 @@
                         @error('deleteTenantConfirmation') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                     </div>
                     <div class="flex gap-2">
-                        <button type="button" @click="$wire.cancelTenantDelete()"
-                                class="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition-all">
+                        <x-admin.button variant="secondary" type="button" @click="$wire.cancelTenantDelete()" class="flex-1">
                             Cancelar
-                        </button>
-                        <button type="submit"
-                                class="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl bg-red-500 hover:bg-red-400 text-white transition-all duration-200 disabled:opacity-50">
+                        </x-admin.button>
+                        <x-admin.button variant="danger" type="submit" class="flex-1">
                             Excluir Tudo
-                        </button>
+                        </x-admin.button>
                     </div>
                 </form>
             </div>
         </div>
-    </div>
+    </x-admin.card>
 </div>

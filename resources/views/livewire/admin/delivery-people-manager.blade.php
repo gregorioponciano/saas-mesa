@@ -1,16 +1,18 @@
-<div class="p-4 sm:p-6 lg:p-8 space-y-6">
-    {{-- Header --}}
-    <div class="flex items-center justify-between flex-wrap gap-4">
-        <div>
-            <h1 class="text-lg sm:text-2xl font-bold">Entregadores</h1>
-            <p class="text-xs sm:text-sm text-neutral-400 mt-1">Gerencie os entregadores do restaurante</p>
-        </div>
-        <button wire:click="openModal"
-                class="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all text-sm">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-            Novo Entregador
-        </button>
-    </div>
+<div class="p-4 lg:p-8 space-y-6">
+    <x-admin.page-header
+        title="Entregadores"
+        subtitle="Gerencie os entregadores do restaurante"
+    >
+        <x-slot:action>
+            <x-admin.button
+                variant="primary"
+                wire:click="openModal"
+                icon='<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>'
+            >
+                Novo Entregador
+            </x-admin.button>
+        </x-slot:action>
+    </x-admin.page-header>
 
     {{-- Search --}}
     <div class="max-w-md">
@@ -19,57 +21,55 @@
     </div>
 
     {{-- Table --}}
-    <div class="overflow-x-auto rounded-2xl bg-neutral-900/50 border border-neutral-800">
-        <table class="min-w-full divide-y divide-neutral-800">
-            <thead class="bg-neutral-900">
-                <tr>
-                    <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">Nome</th>
-                    <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">Telefone</th>
-                    <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">Status</th>
-                    <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">API Token</th>
-                    <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">Acoes</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-neutral-800">
-                @forelse ($deliveryPeople as $delivery)
-                    <tr class="hover:bg-neutral-800/50 transition-colors">
-                        <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium">{{ $delivery->name }}</td>
-                        <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-neutral-400">{{ $delivery->phone }}</td>
-                        <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                            <span class="px-2 py-0.5 text-xs font-medium rounded-full {{ $delivery->isActive() ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-neutral-500/10 text-neutral-400 border border-neutral-500/20' }}">
-                                {{ $delivery->isActive() ? 'Ativo' : 'Inativo' }}
-                            </span>
-                        </td>
-                        <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm">
-                            @if ($delivery->api_token)
-                                <span class="text-xs text-emerald-400">Gerado</span>
-                            @else
-                                <button wire:click="generateToken({{ $delivery->id }})"
-                                        class="px-2 py-1 text-xs font-medium rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-all">
-                                    Gerar Token
-                                </button>
-                            @endif
-                        </td>
-                        <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm space-x-2">
-                            <button wire:click="openModal({{ $delivery->id }})"
-                                    class="px-2.5 py-1 text-xs font-medium rounded-lg bg-neutral-800 text-neutral-300 border border-neutral-700 hover:bg-neutral-700 transition-all">
-                                Editar
-                            </button>
-                            <button wire:click="delete({{ $delivery->id }})"
-                                    wire:confirm="Remover entregador?"
-                                    class="px-2.5 py-1 text-xs font-medium rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all">
-                                Remover
-                            </button>
-                        </td>
-                    </tr>
-                @empty
+    <x-admin.card :padding="false">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-neutral-800">
+                <thead class="bg-neutral-900">
                     <tr>
-                        <td colspan="5" class="px-6 py-8 text-center text-neutral-500">Nenhum entregador cadastrado</td>
+                        <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">Nome</th>
+                        <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">Telefone</th>
+                        <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">Status</th>
+                        <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">API Token</th>
+                        <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">Acoes</th>
                     </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+                </thead>
+                <tbody class="divide-y divide-neutral-800">
+                    @forelse ($deliveryPeople as $delivery)
+                        <tr class="hover:bg-neutral-800/50 transition-colors">
+                            <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium">{{ $delivery->name }}</td>
+                            <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-neutral-400">{{ $delivery->phone }}</td>
+                            <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                                <x-admin.badge variant="{{ $delivery->isActive() ? 'success' : 'neutral' }}">
+                                    {{ $delivery->isActive() ? 'Ativo' : 'Inativo' }}
+                                </x-admin.badge>
+                            </td>
+                            <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm">
+                                @if ($delivery->api_token)
+                                    <span class="text-xs text-emerald-400">Gerado</span>
+                                @else
+                                    <x-admin.button variant="ghost" wire:click="generateToken({{ $delivery->id }})" class="px-2 py-1 text-xs rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20">
+                                        Gerar Token
+                                    </x-admin.button>
+                                @endif
+                            </td>
+                            <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm space-x-2">
+                                <x-admin.button variant="secondary" wire:click="openModal({{ $delivery->id }})" class="px-2.5 py-1 text-xs rounded-lg">
+                                    Editar
+                                </x-admin.button>
+                                <x-admin.button variant="danger" wire:click="delete({{ $delivery->id }})" wire:confirm="Remover entregador?" class="px-2.5 py-1 text-xs rounded-lg">
+                                    Remover
+                                </x-admin.button>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" class="px-6 py-8 text-center text-neutral-500">Nenhum entregador cadastrado</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </x-admin.card>
 
     @if ($deliveryPeople->hasPages())
         <div class="mt-4">

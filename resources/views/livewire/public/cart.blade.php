@@ -8,7 +8,7 @@
      @keydown.window.escape="open = false">
 
     {{-- Floating Cart Button --}}
-    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40"
+    <div class="fixed bottom-5 left-1/2 -translate-x-1/2 z-40"
          x-data="{ pulse: false }"
          x-show="!open"
          x-transition:enter="transition ease-out duration-300"
@@ -17,33 +17,31 @@
          x-init="$wire.$on('cartUpdated', () => { pulse = true; setTimeout(() => pulse = false, 600); })"
          x-cloak>
         <button @click="open = !open"
-                class="flex items-center gap-3 px-6 py-3.5 rounded-full font-semibold shadow-2xl transition-all duration-200 hover:scale-105 active:scale-95"
-                :class="pulse ? 'bg-emerald-500 text-neutral-950 shadow-emerald-500/40 scale-110' : 'bg-gradient-to-r from-amber-500 to-amber-400 text-neutral-950 shadow-amber-500/25'">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                class="group flex items-center gap-2.5 px-5 py-3 rounded-2xl font-semibold shadow-2xl transition-all duration-200 hover:scale-105 active:scale-95 border"
+                :class="pulse ? 'bg-emerald-500 text-neutral-950 border-emerald-400 shadow-emerald-500/40 scale-110' : 'bg-neutral-900/95 text-white border-neutral-700/80 shadow-black/40 hover:border-amber-500/50 hover:shadow-amber-500/10'">
+            <svg class="w-5 h-5 shrink-0" :class="pulse ? 'text-neutral-950' : 'text-amber-400 group-hover:text-amber-300'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
             </svg>
-            <span class="hidden xs:inline">
+            @if (!empty($cartItems))
                 @php $firstItem = collect($cartItems)->first(); @endphp
-                @if (!empty($cartItems))
-                    {{ $firstItem['product_name'] }}
-                @elseif ($lastOrderId && $orderTracking)
-                    Pedido #{{ $lastOrderId }}
-                @else
-                    Ver Carrinho
-                @endif
-            </span>
-            <span class="flex items-center justify-center min-w-[22px] h-[22px] rounded-full bg-neutral-950 text-amber-400 text-xs font-bold px-1">
-                {{ $itemsCount > 0 ? $itemsCount : ($lastOrderId ? '#' . $lastOrderId : '0') }}
-            </span>
-            <span class="text-sm opacity-80">
-                @if (!empty($cartItems))
+                <span class="hidden sm:inline text-sm max-w-[120px] truncate">{{ $firstItem['product_name'] }}</span>
+                <span class="flex items-center justify-center min-w-[24px] h-[24px] rounded-full font-bold text-xs px-1.5 {{ pulse ? 'bg-neutral-950 text-emerald-400' : 'bg-amber-500/15 text-amber-400 border border-amber-500/30' }}">
+                    {{ $itemsCount }}
+                </span>
+                <span class="text-sm font-bold {{ pulse ? 'text-neutral-950' : 'text-amber-400' }}">
                     R$ {{ number_format($total, 2, ',', '.') }}
-                @elseif ($lastOrderId && $orderTracking)
+                </span>
+            @elseif ($lastOrderId && $orderTracking)
+                <span class="text-sm">Pedido #{{ $lastOrderId }}</span>
+                <span class="text-xs {{ pulse ? 'text-neutral-950' : 'text-neutral-400' }}">
                     {{ $orderTracking['statusLabel'] }}
-                @else
-                    R$ 0,00
-                @endif
-            </span>
+                </span>
+            @else
+                <span class="text-sm">Ver Carrinho</span>
+                <span class="flex items-center justify-center min-w-[24px] h-[24px] rounded-full bg-neutral-800 text-neutral-400 text-xs font-bold px-1.5 border border-neutral-700">
+                    0
+                </span>
+            @endif
         </button>
     </div>
 
@@ -55,7 +53,7 @@
          x-transition:leave="transition-opacity duration-200"
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
-         class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+         class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md"
          @click="open = false"
          x-cloak></div>
 
@@ -71,20 +69,32 @@
          x-cloak>
 
         {{-- Header --}}
-        <div class="flex items-center justify-between p-6 border-b border-neutral-800 shrink-0">
-            <h2 class="text-xl font-bold">
-                @if (!empty($cartItems) && $lastOrderId && $orderTracking)
-                    Carrinho & Pedidos
-                @elseif (!empty($cartItems))
-                    Seu Pedido
-                @elseif ($lastOrderId && $orderTracking)
-                    Pedido #{{ $lastOrderId }}
-                @else
-                    Carrinho
-                @endif
-            </h2>
+        <div class="flex items-center justify-between px-5 py-4 border-b border-neutral-800 shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-base font-bold">
+                        @if (!empty($cartItems) && $lastOrderId && $orderTracking)
+                            Carrinho & Pedidos
+                        @elseif (!empty($cartItems))
+                            Seu Pedido
+                        @elseif ($lastOrderId && $orderTracking)
+                            Pedido #{{ $lastOrderId }}
+                        @else
+                            Carrinho
+                        @endif
+                    </h2>
+                    @if (!empty($cartItems))
+                        <p class="text-xs text-neutral-500">{{ $itemsCount }} item(ns) — R$ {{ number_format($total, 2, ',', '.') }}</p>
+                    @endif
+                </div>
+            </div>
             <button @click="open = false"
-                    class="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 transition-colors">
+                    class="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white transition-colors">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -389,9 +399,12 @@
                         <button wire:click="checkout"
                                 wire:loading.attr="disabled"
                                 wire:loading.class="opacity-60 scale-95"
-                                class="flex-1 px-8 py-3.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
-                            <span wire:loading.remove>Enviar Pedido</span>
-                            <span wire:loading class="flex items-center gap-2"><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Enviando...</span>
+                                class="flex-1 px-8 py-3.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-neutral-950 font-bold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:hover:scale-100">
+                            <span wire:loading.remove class="flex items-center justify-center gap-2">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                Enviar Pedido
+                            </span>
+                            <span wire:loading class="flex items-center justify-center gap-2"><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Enviando...</span>
                         </button>
                     </div>
                 </div>
@@ -457,8 +470,8 @@
                         </div>
                     @endif
 
-                    <div class="mt-4 p-4 rounded-2xl bg-neutral-800/50 border border-neutral-800 text-left">
-                        <p class="text-xs text-neutral-400 mb-3">Itens do pedido:</p>
+                    <div class="mt-4 p-4 rounded-2xl bg-neutral-800/30 border border-neutral-800 text-left">
+                        <p class="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-3">Itens do pedido</p>
                         <div class="space-y-3">
                             @foreach ($orderTracking['items'] as $item)
                                 <div class="flex items-start justify-between text-sm">
@@ -516,12 +529,14 @@
 
             {{-- Empty state --}}
             @if (empty($cartItems) && !($lastOrderId && $orderTracking))
-                <div class="text-center py-12 text-neutral-500">
-                    <svg class="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
-                    </svg>
-                    <p>Carrinho vazio</p>
-                    <p class="text-sm mt-2">Selecione um produto para comecar</p>
+                <div class="flex flex-col items-center justify-center py-16 text-neutral-500">
+                    <div class="w-20 h-20 rounded-full bg-neutral-800/50 border border-dashed border-neutral-700 flex items-center justify-center mb-5">
+                        <svg class="w-10 h-10 text-neutral-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
+                        </svg>
+                    </div>
+                    <p class="font-medium text-neutral-400">Carrinho vazio</p>
+                    <p class="text-sm mt-1.5 text-neutral-600">Selecione um produto para comecar</p>
                 </div>
             @endif
         </div>
@@ -531,21 +546,11 @@
     <div x-data="{
         open: @entangle('showAddressModal'),
         viaCepLoading: false,
-        async searchCep() {
-            let cep = $wire.newAddressZipcode.replace(/\D/g, '');
+        searchCep(event) {
+            let cep = (event?.target?.value || '').replace(/\D/g, '');
             if (cep.length !== 8) return;
             this.viaCepLoading = true;
-            try {
-                let response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-                let data = await response.json();
-                if (!data.erro) {
-                    $wire.newAddressStreet = data.logradouro || '';
-                    $wire.newAddressNeighborhood = data.bairro || '';
-                    $wire.newAddressCity = data.localidade || '';
-                    $wire.newAddressState = data.uf || '';
-                }
-            } catch (e) {}
-            this.viaCepLoading = false;
+            $wire.lookupCep(cep).then(() => this.viaCepLoading = false);
         }
     }"
          x-init="$watch('open', val => document.body.style.overflow = val ? 'hidden' : '')"
@@ -556,7 +561,7 @@
          x-transition:leave="transition-opacity duration-200"
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
-         class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
+         class="fixed inset-0 z-[80] bg-black/60 backdrop-blur-lg flex items-center justify-center p-3 sm:p-4"
          @keydown.window.escape="$wire.closeAddressModal()"
          x-cloak>
         <div class="absolute inset-0" wire:click="closeAddressModal"></div>
@@ -622,8 +627,9 @@
                 </div>
                 <div class="relative">
                     <label class="block text-xs font-medium text-neutral-400 mb-1">CEP</label>
-                    <input wire:model.blur="newAddressZipcode" type="text" placeholder="00000-000" maxlength="9"
+                    <input wire:model="newAddressZipcode" type="text" placeholder="00000-000" maxlength="9"
                            x-on:blur="searchCep"
+                           x-on:input="if ($event.target.value.replace(/\D/g, '').length === 8) searchCep($event)"
                            class="w-full px-3.5 sm:px-4 py-2.5 rounded-xl bg-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('newAddressZipcode') border-red-500 bg-red-500/10 @else border-neutral-700 @enderror">
                     <div x-show="viaCepLoading" class="absolute right-3 top-7 sm:top-8">
                         <svg class="w-4 h-4 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
@@ -655,7 +661,7 @@
          x-transition:leave="transition-opacity duration-200"
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
-         class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
+         class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-lg flex items-center justify-center p-3 sm:p-4"
          x-cloak>
         <div class="absolute inset-0" wire:click="closePixCheckoutModal"></div>
         <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl"
@@ -732,7 +738,7 @@
              x-transition:leave="transition-opacity duration-200"
              x-transition:leave-start="opacity-100"
              x-transition:leave-end="opacity-0"
-             class="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm"
+             class="fixed inset-0 z-[70] bg-black/60 backdrop-blur-lg"
              @click="closeChangeModal()"></div>
         <div x-show="open"
              x-transition:enter="transition ease-out duration-300"
@@ -768,7 +774,7 @@
         @if ($qrTableToken && $showQrModal)
         <div class="fixed inset-0 z-[80] flex items-center justify-center p-4"
              @keydown.window.escape="$wire.set('showQrModal', false)">
-            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-lg"
                  wire:click="$set('showQrModal', false)"></div>
             <div class="relative w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-3xl shadow-2xl shadow-black/60 p-8 text-center">
                 <button wire:click="$set('showQrModal', false)"

@@ -488,7 +488,25 @@ class Menu extends Component
     public function closeAddressModal(): void
     {
         $this->showAddressModal = false;
-        $this->resetAddressForm();
+    }
+
+    public function lookupCep(string $cep): void
+    {
+        $cep = preg_replace('/\D/', '', $cep);
+        if (strlen($cep) !== 8) return;
+
+        try {
+            $response = file_get_contents("https://viacep.com.br/ws/{$cep}/json/");
+            $data = json_decode($response, true);
+            if ($data && !isset($data['erro'])) {
+                $this->addrAddress = $data['logradouro'] ?? '';
+                $this->addrNeighborhood = $data['bairro'] ?? '';
+                $this->addrCity = $data['localidade'] ?? '';
+                $this->addrState = $data['uf'] ?? '';
+                $this->addrNumber = '';
+                $this->addrComplement = '';
+            }
+        } catch (\Throwable $e) {}
     }
 
     public function resetAddressForm(): void
@@ -706,6 +724,10 @@ class Menu extends Component
         $this->selectedTableToken = $table->token;
         $this->showTablePicker = false;
         $this->showQrModal = true;
+
+        if ($table->status === 'free') {
+            $table->update(['status' => 'occupied']);
+        }
 
         Session::put("table_token_{$this->tenant->id}", $table->token);
 

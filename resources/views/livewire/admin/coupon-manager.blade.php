@@ -1,20 +1,20 @@
 <div class="p-4 lg:p-8 space-y-6">
-    <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold">Cupons de Desconto</h1>
-        <button wire:click="switchTab('form')"
-                class="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-            </svg>
-            Novo Cupom
-        </button>
-    </div>
+    <x-admin.page-header title="Cupons de Desconto">
+        <x-slot:action>
+            <x-admin.button variant="primary" wire:click="switchTab('form')">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                Novo Cupom
+            </x-admin.button>
+        </x-slot:action>
+    </x-admin.page-header>
 
     {{-- List --}}
     @if ($tab === 'list')
         <div class="space-y-3">
             @forelse ($coupons as $coupon)
-                <div class="p-5 rounded-2xl bg-neutral-900/50 border border-neutral-800 hover:border-neutral-700 transition-all">
+                <x-admin.card :padding="false" class="p-5 hover:border-neutral-700 transition-all">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-4">
                             <div class="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
@@ -25,9 +25,9 @@
                             <div>
                                 <div class="flex items-center gap-2">
                                     <span class="font-bold text-lg tracking-wider">{{ $coupon->code }}</span>
-                                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full {{ $coupon->active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-neutral-500/10 text-neutral-400 border border-neutral-500/20' }}">
+                                    <x-admin.badge :variant="$coupon->active ? 'success' : 'neutral'">
                                         {{ $coupon->active ? 'Ativo' : 'Inativo' }}
-                                    </span>
+                                    </x-admin.badge>
                                 </div>
                                 <div class="flex items-center gap-3 mt-1 text-sm text-neutral-400">
                                     <span>{{ $coupon->discount_type === 'percentage' ? $coupon->discount_value . '%' : 'R$ ' . number_format($coupon->discount_value, 2, ',', '.') }}</span>
@@ -67,17 +67,16 @@
                             </button>
                         </div>
                     </div>
-                </div>
+                </x-admin.card>
             @empty
                 <div class="text-center py-16 text-neutral-500">
                     <svg class="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
                     </svg>
                     <p class="text-lg font-medium text-neutral-300 mb-2">Nenhum cupom ainda</p>
-                    <button wire:click="switchTab('form')"
-                            class="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all">
+                    <x-admin.button variant="primary" wire:click="switchTab('form')">
                         Criar Cupom
-                    </button>
+                    </x-admin.button>
                 </div>
             @endforelse
         </div>
@@ -89,7 +88,7 @@
     {{-- Form --}}
     @elseif ($tab === 'form')
         <div class="max-w-lg">
-            <div class="p-6 rounded-2xl bg-neutral-900/50 border border-neutral-800">
+            <x-admin.card>
                 <h2 class="text-lg font-bold mb-6">{{ $editingCouponId ? 'Editar Cupom' : 'Novo Cupom' }}</h2>
 
                 <form wire:submit="save" class="space-y-4">
@@ -144,18 +143,21 @@
                     </div>
 
                     <div class="flex items-center gap-3 pt-2">
-                        <button type="submit" wire:loading.attr="disabled"
-                                 class="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center gap-2">
+                        <x-admin.button variant="primary" type="submit" wire:loading.attr="disabled">
                             <span wire:loading.remove>{{ $editingCouponId ? 'Atualizar Cupom' : 'Criar Cupom' }}</span>
-                            <span wire:loading><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
-                        </button>
-                        <button type="button" wire:click="switchTab('list')"
-                                class="px-6 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all">
+                            <span wire:loading>
+                                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                </svg>
+                            </span>
+                        </x-admin.button>
+                        <x-admin.button variant="secondary" type="button" wire:click="switchTab('list')">
                             Cancelar
-                        </button>
+                        </x-admin.button>
                     </div>
                 </form>
-            </div>
+            </x-admin.card>
         </div>
     @endif
 </div>

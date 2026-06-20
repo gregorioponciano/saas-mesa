@@ -1113,9 +1113,11 @@
                 <div class="flex-1 overflow-y-auto">
                     <div class="p-5 border-b border-neutral-800">
                         <div class="flex gap-1 p-1 mb-4 rounded-xl bg-neutral-900 border border-neutral-800 w-fit">
+                            @if ($orderingTableId)
                             <button wire:click="$set('orderType', 'mesa')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all {{ $orderType === 'mesa' ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/20' : 'text-neutral-400 hover:text-white' }}">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg> Mesa
                             </button>
+                            @endif
                             <button wire:click="$set('orderType', 'entrega')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all {{ $orderType === 'entrega' ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/20' : 'text-neutral-400 hover:text-white' }}">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Entrega
                             </button>

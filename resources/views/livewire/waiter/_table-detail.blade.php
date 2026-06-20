@@ -131,17 +131,37 @@
                     @endif
                 @endif
             @else
-                <div class="text-center py-12">
-                    <div class="w-20 h-20 mx-auto mb-4 rounded-3xl bg-emerald-500/10 flex items-center justify-center">
+                <div class="text-center py-16">
+                    <div class="w-20 h-20 mx-auto mb-4 rounded-3xl bg-neutral-900 flex items-center justify-center">
                         <svg class="w-10 h-10 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </div>
-                    <p class="text-lg font-semibold text-neutral-300 mb-2">Mesa {{ $selTable?->number }} disponivel</p>
+                    <p class="text-lg font-semibold text-neutral-300 mb-1">Mesa Disponível</p>
                     <p class="text-sm text-neutral-500 mb-6">Nenhum pedido ativo para esta mesa</p>
-                    <button wire:click="startOrdering({{ $selTable?->id }}, '{{ $selTable?->number }}')" wire:loading.attr="disabled"
-                             class="inline-flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-                        Novo Pedido
-                    </button>
+                    @if ($selTable)
+                        <div class="flex flex-col gap-3">
+                            <button wire:click="startOrdering({{ $selTable->id }}, '{{ $selTable->number }}')" wire:loading.attr="disabled"
+                                     class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                Novo Pedido - Mesa
+                            </button>
+                            <a href="{{ route('menu.show', ['slug' => $selTable->tenant->slug, 'token' => $selTable->token]) }}"
+                               class="inline-block px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-semibold rounded-xl transition-all duration-200 text-center">
+                                Cardapio Publico
+                            </a>
+                            @if ($selTable->status === 'free')
+                                <button wire:click="setTableReserved({{ $selTable->id }})" wire:loading.attr="disabled"
+                                        class="w-full py-3.5 px-4 bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 font-semibold rounded-xl transition-all duration-200">
+                                    Reservar Mesa
+                                </button>
+                            @endif
+                            @if ($selTable->status === 'occupied' || $selTable->status === 'reserved')
+                                <button wire:click="setTableFree({{ $selTable->id }})" wire:loading.attr="disabled"
+                                        class="w-full py-3.5 px-4 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 font-semibold rounded-xl transition-all duration-200">
+                                    Liberar Mesa
+                                </button>
+                            @endif
+                        </div>
+                    @endif
                 </div>
             @endif
         </div>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\EfiBank;
 
+use App\Exceptions\EfiCredentialsNotConfiguredException;
 use App\Models\Tenant;
 use App\Services\EncryptedCredentialService;
 use Illuminate\Support\Facades\Http;
@@ -36,8 +37,14 @@ class EfiBankClient
 
     public static function forTenant(Tenant $tenant): self
     {
+        $efiCredentials = $tenant->efiCredentials;
+
+        if (!$efiCredentials) {
+            throw new EfiCredentialsNotConfiguredException();
+        }
+
         $credentials = app(EncryptedCredentialService::class)
-            ->decryptTenantCredentials($tenant->efiCredentials);
+            ->decryptTenantCredentials($efiCredentials);
 
         return new self([
             'client_id' => $credentials['client_id'],
@@ -188,9 +195,26 @@ class EfiBankClient
         $keyPassword = $this->config['key_password'] ?? null;
 
         if (!empty($this->config['certificate_content'])) {
-            $tmpPath = tempnam(sys_get_temp_dir(), 'efi_cert_');
-            file_put_contents($tmpPath, $this->config['certificate_content']);
-            $cert = $certPassword ? [$tmpPath, $certPassword] : $tmpPath;
+            $content = $this->config['certificate_content'];
+
+            if (str_starts_with($content, '-----BEGIN')) {
+                $tmpPath = tempnam(sys_get_temp_dir(), 'efi_cert_');
+                file_put_contents($tmpPath, $content);
+                $cert = $certPassword ? [$tmpPath, $certPassword] : $tmpPath;
+            } else {
+                $certs = [];
+                if (!openssl_pkcs12_read($content, $certs, $certPassword ?? '')) {
+                    throw new \RuntimeException('Falha ao ler certificado .p12. Verifique a senha do certificado.');
+                }
+
+                $tmpCert = tempnam(sys_get_temp_dir(), 'efi_cert_');
+                $tmpKey = tempnam(sys_get_temp_dir(), 'efi_key_');
+                file_put_contents($tmpCert, $certs['cert'] . "\n" . $certs['pkey']);
+                file_put_contents($tmpKey, $certs['pkey']);
+
+                $cert = $tmpCert;
+                $key = $tmpKey;
+            }
         } elseif (!empty($this->config['certificate_path'])) {
             $cert = $certPassword
                 ? [$this->config['certificate_path'], $certPassword]
@@ -220,17 +244,9 @@ class EfiBankClient
 
     private function url(string $type): string
     {
-        $urls = config('efibank.urls');
-
-        if ($this->config['sandbox'] ?? false) {
-            return match ($type) {
-                'pix' => 'https://pix.api.efipay.com.br/v2/',
-                'charges' => 'https://api.efipay.com.br/v1/',
-                'subscriptions' => 'https://api.efipay.com.br/v1/',
-                'oauth' => 'https://pix.api.efipay.com.br/oauth/token',
-                default => $urls[$type] ?? '',
-            };
-        }
+        $urls = $this->config['sandbox'] ?? false
+            ? config('efibank.sandbox_urls')
+            : config('efibank.urls');
 
         return $urls[$type] ?? '';
     }

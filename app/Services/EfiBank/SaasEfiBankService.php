@@ -170,23 +170,6 @@ class SaasEfiBankService
         $expired = $expiresAt && now()->isAfter($expiresAt);
 
         if ($expired) {
-            // Registra no histórico uma única vez
-            if (empty($metadata['expired_logged'])) {
-                $amount = $subscription->plan?->getTotalForMonths($metadata['months'] ?? 1) ?? 0;
-                SaasPaymentHistory::create([
-                    'subscription_id' => $subscription->id,
-                    'tenant_id' => $subscription->tenant_id,
-                    'amount_cents' => $amount,
-                    'status' => 'expired',
-                    'efi_charge_id' => $subscription->efi_charge_id,
-                    'method' => 'pix',
-                    'paid_at' => $expiresAt,
-                ]);
-                $subscription->update([
-                    'metadata' => array_merge($metadata, ['expired_logged' => true]),
-                ]);
-            }
-
             return [
                 'expired' => true,
                 'expires_at' => $expiresAt,
@@ -352,15 +335,17 @@ class SaasEfiBankService
                 }
 
                 $amountCents = $subscription->plan?->getTotalForMonths($subscription->metadata['months'] ?? 1) ?? 0;
-                SaasPaymentHistory::create([
-                    'subscription_id' => $subscription->id,
-                    'tenant_id' => $subscription->tenant_id,
-                    'amount_cents' => $amountCents,
-                    'status' => 'paid',
-                    'efi_charge_id' => $identifier,
-                    'method' => 'pix',
-                    'paid_at' => now(),
-                ]);
+                SaasPaymentHistory::updateOrCreate(
+                    ['efi_charge_id' => $identifier],
+                    [
+                        'subscription_id' => $subscription->id,
+                        'tenant_id' => $subscription->tenant_id,
+                        'amount_cents' => $amountCents,
+                        'status' => 'paid',
+                        'method' => 'pix',
+                        'paid_at' => now(),
+                    ]
+                );
 
                 Log::info('Saas subscription activated via webhook', [
                     'subscription_id' => $subscription->id,

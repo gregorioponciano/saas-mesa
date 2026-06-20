@@ -6,35 +6,22 @@
          }
      }"
      @keydown.window.escape="if (showForm) $wire.resetForm()">
-    {{-- Header --}}
-    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-            <h1 class="text-2xl font-bold">Gerenciar Usuários</h1>
-            <p class="text-sm text-neutral-400 mt-1">{{ $users->count() }} usuários cadastrados</p>
-        </div>
-        <button wire:click="openCreate"
-                class="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
-            </svg>
-            Novo Usuário
-        </button>
-    </div>
 
-    {{-- Form Modal --}}
-    @if($showForm)
-        <div class="fixed inset-0 z-60" wire:key="user-form">
-            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="resetForm"></div>
-            <div class="absolute inset-0 flex items-center justify-center p-4">
-                <div class="w-full max-w-lg p-6 rounded-2xl bg-gradient-to-br from-neutral-900 to-neutral-950 border border-neutral-800 shadow-2xl shadow-black/30">
-        <div class="flex items-center justify-between mb-6">
-            <h3 class="font-bold text-lg">{{ $editingUserId ? 'Editar' : 'Novo' }} Usuário</h3>
-            <button wire:click="resetForm" class="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 transition-colors">
+    <x-admin.page-header
+        title="Gerenciar Usuários"
+        subtitle="{{ $users->count() }} usuários cadastrados"
+    >
+        <x-slot:action>
+            <x-admin.button variant="primary" wire:click="openCreate">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
                 </svg>
-            </button>
-        </div>
+                Novo Usuário
+            </x-admin.button>
+        </x-slot:action>
+    </x-admin.page-header>
+
+    <x-admin.modal show="$toggle('showForm')" maxWidth="max-w-lg" title="{{ $editingUserId ? 'Editar' : 'Novo' }} Usuário">
         <form wire:submit="save" class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label class="block text-sm font-medium text-neutral-300 mb-2">Nome *</label>
@@ -71,21 +58,21 @@
                 @error('role') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
             </div>
             <div class="md:col-span-2 flex items-center gap-3 pt-2">
-                <button type="submit" wire:loading.attr="disabled"
-                         class="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center gap-2">
+                <x-admin.button variant="primary" type="submit" loading wire:loading.attr="disabled">
                     <span wire:loading.remove>{{ $editingUserId ? 'Atualizar' : 'Criar' }} Usuário</span>
-                    <span wire:loading><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
-                </button>
-                <button type="button" wire:click="resetForm"
-                        class="px-6 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl transition-all duration-200">
+                    <span wire:loading>
+                        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                    </span>
+                </x-admin.button>
+                <x-admin.button variant="secondary" type="button" wire:click="resetForm">
                     Cancelar
-                </button>
+                </x-admin.button>
             </div>
         </form>
-                </div>
-            </div>
-        </div>
-    @endif
+    </x-admin.modal>
 
     {{-- Users List --}}
     <div class="grid gap-3">
@@ -99,11 +86,9 @@
                     <p class="text-sm text-neutral-400">{{ $user->email }}</p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="px-3 py-1 text-xs font-semibold rounded-full {{ $user->roleColor() }}">
-                        {{ $user->roleLabel() }}
-                    </span>
+                    <x-admin.badge>{{ $user->roleLabel() }}</x-admin.badge>
                     @if ($user->is_staff && !$user->isAdmin())
-                        <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">Staff</span>
+                        <x-admin.badge variant="info">Staff</x-admin.badge>
                     @endif
                 </div>
                 <div class="flex items-center gap-1">

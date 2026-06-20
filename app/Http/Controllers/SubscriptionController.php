@@ -183,15 +183,17 @@ class SubscriptionController extends Controller
             ? \Illuminate\Support\Carbon::parse($metadata['expires_at'])
             : null;
 
-        SaasPaymentHistory::create([
-            'subscription_id' => $subscription->id,
-            'tenant_id' => $subscription->tenant_id,
-            'amount_cents' => $subscription->plan?->getTotalForMonths($metadata['months'] ?? 1) ?? 0,
-            'status' => 'expired',
-            'efi_charge_id' => $subscription->efi_charge_id,
-            'method' => 'pix',
-            'paid_at' => $expiresAt,
-        ]);
+        SaasPaymentHistory::updateOrCreate(
+            ['efi_charge_id' => $subscription->efi_charge_id],
+            [
+                'subscription_id' => $subscription->id,
+                'tenant_id' => $subscription->tenant_id,
+                'amount_cents' => $subscription->plan?->getTotalForMonths($metadata['months'] ?? 1) ?? 0,
+                'status' => 'expired',
+                'method' => 'pix',
+                'paid_at' => $expiresAt,
+            ]
+        );
     }
 
     public function checkout(): \Illuminate\View\View
@@ -209,6 +211,9 @@ class SubscriptionController extends Controller
             $pendingSubscription = SaasSubscription::find(session('payment_pending'));
             if ($pendingSubscription && $pendingSubscription->tenant_id === $tenant->id) {
                 $pendingPayment = $this->efiBankService->pixDetails($pendingSubscription);
+                if (!empty($pendingPayment['expired'])) {
+                    $this->logExpiredCharge($pendingSubscription);
+                }
                 $pendingPayment['subscription_id'] = $pendingSubscription->id;
                 $pendingPayment['plan'] = $pendingSubscription->plan;
                 $pendingPayment['created_at'] = $pendingSubscription->created_at;

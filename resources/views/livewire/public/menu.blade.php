@@ -1,7 +1,7 @@
 <div x-data="{ sidebarOpen: false }" class="min-h-screen flex" wire:poll.30s>
     {{-- Backdrop --}}
     <div x-show="sidebarOpen" x-cloak
-         class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+         class="fixed inset-0 z-40 bg-black/60 backdrop-blur-md"
          @click="sidebarOpen = false"
          x-transition:enter="transition-opacity duration-300"
          x-transition:enter-start="opacity-0"
@@ -230,10 +230,9 @@
                                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
                                 </svg>
-                                <template x-if="cartCount > 0">
-                                    <span class="absolute -top-1 -right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-amber-500 text-neutral-950 text-[8px] sm:text-[9px] font-bold flex items-center justify-center shadow-lg"
-                                          x-text="cartCount"></span>
-                                </template>
+                                <span x-show="cartCount > 0"
+                                      class="absolute -top-1 -right-1 w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-amber-500 text-neutral-950 text-[9px] font-bold flex items-center justify-center shadow-lg shadow-amber-500/30"
+                                      x-text="cartCount"></span>
                             </button>
                             @auth
                                 @if (Auth::user()->isAdmin())
@@ -891,27 +890,17 @@
                 <div x-data="{
                     open: @entangle('showAddressModal'),
                     viaCepLoading: false,
-                    async searchCep() {
-                        let cep = $wire.addrZipcode.replace(/\D/g, '');
+                    searchCep(event) {
+                        let cep = (event?.target?.value || '').replace(/\D/g, '');
                         if (cep.length !== 8) return;
                         this.viaCepLoading = true;
-                        try {
-                            let response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-                            let data = await response.json();
-                            if (!data.erro) {
-                                $wire.addrAddress = data.logradouro || '';
-                                $wire.addrNeighborhood = data.bairro || '';
-                                $wire.addrCity = data.localidade || '';
-                                $wire.addrState = data.uf || '';
-                            }
-                        } catch (e) {}
-                        this.viaCepLoading = false;
+                        $wire.lookupCep(cep).then(() => this.viaCepLoading = false);
                     }
                 }"
                      x-show="open" x-cloak
                      class="fixed inset-0 z-[70] flex items-center justify-center p-4"
                      @keydown.window.escape="$wire.closeAddressModal()">
-                    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="closeAddressModal"></div>
+                    <div class="absolute inset-0 bg-black/60 backdrop-blur-lg" wire:click="closeAddressModal"></div>
                     <div class="relative w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/60">
                         <div class="flex items-center justify-between px-5 py-4 border-b border-neutral-800">
                             <h3 class="font-bold text-sm">{{ $editingAddressId ? 'Editar' : 'Novo' }} Endereco</h3>
@@ -947,7 +936,9 @@
                                 <div class="relative">
                                     <label class="block text-xs font-medium text-neutral-400 mb-1">CEP</label>
                                     <input wire:model="addrZipcode" type="text" placeholder="00000-000" maxlength="9"
-                                           x-on:blur="searchCep" class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                           x-on:blur="searchCep"
+                                           x-on:input="if ($event.target.value.replace(/\D/g, '').length === 8) searchCep($event)"
+                                           class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
                                     <div x-show="viaCepLoading" class="absolute right-2.5 top-7"><svg class="w-4 h-4 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></div>
                                 </div>
                                 <div>
@@ -985,7 +976,7 @@
                      x-show="open" x-cloak
                      class="fixed inset-0 z-[80] flex items-center justify-center p-4"
                      @keydown.window.escape="$wire.cancelDeleteAddress()">
-                    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="cancelDeleteAddress"></div>
+                    <div class="absolute inset-0 bg-black/60 backdrop-blur-lg" wire:click="cancelDeleteAddress"></div>
                     <div class="relative w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/60 p-6 text-center">
                         <div class="w-12 h-12 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center"><svg class="w-6 h-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg></div>
                         <h3 class="font-bold text-neutral-200 mb-2">Remover Endereco?</h3>
@@ -1005,7 +996,7 @@
                      x-show="open" x-cloak
                      class="fixed inset-0 z-[80] flex items-center justify-center p-4"
                      @keydown.window.escape="$wire.cancelDeleteAccount()">
-                    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="cancelDeleteAccount"></div>
+                    <div class="absolute inset-0 bg-black/60 backdrop-blur-lg" wire:click="cancelDeleteAccount"></div>
                     <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/60 p-6">
                         <div class="flex items-center gap-3 mb-4">
                             <div class="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center shrink-0"><svg class="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg></div>
@@ -1043,7 +1034,7 @@
                  x-transition:leave="transition-opacity duration-200"
                  x-transition:leave-start="opacity-100"
                  x-transition:leave-end="opacity-0"
-                 class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
+                 class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-lg flex items-center justify-center p-3 sm:p-4"
                  x-cloak>
                 <div class="absolute inset-0" wire:click="closePixModal"></div>
                 <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl"
@@ -1127,7 +1118,7 @@
                  x-transition:leave="transition-opacity duration-200"
                  x-transition:leave-start="opacity-100"
                  x-transition:leave-end="opacity-0"
-                 class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4"
+                 class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-lg flex items-center justify-center p-3 sm:p-4"
                  x-cloak>
                 <div class="absolute inset-0" wire:click="cancelTablePixPayment"></div>
                 <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl"
@@ -1185,7 +1176,7 @@
             @if ($showTablePicker)
                 <div class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4"
                      @keydown.window.escape="$wire.set('showTablePicker', false)">
-                    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                    <div class="absolute inset-0 bg-black/60 backdrop-blur-lg"
                          wire:click="$set('showTablePicker', false)"></div>
                     <div class="relative w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-t-3xl sm:rounded-2xl shadow-2xl shadow-black/60 max-h-[80vh] flex flex-col overflow-hidden">
                         <div class="flex items-center justify-between px-6 py-4 border-b border-neutral-800 shrink-0">
@@ -1226,7 +1217,7 @@
             @if ($selectedTableId && $selectedTableToken && $showQrModal)
                 <div class="fixed inset-0 z-[60] flex items-center justify-center p-4"
                      @keydown.window.escape="$wire.set('showQrModal', false)">
-                    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                    <div class="absolute inset-0 bg-black/60 backdrop-blur-lg"
                          wire:click="$set('showQrModal', false)"></div>
                     <div class="relative w-full max-w-sm bg-neutral-900 border border-neutral-800 rounded-3xl shadow-2xl shadow-black/60 p-8 text-center">
                         <button wire:click="$set('showQrModal', false)"
@@ -1301,7 +1292,7 @@
                      x-transition:leave="transition-opacity duration-200"
                      x-transition:leave-start="opacity-100"
                      x-transition:leave-end="opacity-0"
-                     class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
+                     class="fixed inset-0 z-50 bg-black/60 backdrop-blur-lg"
                      @click="closeModal()"></div>
 
                 {{-- Modal Panel --}}
@@ -1314,7 +1305,11 @@
                      x-transition:leave-end="translate-y-full opacity-0"
                      class="fixed inset-x-0 bottom-0 max-h-[88vh] z-50 overflow-y-auto rounded-t-3xl bg-neutral-900 border-t border-neutral-800 shadow-2xl shadow-black/40">
 
-                    @if ($selectedProduct)
+                     <div class="flex justify-center pt-2 pb-1 sticky top-0 bg-neutral-900 z-10 rounded-t-3xl">
+                        <div class="w-10 h-1 rounded-full bg-neutral-700"></div>
+                     </div>
+
+                     @if ($selectedProduct)
                         <div>
                             {{-- Image Hero --}}
                             @if ($selectedProduct->image_url)

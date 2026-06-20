@@ -1,4 +1,4 @@
-<div class="p-4 lg:p-8 max-w-5xl mx-auto">
+<div class="p-4 lg:p-8 space-y-6">
     <div class="text-center mb-10">
         <h1 class="text-3xl font-bold">Escolha seu Plano</h1>
         <p class="text-neutral-400 mt-2">Escolha o plano ideal para seu negocio</p>

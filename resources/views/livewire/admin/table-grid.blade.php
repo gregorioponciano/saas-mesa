@@ -151,67 +151,89 @@
                         </button>
                     </div>
 
-                    @if ($orderDetail)
-                        @foreach ((array) $orderDetail as $detail)
-                            <div class="p-5 rounded-2xl bg-neutral-900/50 border border-neutral-800 mb-4 {{ count((array) $orderDetail) > 1 ? 'border-l-4 border-l-amber-500/50' : '' }}">
-                                <div class="flex items-center justify-between mb-4">
-                                    <div>
-                                        <p class="font-semibold text-lg">{{ $detail['customer_name'] ?? 'Cliente' }}</p>
-                                        <p class="text-xs text-neutral-500 mt-0.5">Pedido #{{ $detail['id'] }}</p>
-                                    </div>
-                                    <span class="px-3 py-1.5 text-xs font-semibold rounded-full border {{ $detail['statusColor'] }}">
-                                        {{ $detail['statusLabel'] }}
-                                    </span>
-                                </div>
+                    @if ($selectedTable && $selectedTable->status === 'occupied')
+                        <div class="flex items-center justify-between p-4 mb-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-5 h-5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+                                <span class="text-sm text-amber-300 font-medium">Compartilhe o cardápio com o cliente</span>
+                            </div>
+                            <button onclick="navigator.clipboard?.writeText('{{ route('menu.show', ['slug' => $selectedTable->tenant->slug, 'token' => $selectedTable->token]) }}'); this.textContent = 'Copiado!'; setTimeout(() => this.textContent = 'Copiar Link', 2000)"
+                                    class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-sm font-semibold transition-all shrink-0">
+                                Copiar Link
+                            </button>
+                        </div>
+                    @endif
 
-                                <div class="space-y-2 mb-4">
-                                    @foreach ($detail['items'] as $item)
-                                        <div class="flex items-center justify-between p-3 rounded-xl bg-neutral-800/50">
-                                            <div class="flex items-center gap-3">
-                                                <span class="w-6 h-6 rounded-lg bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-300">
-                                                    {{ $item['quantity'] }}
-                                                </span>
-                                                <span class="text-sm">{{ $item['product_name'] }}</span>
-                                            </div>
-                                            <span class="text-sm text-neutral-300 font-medium">
-                                                R$ {{ number_format($item['price'] * $item['quantity'], 2, ',', '.') }}
+                    @if ($orderDetail)
+                        @foreach ((array) $orderDetail as $group)
+                            <div class="p-5 rounded-2xl bg-neutral-900/50 border border-neutral-800 mb-4 {{ count((array) $orderDetail) > 1 ? 'border-l-4 border-l-amber-500/50' : '' }}">
+                                <p class="font-semibold text-lg mb-4">{{ $group['customer_name'] ?? 'Cliente' }}</p>
+
+                                @foreach ($group['orders'] as $detail)
+                                    <div class="{{ !$loop->first ? 'mt-4 pt-4 border-t border-neutral-800' : '' }}">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <p class="text-xs text-neutral-500">Pedido #{{ $detail['id'] }}</p>
+                                            <span class="px-3 py-1.5 text-xs font-semibold rounded-full border {{ $detail['statusColor'] }}">
+                                                {{ $detail['statusLabel'] }}
                                             </span>
                                         </div>
-                                    @endforeach
-                                </div>
 
-                                <div class="flex items-center justify-between pt-4 border-t border-neutral-800">
+                                        <div class="space-y-2 mb-3">
+                                            @foreach ($detail['items'] as $item)
+                                                <div class="flex items-center justify-between p-3 rounded-xl bg-neutral-800/50">
+                                                    <div class="flex items-center gap-3">
+                                                        <span class="w-6 h-6 rounded-lg bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-300">
+                                                            {{ $item['quantity'] }}
+                                                        </span>
+                                                        <span class="text-sm">{{ $item['product_name'] }}</span>
+                                                    </div>
+                                                    <span class="text-sm text-neutral-300 font-medium">
+                                                        R$ {{ number_format($item['price'] * $item['quantity'], 2, ',', '.') }}
+                                                    </span>
+                                                </div>
+                                            @endforeach
+                                        </div>
+
+                                        @php
+                                            $nextStatus = $detail['nextStatus'] ?? null;
+                                            $nextStatusLabel = $detail['nextStatusLabel'] ?? 'Avancar';
+                                            $isFechado = in_array($detail['status'], ['fechado', 'cancelado']);
+                                        @endphp
+                                        <div class="flex flex-wrap gap-2 mt-3">
+                                            @if ($nextStatus && !$isFechado)
+                                                <button wire:click="advanceOrder({{ $detail['id'] }})"
+                                                        class="flex-1 min-w-[120px] py-3 px-4 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]">
+                                                    {{ $nextStatusLabel }}
+                                                </button>
+                                            @endif
+                                            @if (in_array($detail['status'], ['novo', 'em_preparo', 'pronto']) && !$isFechado)
+                                                <button wire:click="updateOrderStatus({{ $detail['id'] }}, 'cancelado')"
+                                                        class="flex-1 min-w-[120px] py-3 px-4 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 font-semibold rounded-xl transition-all duration-200">
+                                                    Cancelar Pedido
+                                                </button>
+                                            @endif
+                                            @if (!$isFechado && in_array($detail['status'], ['entregue']) && ($detail['pending_payment'] ?? 0) > 0)
+                                                <button wire:click="openPaymentModal({{ $detail['id'] }})"
+                                                        class="flex-1 min-w-[120px] py-3 px-4 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold rounded-xl transition-all duration-200">
+                                                    Registrar Pagamento
+                                                </button>
+                                            @endif
+                                            @if (!$isFechado)
+                                                <button wire:click="openAddItem({{ $detail['id'] }})"
+                                                        class="flex-1 min-w-[120px] py-3 px-4 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 font-semibold rounded-xl transition-all duration-200">
+                                                    + Adicionar Item
+                                                </button>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+
+                                <div class="flex items-center justify-between pt-4 mt-4 border-t border-neutral-800">
                                     <span class="text-lg font-bold">Total</span>
-                                    <span class="text-xl font-bold text-amber-400">R$ {{ number_format($detail['total'], 2, ',', '.') }}</span>
+                                    <span class="text-xl font-bold text-amber-400">R$ {{ number_format($group['total'], 2, ',', '.') }}</span>
                                 </div>
 
-                                @php
-                                    $nextStatus = $detail['nextStatus'] ?? null;
-                                    $nextStatusLabel = $detail['nextStatusLabel'] ?? 'Avancar';
-                                    $isFechado = in_array($detail['status'], ['fechado', 'cancelado']);
-                                    $hasPayment = $detail['has_payment'] ?? false;
-                                @endphp
-                                <div class="flex flex-wrap gap-2 mt-4">
-                                    @if ($nextStatus && !$isFechado)
-                                        <button wire:click="advanceOrder({{ $detail['id'] }})"
-                                                class="flex-1 min-w-[120px] py-3 px-4 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]">
-                                            {{ $nextStatusLabel }}
-                                        </button>
-                                    @endif
-                                    @if (in_array($detail['status'], ['novo', 'em_preparo', 'pronto']) && !$isFechado)
-                                        <button wire:click="updateOrderStatus({{ $detail['id'] }}, 'cancelado')"
-                                                class="flex-1 min-w-[120px] py-3 px-4 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 font-semibold rounded-xl transition-all duration-200">
-                                            Cancelar Pedido
-                                        </button>
-                                    @endif
-                                    @if (!$isFechado && in_array($detail['status'], ['entregue']) && ($detail['pending_payment'] ?? 0) > 0)
-                                        <button wire:click="openPaymentModal({{ $detail['id'] }})"
-                                                class="flex-1 min-w-[120px] py-3 px-4 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold rounded-xl transition-all duration-200">
-                                            Registrar Pagamento
-                                        </button>
-                                    @endif
-                                </div>
-                                @if ($hasPayment)
+                                @if ($group['has_payment'])
                                     <div class="mt-2 text-xs text-emerald-400 font-medium">Pagamento registrado</div>
                                 @endif
                             </div>
@@ -249,6 +271,18 @@
                                        class="inline-block px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-semibold rounded-xl transition-all duration-200 text-center">
                                         Cardapio Publico
                                     </a>
+                                    @if ($selectedTable->status === 'free')
+                                        <button wire:click="setTableReserved({{ $selectedTable->id }})"
+                                                class="w-full py-3.5 px-4 bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 font-semibold rounded-xl transition-all duration-200">
+                                            Reservar Mesa
+                                        </button>
+                                    @endif
+                                    @if ($selectedTable->status === 'occupied' || $selectedTable->status === 'reserved')
+                                        <button wire:click="freeTable({{ $selectedTable->id }})"
+                                                class="w-full py-3.5 px-4 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 font-semibold rounded-xl transition-all duration-200">
+                                            Liberar Mesa
+                                        </button>
+                                    @endif
                                 </div>
                             @endif
                         </div>
@@ -384,6 +418,40 @@
         </div>
     @endif
 
+    {{-- Add Item Modal --}}
+    @if ($showAddItemModal)
+        <div class="fixed inset-0 z-[70] flex items-center justify-center p-4"
+             @keydown.window.escape="$wire.set('showAddItemModal', false)">
+            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="$set('showAddItemModal', false)"></div>
+            <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/60 p-6">
+                <h3 class="text-lg font-bold mb-4">Adicionar Item ao Pedido #{{ $addItemOrderId }}</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-neutral-400 mb-1.5">Produto</label>
+                        <select wire:model="addItemProductId"
+                                class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
+                            <option value="">Selecione...</option>
+                            @foreach ($this->availableProducts as $product)
+                                <option value="{{ $product->id }}">{{ $product->name }} - R$ {{ number_format($product->price, 2, ',', '.') }} ({{ $product->category->name }})</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-neutral-400 mb-1.5">Quantidade</label>
+                        <input wire:model="addItemQuantity" type="number" min="1" max="99"
+                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
+                    </div>
+                    <div class="flex gap-3 pt-2">
+                        <button wire:click="$set('showAddItemModal', false)"
+                                class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all">Cancelar</button>
+                        <button wire:click="addItemToOrder"
+                                class="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold transition-all">Adicionar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- New Order Modal --}}
     @if ($orderingTableId !== null || $orderType === 'entrega' || $orderType === 'retirada')
         <div class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
@@ -421,9 +489,11 @@
                 <div class="flex-1 overflow-y-auto">
                     <div class="p-5 border-b border-neutral-800">
                         <div class="flex gap-1 p-1 mb-4 rounded-xl bg-neutral-900 border border-neutral-800 w-fit">
+                            @if ($orderingTableId)
                             <button wire:click="$set('orderType', 'mesa')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all {{ $orderType === 'mesa' ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/20' : 'text-neutral-400 hover:text-white' }}">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg> Mesa
                             </button>
+                            @endif
                             <button wire:click="$set('orderType', 'entrega')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all {{ $orderType === 'entrega' ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/20' : 'text-neutral-400 hover:text-white' }}">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Entrega
                             </button>

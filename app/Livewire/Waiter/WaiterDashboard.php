@@ -11,7 +11,7 @@ use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Table;
 use App\Models\UserAddress;
-use App\Services\EfiPixService;
+use App\Services\EfiBank\TenantEfiBankService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -348,11 +348,6 @@ class WaiterDashboard extends Component
 
     public function addItemToOrder(): void
     {
-        if (!Auth::user()->isAdmin()) {
-            $this->dispatch('notify', message: 'Apenas administradores podem adicionar itens.');
-            return;
-        }
-
         $this->validate([
             'addItemProductId' => 'required|exists:products,id',
             'addItemQuantity' => 'required|integer|min:1|max:99',
@@ -433,13 +428,10 @@ class WaiterDashboard extends Component
         $this->pixCopiaECola = null;
 
         try {
-            $efi = app(EfiPixService::class);
             $txid = 'pay' . $this->paymentOrderId . now()->format('YmdHis') . rand(100, 999);
-            $charge = $efi->createImmediateCharge($this->paymentAmount, $txid);
+            $charge = app(TenantEfiBankService::class)->generatePixChargeData($this->tenant, $this->paymentAmount, $txid);
             $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
-            if ($this->pixCopiaECola) {
-                $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
-            }
+            $this->pixQrCode = $charge['qrcode'] ?? null;
         } catch (\Throwable $e) {
             $this->dispatch('notify', message: 'Erro ao gerar PIX: ' . $e->getMessage());
         }
@@ -472,23 +464,14 @@ class WaiterDashboard extends Component
             'notes' => $this->paymentNotes,
         ]);
 
-        $tableWasFreed = false;
         if ($order->pendingPaymentAmount() <= 0) {
             $order->update([
                 'status' => 'fechado',
                 'bill_closed_at' => now(),
             ]);
-            if ($order->table_id) {
-                $tableWasFreed = \App\Models\Table::tryFreeTable($order->table_id);
-            }
         }
 
         $this->showPaymentModal = false;
-
-        if ($tableWasFreed) {
-            $this->dispatch('tableFreed')->to('public.menu');
-            $this->dispatch('tableFreed')->to('public.cart');
-        }
         $this->paymentOrderId = null;
         $this->paymentAmount = 0;
         $this->paymentNotes = '';
@@ -551,13 +534,10 @@ class WaiterDashboard extends Component
         $this->pixCopiaECola = null;
 
         try {
-            $efi = app(EfiPixService::class);
             $txid = 'mesa' . $this->closeTableId . now()->format('YmdHis') . rand(100, 999);
-            $charge = $efi->createImmediateCharge($this->closeTableTotal, $txid);
+            $charge = app(TenantEfiBankService::class)->generatePixChargeData($this->tenant, $this->closeTableTotal, $txid);
             $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
-            if ($this->pixCopiaECola) {
-                $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
-            }
+            $this->pixQrCode = $charge['qrcode'] ?? null;
         } catch (\Throwable $e) {
             $this->dispatch('notify', message: 'Erro ao gerar PIX: ' . $e->getMessage());
         }
@@ -822,7 +802,7 @@ class WaiterDashboard extends Component
     {
         $this->orderingTableId = null;
         $this->orderingTableNumber = null;
-        $this->orderType = 'mesa';
+        $this->orderType = '';
         $this->deliveryAddress = '';
         $this->deliveryReference = '';
         $this->resetCart();

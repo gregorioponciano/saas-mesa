@@ -152,7 +152,7 @@
 
         {{-- Occupied Tables Detail --}}
         @if ($occupiedTablesWithOrders->count() > 0)
-        <div class="p-3 sm:p-5 rounded-2xl bg-neutral-900/50 border border-neutral-800">
+        <x-admin.card :padding="false" class="p-3 sm:p-5">
             <h2 class="text-xs sm:text-sm font-bold mb-3 flex items-center gap-2">
                     <svg class="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
@@ -173,11 +173,11 @@
                         </div>
                     @endforeach
                 </div>
-            </div>
+            </x-admin.card>
         @endif
 
         {{-- Revenue Chart & Period Filter --}}
-        <div class="p-3 sm:p-6 rounded-2xl bg-neutral-900/50 border border-neutral-800">
+        <x-admin.card :padding="false" class="p-3 sm:p-6">
             <div class="flex items-center justify-between mb-3 sm:mb-6 flex-wrap gap-2">
                 <h2 class="text-sm sm:text-lg font-bold shrink-0">Receita</h2>
                 <div class="flex gap-1 p-0.5 rounded-lg bg-neutral-800">
@@ -207,7 +207,7 @@
                     </div>
                 @endforeach
             </div>
-        </div>
+        </x-admin.card>
 
          {{-- Active Orders --}}
          <div>

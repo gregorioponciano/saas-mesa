@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Admin;
 
 use App\Models\TenantEfiCredentials;
-use App\Services\EfiBank\EfiBankClient;
+use App\Services\EfiBank\TenantEfiCredentialsService;
 use App\Services\EncryptedCredentialService;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -31,10 +31,14 @@ class EfiCredentialsManager extends Component
     public bool $saved = false;
     public ?string $error = null;
 
+    private TenantEfiCredentialsService $credentialsService;
     private EncryptedCredentialService $encryptionService;
 
-    public function boot(EncryptedCredentialService $encryptionService): void
-    {
+    public function boot(
+        TenantEfiCredentialsService $credentialsService,
+        EncryptedCredentialService $encryptionService,
+    ): void {
+        $this->credentialsService = $credentialsService;
         $this->encryptionService = $encryptionService;
     }
 
@@ -46,21 +50,14 @@ class EfiCredentialsManager extends Component
     public function loadCredentials(): void
     {
         $tenant = auth()->user()->tenant;
-        $credentials = TenantEfiCredentials::where('tenant_id', $tenant->id)->first();
+        $data = $this->credentialsService->show($tenant);
 
-        if ($credentials) {
+        if ($data['configured']) {
             $this->has_credentials = true;
-            $this->account_type = $credentials->account_type;
-            $this->account_type_display = $credentials->account_type === 'production' ? 'Produção' : 'Sandbox';
-
-            try {
-                $this->masked_client_id = $this->mask($credentials->decryptClientId());
-                if ($credentials->pix_key_encrypted) {
-                    $this->masked_pix_key = $this->mask($credentials->decryptPixKey() ?? '');
-                }
-            } catch (\Throwable) {
-                $this->masked_client_id = '*** erro ao descriptografar ***';
-            }
+            $this->account_type = $data['account_type'];
+            $this->account_type_display = $data['account_type_display'];
+            $this->masked_client_id = $data['client_id_masked'];
+            $this->masked_pix_key = $data['pix_key_masked'];
         }
     }
 
@@ -92,26 +89,13 @@ class EfiCredentialsManager extends Component
                 }
             }
 
-            $encrypted = $this->encryptionService->encryptTenantCredentials([
+            $this->credentialsService->save($tenant, [
                 'client_id' => $this->client_id,
                 'client_secret' => $this->client_secret,
                 'pix_key' => $this->pix_key,
-                'certificate_content' => $certificateContent ?? '',
+                'account_type' => $this->account_type,
                 'cert_password' => $this->cert_password,
-            ]);
-
-            TenantEfiCredentials::updateOrCreate(
-                ['tenant_id' => $tenant->id],
-                [
-                    'client_id_encrypted' => $encrypted['client_id_encrypted'],
-                    'client_secret_encrypted' => $encrypted['client_secret_encrypted'],
-                    'pix_key_encrypted' => $encrypted['pix_key_encrypted'],
-                    'certificate_content_encrypted' => $encrypted['certificate_content_encrypted'],
-                    'cert_password_encrypted' => $encrypted['cert_password_encrypted'],
-                    'account_type' => $this->account_type,
-                    'is_active' => true,
-                ]
-            );
+            ], $certificateContent);
 
             $this->saved = true;
             $this->has_credentials = true;
@@ -137,36 +121,24 @@ class EfiCredentialsManager extends Component
 
         try {
             $tenant = auth()->user()->tenant;
+            $result = $this->credentialsService->test($tenant);
 
-            $client = EfiBankClient::forTenant($tenant);
-            $token = $client->getAccessToken();
-
-            $this->test_result = true;
-            $this->test_message = 'Conexão com EfiBank estabelecida com sucesso! (' . strtoupper($this->account_type) . ')';
+            $this->test_result = $result['success'];
+            $this->test_message = $result['success']
+                ? $result['message'] . ' (' . strtoupper($this->account_type) . ')'
+                : $result['message'];
 
             $this->dispatch('notify', [
-                'type' => 'success',
+                'type' => $result['success'] ? 'success' : 'error',
                 'message' => $this->test_message,
             ]);
 
         } catch (\Throwable $e) {
             $this->test_result = false;
-            $this->test_message = 'Falha na conexão: ' . $e->getMessage();
+            $this->test_message = 'Não foi possível conectar. Verifique suas credenciais.';
         } finally {
             $this->testing = false;
         }
-    }
-
-    private function mask(?string $value): string
-    {
-        if (!$value) {
-            return '';
-        }
-        $len = mb_strlen($value);
-        if ($len <= 4) {
-            return str_repeat('*', $len);
-        }
-        return mb_substr($value, 0, 4) . str_repeat('*', $len - 4);
     }
 
     public function clearFields(): void

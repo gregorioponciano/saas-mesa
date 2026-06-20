@@ -16,28 +16,18 @@
      ">
 
     {{-- Header --}}
-    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-            <h1 class="text-2xl font-bold">Gerenciar Cardápio</h1>
-            <p class="text-sm text-neutral-400 mt-1">{{ $categories->count() }} categorias &bull; {{ $products->count() }} produtos</p>
-        </div>
-        <div class="flex gap-2">
-            <button wire:click="openCreateCategory"
-                    class="flex items-center gap-2 px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white font-medium rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/>
-                </svg>
+    <x-admin.page-header title="Gerenciar Cardápio" subtitle="{{ $categories->count() }} categorias &bull; {{ $products->count() }} produtos">
+        <x-slot:action>
+            <x-admin.button variant="secondary" wire:click="openCreateCategory"
+                icon='<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>'>
                 Nova Categoria
-            </button>
-            <button wire:click="openCreateProduct"
-                    class="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                </svg>
+            </x-admin.button>
+            <x-admin.button variant="primary" wire:click="openCreateProduct"
+                icon='<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>'>
                 Novo Produto
-            </button>
-        </div>
-    </div>
+            </x-admin.button>
+        </x-slot:action>
+    </x-admin.page-header>
 
     {{-- View Switcher --}}
     <div class="flex gap-1 p-1 rounded-2xl bg-neutral-900 border border-neutral-800 w-fit">
@@ -60,7 +50,7 @@
     {{-- ========== CATEGORIES VIEW ========== --}}
     @if ($view === 'categories')
         @forelse ($categories as $category)
-            <div class="rounded-2xl bg-neutral-900/50 border border-neutral-800 overflow-hidden">
+            <x-admin.card :padding="false" class="overflow-hidden">
                 {{-- Category Header --}}
                 <div class="flex items-center justify-between px-6 py-4 bg-neutral-900 border-b border-neutral-800">
                     <div class="flex items-center gap-3">
@@ -105,7 +95,7 @@
                 {{-- Confirm Delete Category --}}
                 @if ($confirmDeleteCategoryId === $category->id)
                     <div class="flex items-center gap-2 px-6 py-3 bg-red-500/10 border-b border-red-500/20">
-                        <span class="text-sm text-red-400">Excluir "{{ $category->name }}" e todos os seus produtos?</span>
+                        <span class="text-sm text-red-400">Excluir &quot;{{ $category->name }}&quot; e todos os seus produtos?</span>
                         <button wire:click="deleteCategory({{ $category->id }})" wire:loading.attr="disabled"
                                                                  class="px-3 py-1.5 text-xs font-bold bg-red-500 text-white rounded-lg hover:bg-red-400 disabled:opacity-50">Sim</button>
                         <button wire:click="$set('confirmDeleteCategoryId', null)"
@@ -117,7 +107,6 @@
                 <div class="divide-y divide-neutral-800">
                     @forelse ($products->where('category_id', $category->id) as $product)
                         <div class="px-6 py-4 hover:bg-neutral-800/30 transition-colors" wire:key="product-{{ $product->id }}">
-                            {{-- Product Header --}}
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-3 min-w-0 flex-1">
                                     <div class="w-10 h-10 rounded-xl bg-neutral-800 overflow-hidden shrink-0">
@@ -139,9 +128,11 @@
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <span class="px-2.5 py-1 text-[10px] font-medium rounded-full {{ $product->status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-neutral-800 text-neutral-500 border border-neutral-700' }}">
-                                        {{ $product->status === 'active' ? 'Ativo' : 'Inativo' }}
-                                    </span>
+                                    @if ($product->status === 'active')
+                                        <x-admin.badge variant="success">Ativo</x-admin.badge>
+                                    @else
+                                        <span class="px-2.5 py-1 text-[10px] font-medium rounded-full bg-neutral-800 text-neutral-500 border border-neutral-700">Inativo</span>
+                                    @endif
                                     <button wire:click="toggleProductStatus({{ $product->id }})"
                                             class="p-1.5 rounded-lg text-neutral-500 hover:text-amber-400 hover:bg-neutral-800 transition-all"
                                             title="Ativar/Desativar">
@@ -169,7 +160,7 @@
                             {{-- Confirm Delete Product --}}
                             @if ($confirmDeleteProductId === $product->id)
                                 <div class="flex items-center gap-2 mt-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
-                                    <span class="text-sm text-red-400">Excluir "{{ $product->name }}" e seus atributos?</span>
+                                    <span class="text-sm text-red-400">Excluir &quot;{{ $product->name }}&quot; e seus atributos?</span>
                                     <button wire:click="deleteProduct({{ $product->id }})" wire:loading.attr="disabled"
                                                                      class="px-3 py-1.5 text-xs font-bold bg-red-500 text-white rounded-lg hover:bg-red-400 disabled:opacity-50">Sim</button>
                                                             <button wire:click="$set('confirmDeleteProductId', null)"
@@ -181,20 +172,21 @@
                             <div class="mt-3 ml-12">
                                 @forelse ($product->attributes as $attr)
                                     <div class="mb-2 p-3 rounded-xl bg-neutral-800/30 border border-neutral-800" wire:key="attr-{{ $attr->id }}">
-                                        {{-- Attribute Header --}}
                                         <div class="flex items-center justify-between mb-2">
-                                                    <div class="flex items-center gap-2">
-                                                        <span class="text-sm font-medium text-neutral-200">{{ $attr->name }}</span>
-                                                        @if ($attr->price > 0)
-                                                            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">R$ {{ number_format($attr->price, 2, ',', '.') }}</span>
-                                                        @endif
-                                                        <span class="text-[10px] px-2 py-0.5 rounded-full {{ $attr->type === 'single' ? 'bg-blue-500/10 text-blue-400' : 'bg-purple-500/10 text-purple-400' }}">
-                                                            {{ $attr->type === 'single' ? 'Única' : 'Múltipla' }}
-                                                        </span>
-                                                        @if ($attr->is_required)
-                                                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">Obrigatório</span>
-                                                        @endif
-                                                    </div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-sm font-medium text-neutral-200">{{ $attr->name }}</span>
+                                                @if ($attr->price > 0)
+                                                    <x-admin.badge variant="warning">R$ {{ number_format($attr->price, 2, ',', '.') }}</x-admin.badge>
+                                                @endif
+                                                @if ($attr->type === 'single')
+                                                    <x-admin.badge variant="info">Única</x-admin.badge>
+                                                @else
+                                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400">Múltipla</span>
+                                                @endif
+                                                @if ($attr->is_required)
+                                                    <x-admin.badge variant="warning">Obrigatório</x-admin.badge>
+                                                @endif
+                                            </div>
                                             <div class="flex items-center gap-1">
                                                 <button wire:click="editAttribute({{ $attr->id }})"
                                                         class="p-1 rounded text-neutral-500 hover:text-amber-400 hover:bg-neutral-800 transition-all">
@@ -214,7 +206,7 @@
                                         {{-- Confirm Delete Attribute --}}
                                         @if ($confirmDeleteAttributeId === $attr->id)
                                             <div class="flex items-center gap-2 p-2 mb-2 rounded-lg bg-red-500/10 border border-red-500/20">
-                                                <span class="text-xs text-red-400">Excluir "{{ $attr->name }}" e suas opções?</span>
+                                                <span class="text-xs text-red-400">Excluir &quot;{{ $attr->name }}&quot; e suas opções?</span>
                                                 <button wire:click="deleteAttribute({{ $attr->id }})" wire:loading.attr="disabled"
                                                          class="px-2 py-1 text-[10px] font-bold bg-red-500 text-white rounded-md hover:bg-red-400 disabled:opacity-50">Sim</button>
                                                 <button wire:click="$set('confirmDeleteAttributeId', null)"
@@ -229,9 +221,9 @@
                                                     <div class="flex items-center gap-2 min-w-0">
                                                         <span class="text-sm text-neutral-300 truncate">{{ $opt->name }}</span>
                                                         @if ($opt->ingredient)
-                                                            <span class="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" title="Ingrediente: {{ $opt->ingredient->name }}">
+                                                            <x-admin.badge variant="success" title="Ingrediente: {{ $opt->ingredient->name }}">
                                                                 {{ $opt->ingredient->name }}
-                                                            </span>
+                                                            </x-admin.badge>
                                                         @endif
                                                     </div>
                                                     <div class="flex items-center gap-3 shrink-0">
@@ -277,12 +269,12 @@
                                                         </div>
                                                     </div>
                                                     <div class="flex items-center gap-2 pt-1">
-                                                        <button type="submit" wire:loading.attr="disabled"
-                                                                 class="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-lg transition-all text-sm disabled:opacity-50">
+                                                        <x-admin.button type="submit" variant="primary" wire:loading.attr="disabled">
                                                             {{ $editingOptionId ? 'Atualizar' : 'Criar' }}
-                                                        </button>
-                                                        <button type="button" wire:click="$set('showOptionForm', false)"
-                                                                class="px-4 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg transition-all text-sm">Cancelar</button>
+                                                        </x-admin.button>
+                                                        <x-admin.button type="button" variant="ghost" wire:click="$set('showOptionForm', false)">
+                                                            Cancelar
+                                                        </x-admin.button>
                                                     </div>
                                                 </form>
                                             </div>
@@ -299,50 +291,6 @@
                                     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
                                     Adicionar atributo
                                 </button>
-
-                                {{-- Attribute Form --}}
-                                @if ($showAttributeForm && $attributeProductId === $product->id)
-                                    <div class="p-3 rounded-xl bg-neutral-800/50 border border-neutral-700">
-                                        <form wire:submit="saveAttribute" class="space-y-3">
-                                            <div class="grid grid-cols-2 gap-3">
-                                                <div>
-                                                    <label class="block text-xs text-neutral-400 mb-1">Nome do atributo</label>
-                                                    <input wire:model="attributeName" placeholder="Ex: Ponto da carne"
-                                                           class="w-full px-3 py-1.5 rounded-lg bg-neutral-950 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                                                    @error('attributeName') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                                                </div>
-                                                <div>
-                                                    <label class="block text-xs text-neutral-400 mb-1">Preço</label>
-                                                    <input wire:model="attributePrice" type="number" step="0.01" min="0" placeholder="0,00"
-                                                           class="w-full px-3 py-1.5 rounded-lg bg-neutral-950 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                                                    @error('attributePrice') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                                                </div>
-                                                <div>
-                                                    <label class="block text-xs text-neutral-400 mb-1">Tipo</label>
-                                                    <select wire:model="attributeType"
-                                                            class="w-full px-3 py-1.5 rounded-lg bg-neutral-950 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                                                        <option value="single">Única escolha</option>
-                                                        <option value="multiple">Múltipla escolha</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="flex items-center gap-3">
-                                                <label class="flex items-center gap-2 text-sm text-neutral-300 cursor-pointer">
-                                                    <input type="checkbox" wire:model="attributeRequired" class="rounded bg-neutral-800 border-neutral-600 text-amber-500 focus:ring-amber-500">
-                                                    Obrigatório
-                                                </label>
-                                            </div>
-                                            <div class="flex items-center gap-2 pt-1">
-                                                <button type="submit" wire:loading.attr="disabled"
-                                                         class="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-lg transition-all text-sm disabled:opacity-50">
-                                                    {{ $editingAttributeId ? 'Atualizar' : 'Criar' }} Atributo
-                                                </button>
-                                                <button type="button" wire:click="resetAttributeForm"
-                                                        class="px-4 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg transition-all text-sm">Cancelar</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                @endif
                             </div>
                         </div>
                     @empty
@@ -356,7 +304,7 @@
                         </div>
                     @endforelse
                 </div>
-            </div>
+            </x-admin.card>
         @empty
             <div class="text-center py-16">
                 <svg class="w-16 h-16 mx-auto mb-4 text-neutral-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -374,7 +322,7 @@
     {{-- ========== PRODUCTS VIEW ========== --}}
     @else
         @forelse ($products as $product)
-            <div class="rounded-2xl bg-neutral-900/50 border border-neutral-800 overflow-hidden" wire:key="all-product-{{ $product->id }}">
+            <x-admin.card :padding="false" class="overflow-hidden" wire:key="all-product-{{ $product->id }}">
                 <div class="px-6 py-4 hover:bg-neutral-800/20 transition-colors">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3 min-w-0 flex-1">
@@ -397,9 +345,11 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span class="px-2.5 py-1 text-[10px] font-medium rounded-full {{ $product->status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-neutral-800 text-neutral-500 border border-neutral-700' }}">
-                                {{ $product->status === 'active' ? 'Ativo' : 'Inativo' }}
-                            </span>
+                            @if ($product->status === 'active')
+                                <x-admin.badge variant="success">Ativo</x-admin.badge>
+                            @else
+                                <span class="px-2.5 py-1 text-[10px] font-medium rounded-full bg-neutral-800 text-neutral-500 border border-neutral-700">Inativo</span>
+                            @endif
                             <button wire:click="toggleProductStatus({{ $product->id }})"
                                     class="p-1.5 rounded-lg text-neutral-500 hover:text-amber-400 hover:bg-neutral-800 transition-all">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -424,7 +374,7 @@
                     {{-- Confirm Delete Product --}}
                     @if ($confirmDeleteProductId === $product->id)
                         <div class="flex items-center gap-2 mt-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
-                            <span class="text-sm text-red-400">Excluir "{{ $product->name }}" e seus atributos?</span>
+                            <span class="text-sm text-red-400">Excluir &quot;{{ $product->name }}&quot; e seus atributos?</span>
                             <button wire:click="deleteProduct({{ $product->id }})"
                                     class="px-3 py-1.5 text-xs font-bold bg-red-500 text-white rounded-lg hover:bg-red-400">Sim</button>
                             <button wire:click="$set('confirmDeleteProductId', null)"
@@ -440,13 +390,15 @@
                                     <div class="flex items-center gap-2">
                                         <span class="text-sm font-medium text-neutral-200">{{ $attr->name }}</span>
                                         @if ($attr->price > 0)
-                                            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">R$ {{ number_format($attr->price, 2, ',', '.') }}</span>
+                                            <x-admin.badge variant="warning">R$ {{ number_format($attr->price, 2, ',', '.') }}</x-admin.badge>
                                         @endif
-                                        <span class="text-[10px] px-2 py-0.5 rounded-full {{ $attr->type === 'single' ? 'bg-blue-500/10 text-blue-400' : 'bg-purple-500/10 text-purple-400' }}">
-                                            {{ $attr->type === 'single' ? 'Única' : 'Múltipla' }}
-                                        </span>
+                                        @if ($attr->type === 'single')
+                                            <x-admin.badge variant="info">Única</x-admin.badge>
+                                        @else
+                                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400">Múltipla</span>
+                                        @endif
                                         @if ($attr->is_required)
-                                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">Obrigatório</span>
+                                            <x-admin.badge variant="warning">Obrigatório</x-admin.badge>
                                         @endif
                                     </div>
                                     <div class="flex items-center gap-1">
@@ -462,7 +414,7 @@
                                 </div>
                                 @if ($confirmDeleteAttributeId === $attr->id)
                                     <div class="flex items-center gap-2 p-2 mb-2 rounded-lg bg-red-500/10 border border-red-500/20">
-                                        <span class="text-xs text-red-400">Excluir "{{ $attr->name }}" e suas opções?</span>
+                                        <span class="text-xs text-red-400">Excluir &quot;{{ $attr->name }}&quot; e suas opções?</span>
                                         <button wire:click="deleteAttribute({{ $attr->id }})" wire:loading.attr="disabled"
                                                  class="px-2 py-1 text-[10px] font-bold bg-red-500 text-white rounded-md hover:bg-red-400 disabled:opacity-50">Sim</button>
                                         <button wire:click="$set('confirmDeleteAttributeId', null)"
@@ -475,7 +427,7 @@
                                             <div class="flex items-center gap-2 min-w-0">
                                                 <span class="text-sm text-neutral-300 truncate">{{ $opt->name }}</span>
                                                 @if ($opt->ingredient)
-                                                    <span class="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">{{ $opt->ingredient->name }}</span>
+                                                    <x-admin.badge variant="success">{{ $opt->ingredient->name }}</x-admin.badge>
                                                 @endif
                                             </div>
                                             <div class="flex items-center gap-3 shrink-0">
@@ -519,12 +471,12 @@
                                                 </div>
                                             </div>
                                             <div class="flex items-center gap-2 pt-1">
-                                                <button type="submit" wire:loading.attr="disabled"
-                                                         class="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-lg transition-all text-sm disabled:opacity-50">
+                                                <x-admin.button type="submit" variant="primary" wire:loading.attr="disabled">
                                                     {{ $editingOptionId ? 'Atualizar' : 'Criar' }}
-                                                </button>
-                                                <button type="button" wire:click="$set('showOptionForm', false)"
-                                                        class="px-4 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg transition-all text-sm">Cancelar</button>
+                                                </x-admin.button>
+                                                <x-admin.button type="button" variant="ghost" wire:click="$set('showOptionForm', false)">
+                                                    Cancelar
+                                                </x-admin.button>
                                             </div>
                                         </form>
                                     </div>
@@ -541,52 +493,9 @@
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
                             Adicionar atributo
                         </button>
-
-                        @if ($showAttributeForm && $attributeProductId === $product->id)
-                            <div class="mt-3 p-3 rounded-xl bg-neutral-800/50 border border-neutral-700">
-                                <form wire:submit="saveAttribute" class="space-y-3">
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label class="block text-xs text-neutral-400 mb-1">Nome do atributo</label>
-                                            <input wire:model="attributeName" placeholder="Ex: Ponto da carne"
-                                                   class="w-full px-3 py-1.5 rounded-lg bg-neutral-950 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                                            @error('attributeName') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs text-neutral-400 mb-1">Preço</label>
-                                            <input wire:model="attributePrice" type="number" step="0.01" min="0" placeholder="0,00"
-                                                   class="w-full px-3 py-1.5 rounded-lg bg-neutral-950 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                                            @error('attributePrice') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs text-neutral-400 mb-1">Tipo</label>
-                                            <select wire:model="attributeType"
-                                                    class="w-full px-3 py-1.5 rounded-lg bg-neutral-950 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                                                <option value="single">Única escolha</option>
-                                                <option value="multiple">Múltipla escolha</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center gap-3">
-                                        <label class="flex items-center gap-2 text-sm text-neutral-300 cursor-pointer">
-                                            <input type="checkbox" wire:model="attributeRequired" class="rounded bg-neutral-800 border-neutral-600 text-amber-500 focus:ring-amber-500">
-                                            Obrigatório
-                                        </label>
-                                    </div>
-                                    <div class="flex items-center gap-2 pt-1">
-                                        <button type="submit" wire:loading.attr="disabled"
-                                                 class="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-lg transition-all text-sm disabled:opacity-50">
-                                            {{ $editingAttributeId ? 'Atualizar' : 'Criar' }} Atributo
-                                        </button>
-                                        <button type="button" wire:click="resetAttributeForm"
-                                                class="px-4 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg transition-all text-sm">Cancelar</button>
-                                    </div>
-                                </form>
-                            </div>
-                        @endif
                     </div>
                 </div>
-            </div>
+            </x-admin.card>
         @empty
             <div class="text-center py-16">
                 <svg class="w-16 h-16 mx-auto mb-4 text-neutral-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -603,134 +512,142 @@
     @endif
 
     {{-- ========== CATEGORY FORM MODAL ========== --}}
-    @if($showCategoryForm)
-        <div class="fixed inset-0 z-60" wire:key="category-form">
-            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="resetForm"></div>
-            <div class="absolute inset-0 flex items-center justify-center p-4">
-                <div class="w-full max-w-lg p-6 rounded-2xl bg-gradient-to-br from-neutral-900 to-neutral-950 border border-neutral-800 shadow-2xl shadow-black/30">
-                    <div class="flex items-center justify-between mb-6">
-                        <h3 class="font-bold text-lg">{{ $editingCategoryId ? 'Editar' : 'Nova' }} Categoria</h3>
-                        <button wire:click="resetForm" class="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 transition-colors">
-                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
-                        </button>
-                    </div>
-                    <form wire:submit="saveCategory" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-neutral-300 mb-2">Nome *</label>
-                            <input wire:model.live="categoryName" type="text" placeholder="Ex: Hambúrgueres"
-                                   class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('categoryName') border-red-500 @enderror">
-                            @error('categoryName') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-neutral-300 mb-2">Slug *</label>
-                            <input wire:model="categorySlug" type="text" placeholder="hamburgueres"
-                                   class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('categorySlug') border-red-500 @enderror">
-                            @error('categorySlug') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-neutral-300 mb-2">Posição</label>
-                            <input wire:model="categoryPosition" type="number" min="0"
-                                   class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
-                        </div>
-                        <div class="md:col-span-3 flex items-center gap-3 pt-2">
-                            <button type="submit" wire:loading.attr="disabled"
-                                     class="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center gap-2">
-                                <span wire:loading.remove>{{ $editingCategoryId ? 'Atualizar' : 'Criar' }} Categoria</span>
-                                <span wire:loading><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
-                            </button>
-                            <button type="button" wire:click="resetForm"
-                                    class="px-6 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl transition-all duration-200">
-                                Cancelar
-                            </button>
-                        </div>
-                    </form>
-                </div>
+    <x-admin.modal show="showCategoryForm" maxWidth="max-w-lg" title="{{ $editingCategoryId ? 'Editar' : 'Nova' }} Categoria">
+        <form wire:submit="saveCategory" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-neutral-300 mb-2">Nome *</label>
+                <input wire:model.live="categoryName" type="text" placeholder="Ex: Hambúrgueres"
+                       class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('categoryName') border-red-500 @enderror">
+                @error('categoryName') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
             </div>
-        </div>
-    @endif
+            <div>
+                <label class="block text-sm font-medium text-neutral-300 mb-2">Slug *</label>
+                <input wire:model="categorySlug" type="text" placeholder="hamburgueres"
+                       class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('categorySlug') border-red-500 @enderror">
+                @error('categorySlug') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-neutral-300 mb-2">Posição</label>
+                <input wire:model="categoryPosition" type="number" min="0"
+                       class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+            </div>
+            <div class="md:col-span-3 flex items-center gap-3 pt-2">
+                <x-admin.button type="submit" variant="primary" wire:loading.attr="disabled" class="flex items-center gap-2">
+                    <span wire:loading.remove>{{ $editingCategoryId ? 'Atualizar' : 'Criar' }} Categoria</span>
+                    <span wire:loading><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
+                </x-admin.button>
+                <x-admin.button type="button" variant="ghost" wire:click="resetForm">
+                    Cancelar
+                </x-admin.button>
+            </div>
+        </form>
+    </x-admin.modal>
 
     {{-- ========== PRODUCT FORM MODAL ========== --}}
-    @if($showProductForm)
-        <div class="fixed inset-0 z-60" wire:key="product-form">
-            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="resetProductForm"></div>
-            <div class="absolute inset-0 flex items-center justify-center p-4">
-                <div class="w-full max-w-2xl p-6 rounded-2xl bg-gradient-to-br from-neutral-900 to-neutral-950 border border-neutral-800 shadow-2xl shadow-black/30 max-h-[90vh] overflow-y-auto">
-                    <div class="flex items-center justify-between mb-6">
-                        <h3 class="font-bold text-lg">{{ $editingProductId ? 'Editar' : 'Novo' }} Produto</h3>
-                        <button wire:click="resetProductForm" class="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 transition-colors">
-                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
-                        </button>
+    <x-admin.modal show="showProductForm" maxWidth="max-w-xl" title="{{ $editingProductId ? 'Editar' : 'Novo' }} Produto">
+        <form wire:submit="saveProduct" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-neutral-300 mb-2">Nome *</label>
+                    <input wire:model="productName" type="text" placeholder="Ex: Smash Burger Duplo"
+                           class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('productName') border-red-500 @enderror">
+                    @error('productName') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-neutral-300 mb-2">Descrição</label>
+                    <textarea wire:model="productDescription" rows="2" placeholder="Descrição do produto..."
+                              class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-neutral-300 mb-2">Preço *</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-sm">R$</span>
+                        <input wire:model="productPrice" type="number" step="0.01" min="0" placeholder="0,00"
+                               class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('productPrice') border-red-500 @enderror">
                     </div>
-                    <form wire:submit="saveProduct" class="space-y-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="md:col-span-2">
-                                <label class="block text-sm font-medium text-neutral-300 mb-2">Nome *</label>
-                                <input wire:model="productName" type="text" placeholder="Ex: Smash Burger Duplo"
-                                       class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('productName') border-red-500 @enderror">
-                                @error('productName') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                            </div>
-                            <div class="md:col-span-2">
-                                <label class="block text-sm font-medium text-neutral-300 mb-2">Descrição</label>
-                                <textarea wire:model="productDescription" rows="2" placeholder="Descrição do produto..."
-                                          class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"></textarea>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-neutral-300 mb-2">Preço *</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-sm">R$</span>
-                                    <input wire:model="productPrice" type="number" step="0.01" min="0" placeholder="0,00"
-                                           class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('productPrice') border-red-500 @enderror">
-                                </div>
-                                @error('productPrice') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-neutral-300 mb-2">Categoria *</label>
-                                <select wire:model="productCategoryId"
-                                        class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('productCategoryId') border-red-500 @enderror">
-                                    <option value="">Selecione...</option>
-                                    @foreach ($categories as $cat)
-                                        <option value="{{ $cat->id }}">{{ $cat->name }}</option>
-                                    @endforeach
-                                </select>
-                                @error('productCategoryId') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-neutral-300 mb-2">Status</label>
-                                <select wire:model="productStatus"
-                                        class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
-                                    <option value="active">Ativo</option>
-                                    <option value="inactive">Inativo</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-neutral-300 mb-2">Imagem (URL)</label>
-                                <input wire:model="productImageUrl" type="url" placeholder="https://..."
-                                       class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-neutral-300 mb-2">Ou enviar imagem</label>
-                                <input wire:model="productImage" type="file" accept="image/jpeg,image/png,image/webp"
-                                       class="w-full text-sm text-neutral-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-amber-500 file:text-neutral-950 hover:file:bg-amber-400 file:cursor-pointer file:transition-colors">
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-3 pt-2">
-                            <button type="submit" wire:loading.attr="disabled"
-                                     class="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center gap-2">
-                                <span wire:loading.remove>{{ $editingProductId ? 'Atualizar' : 'Criar' }} Produto</span>
-                                <span wire:loading><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
-                            </button>
-                            <button type="button" wire:click="resetProductForm"
-                                    class="px-6 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl transition-all duration-200">
-                                Cancelar
-                            </button>
-                        </div>
-                    </form>
+                    @error('productPrice') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-neutral-300 mb-2">Categoria *</label>
+                    <select wire:model="productCategoryId"
+                            class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('productCategoryId') border-red-500 @enderror">
+                        <option value="">Selecione...</option>
+                        @foreach ($categories as $cat)
+                            <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('productCategoryId') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-neutral-300 mb-2">Status</label>
+                    <select wire:model="productStatus"
+                            class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                        <option value="active">Ativo</option>
+                        <option value="inactive">Inativo</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-neutral-300 mb-2">Imagem (URL)</label>
+                    <input wire:model="productImageUrl" type="url" placeholder="https://..."
+                           class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-neutral-300 mb-2">Ou enviar imagem</label>
+                    <input wire:model="productImage" type="file" accept="image/jpeg,image/png,image/webp"
+                           class="w-full text-sm text-neutral-400 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-amber-500 file:text-neutral-950 hover:file:bg-amber-400 file:cursor-pointer file:transition-colors">
                 </div>
             </div>
-        </div>
-    @endif
+            <div class="flex items-center gap-3 pt-2">
+                <x-admin.button type="submit" variant="primary" wire:loading.attr="disabled" class="flex items-center gap-2">
+                    <span wire:loading.remove>{{ $editingProductId ? 'Atualizar' : 'Criar' }} Produto</span>
+                    <span wire:loading><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
+                </x-admin.button>
+                <x-admin.button type="button" variant="ghost" wire:click="resetProductForm">
+                    Cancelar
+                </x-admin.button>
+            </div>
+        </form>
+    </x-admin.modal>
+
+    {{-- ========== ATTRIBUTE FORM MODAL ========== --}}
+    <x-admin.modal show="showAttributeForm" maxWidth="max-w-lg" title="{{ $editingAttributeId ? 'Editar' : 'Novo' }} Atributo">
+        <form wire:submit="saveAttribute" class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-neutral-400 mb-1">Nome do atributo</label>
+                    <input wire:model="attributeName" placeholder="Ex: Ponto da carne"
+                           class="w-full px-3 py-1.5 rounded-lg bg-neutral-950 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    @error('attributeName') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs text-neutral-400 mb-1">Preço</label>
+                    <input wire:model="attributePrice" type="number" step="0.01" min="0" placeholder="0,00"
+                           class="w-full px-3 py-1.5 rounded-lg bg-neutral-950 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    @error('attributePrice') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs text-neutral-400 mb-1">Tipo</label>
+                    <select wire:model="attributeType"
+                            class="w-full px-3 py-1.5 rounded-lg bg-neutral-950 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        <option value="single">Única escolha</option>
+                        <option value="multiple">Múltipla escolha</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <label class="flex items-center gap-2 text-sm text-neutral-300 cursor-pointer">
+                    <input type="checkbox" wire:model="attributeRequired" class="rounded bg-neutral-800 border-neutral-600 text-amber-500 focus:ring-amber-500">
+                    Obrigatório
+                </label>
+            </div>
+            <div class="flex items-center gap-2 pt-1">
+                <x-admin.button type="submit" variant="primary" wire:loading.attr="disabled">
+                    {{ $editingAttributeId ? 'Atualizar' : 'Criar' }} Atributo
+                </x-admin.button>
+                <x-admin.button type="button" variant="ghost" wire:click="resetAttributeForm">
+                    Cancelar
+                </x-admin.button>
+            </div>
+        </form>
+    </x-admin.modal>
 </div>

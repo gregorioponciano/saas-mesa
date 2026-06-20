@@ -326,6 +326,25 @@ class Cart extends Component
         $this->showAddressModal = false;
     }
 
+    public function lookupCep(string $cep): void
+    {
+        $cep = preg_replace('/\D/', '', $cep);
+        if (strlen($cep) !== 8) return;
+
+        try {
+            $response = file_get_contents("https://viacep.com.br/ws/{$cep}/json/");
+            $data = json_decode($response, true);
+            if ($data && !isset($data['erro'])) {
+                $this->newAddressStreet = $data['logradouro'] ?? '';
+                $this->newAddressNeighborhood = $data['bairro'] ?? '';
+                $this->newAddressCity = $data['localidade'] ?? '';
+                $this->newAddressState = $data['uf'] ?? '';
+                $this->newAddressNumber = '';
+                $this->newAddressComplement = '';
+            }
+        } catch (\Throwable $e) {}
+    }
+
     public function saveNewAddress(): void
     {
         $this->validate([

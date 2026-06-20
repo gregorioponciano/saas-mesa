@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
-use App\Services\EfiPixService;
+use App\Services\EfiBank\TenantEfiBankService;
 
 class TableGrid extends Component
 {
@@ -35,6 +35,11 @@ class TableGrid extends Component
     public string $paymentMethod = 'pix';
     public float $paymentAmount = 0;
     public string $paymentNotes = '';
+
+    public bool $showAddItemModal = false;
+    public ?int $addItemOrderId = null;
+    public ?int $addItemProductId = null;
+    public int $addItemQuantity = 1;
 
     public bool $showCloseTableModal = false;
     public ?int $closeTableId = null;
@@ -98,7 +103,7 @@ class TableGrid extends Component
 
         if ($activeOrders->isNotEmpty()) {
             $this->selectedOrderId = $activeOrders->first()->id;
-            $this->orderDetail = $activeOrders->map(fn($order) => [
+            $ordersData = $activeOrders->map(fn($order) => [
                 'id' => $order->id,
                 'customer_name' => $order->customer_name,
                 'customer_phone' => $order->customer_phone,
@@ -116,7 +121,15 @@ class TableGrid extends Component
                     'quantity' => $item->quantity,
                     'price' => $item->price,
                 ]),
-            ])->toArray();
+            ]);
+            $grouped = $ordersData->groupBy('customer_name');
+            $this->orderDetail = $grouped->map(fn($orders) => [
+                'customer_name' => $orders->first()['customer_name'],
+                'customer_phone' => $orders->first()['customer_phone'],
+                'total' => $orders->sum('total'),
+                'orders' => $orders->toArray(),
+                'has_payment' => $orders->contains('has_payment', true),
+            ])->values()->toArray();
         } else {
             $this->selectedOrderId = null;
             $this->orderDetail = null;
@@ -178,13 +191,10 @@ class TableGrid extends Component
         $this->pixCopiaECola = null;
 
         try {
-            $efi = app(EfiPixService::class);
             $txid = 'pay' . $this->paymentOrderId . now()->format('YmdHis') . rand(100, 999);
-            $charge = $efi->createImmediateCharge($this->paymentAmount, $txid);
+            $charge = app(TenantEfiBankService::class)->generatePixChargeData($this->tenant, $this->paymentAmount, $txid);
             $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
-            if ($this->pixCopiaECola) {
-                $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
-            }
+            $this->pixQrCode = $charge['qrcode'] ?? null;
         } catch (\Throwable $e) {
             $this->dispatch('notify', message: 'Erro ao gerar PIX: ' . $e->getMessage());
         }
@@ -217,16 +227,11 @@ class TableGrid extends Component
             'notes' => $this->paymentNotes,
         ]);
 
-        $tableWasFreed = false;
         if ($order->pendingPaymentAmount() <= 0) {
             $order->update([
                 'status' => 'fechado',
                 'bill_closed_at' => now(),
             ]);
-
-            if ($order->table_id) {
-                $tableWasFreed = \App\Models\Table::tryFreeTable($order->table_id);
-            }
         }
 
         $this->showPaymentModal = false;
@@ -235,11 +240,6 @@ class TableGrid extends Component
         $this->paymentNotes = '';
         $this->pixQrCode = null;
         $this->pixCopiaECola = null;
-
-        if ($tableWasFreed) {
-            $this->dispatch('tableFreed')->to('public.menu');
-            $this->dispatch('tableFreed')->to('public.cart');
-        }
 
         $this->loadOrderDetail();
         $this->dispatch('orderUpdated');
@@ -253,6 +253,49 @@ class TableGrid extends Component
         $this->paymentMethod = 'pix';
         $this->paymentAmount = 0;
         $this->paymentNotes = '';
+    }
+
+    public function openAddItem(int $orderId): void
+    {
+        $this->addItemOrderId = $orderId;
+        $this->addItemProductId = null;
+        $this->addItemQuantity = 1;
+        $this->showAddItemModal = true;
+    }
+
+    public function addItemToOrder(): void
+    {
+        $this->validate([
+            'addItemProductId' => 'required|exists:products,id',
+            'addItemQuantity' => 'required|integer|min:1|max:99',
+        ]);
+
+        $product = Product::findOrFail($this->addItemProductId);
+        $order = Order::findOrFail($this->addItemOrderId);
+
+        if ($order->isBillClosed()) {
+            $this->dispatch('notify', message: 'Conta ja fechada, nao e possivel adicionar itens.');
+            return;
+        }
+
+        $price = (float) $product->price;
+
+        OrderItem::create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'product_name' => $product->name,
+            'quantity' => $this->addItemQuantity,
+            'price' => $price,
+        ]);
+
+        $order->increment('total', $price * $this->addItemQuantity);
+
+        $this->showAddItemModal = false;
+        $this->addItemProductId = null;
+        $this->addItemQuantity = 1;
+        $this->loadOrderDetail();
+        $this->dispatch('notify', message: "{$product->name} adicionado ao pedido #{$order->id}!");
+        $this->dispatch('orderUpdated');
     }
 
     public function openCloseTableModal(int $tableId): void
@@ -290,13 +333,10 @@ class TableGrid extends Component
         $this->pixCopiaECola = null;
 
         try {
-            $efi = app(EfiPixService::class);
             $txid = 'mesa' . $this->closeTableId . now()->format('YmdHis') . rand(100, 999);
-            $charge = $efi->createImmediateCharge($this->closeTableTotal, $txid);
+            $charge = app(TenantEfiBankService::class)->generatePixChargeData($this->tenant, $this->closeTableTotal, $txid);
             $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
-            if ($this->pixCopiaECola) {
-                $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
-            }
+            $this->pixQrCode = $charge['qrcode'] ?? null;
         } catch (\Throwable $e) {
             $this->dispatch('notify', message: 'Erro ao gerar PIX: ' . $e->getMessage());
         }
@@ -390,6 +430,15 @@ class TableGrid extends Component
         $this->dispatch('notify', message: 'Mesa ' . $table->number . ' liberada!');
     }
 
+    public function setTableReserved(int $tableId): void
+    {
+        Table::findOrFail($tableId)->update(['status' => 'reserved']);
+        $this->dispatch('tableFreed')->to('public.menu');
+        $this->dispatch('tableFreed')->to('public.cart');
+        $this->dispatch('orderUpdated');
+        $this->dispatch('notify', message: 'Mesa reservada!');
+    }
+
     public function closePixQrModal(): void
     {
         $this->pixQrCode = null;
@@ -449,7 +498,7 @@ class TableGrid extends Component
     {
         $this->orderingTableId = null;
         $this->orderingTableNumber = null;
-        $this->orderType = 'mesa';
+        $this->orderType = '';
         $this->deliveryAddress = '';
         $this->deliveryReference = '';
         $this->resetCart();
@@ -514,6 +563,12 @@ class TableGrid extends Component
         return Product::with('attributes.options')->find($this->selectedProduct);
     }
 
+    #[Computed]
+    public function availableProducts()
+    {
+        return Product::active()->with('category')->orderBy('name')->get();
+    }
+
     public function placeOrder(): void
     {
         $this->validate([
@@ -557,7 +612,11 @@ class TableGrid extends Component
 
         DB::transaction(function () use ($tableId, &$orderId) {
             if ($tableId) {
+                $wasFree = Table::where('id', $tableId)->where('status', 'free')->exists();
                 Table::where('id', $tableId)->update(['status' => 'occupied']);
+                if ($wasFree) {
+                    $this->dispatch('notify', message: 'Mesa ' . $this->orderingTableNumber . ' ocupada! Compartilhe o cardapio com o cliente.');
+                }
             }
 
             $addressData = null;

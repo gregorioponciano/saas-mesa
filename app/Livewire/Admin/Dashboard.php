@@ -8,7 +8,7 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Table;
-use App\Services\EfiPixService;
+use App\Services\EfiBank\TenantEfiBankService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -514,13 +514,11 @@ class Dashboard extends Component
         $this->pixCopiaECola = null;
 
         try {
-            $efi = app(EfiPixService::class);
+            $tenant = auth()->user()->tenant;
             $txid = 'pay' . $this->paymentOrderId . now()->format('YmdHis') . rand(100, 999);
-            $charge = $efi->createImmediateCharge($this->paymentAmount, $txid);
+            $charge = app(TenantEfiBankService::class)->generatePixChargeData($tenant, $this->paymentAmount, $txid);
             $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
-            if ($this->pixCopiaECola) {
-                $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
-            }
+            $this->pixQrCode = $charge['qrcode'] ?? null;
         } catch (\Throwable $e) {
             $this->dispatch('notify', message: 'Erro ao gerar PIX: ' . $e->getMessage());
         }
@@ -696,13 +694,11 @@ class Dashboard extends Component
         $this->pixCopiaECola = null;
 
         try {
-            $efi = app(EfiPixService::class);
+            $tenant = auth()->user()->tenant;
             $txid = 'mesa' . $this->closeTableId . now()->format('YmdHis') . rand(100, 999);
-            $charge = $efi->createImmediateCharge($this->closeTableTotal, $txid);
+            $charge = app(TenantEfiBankService::class)->generatePixChargeData($tenant, $this->closeTableTotal, $txid);
             $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
-            if ($this->pixCopiaECola) {
-                $this->pixQrCode = $efi->generateQrCodeImage($this->pixCopiaECola);
-            }
+            $this->pixQrCode = $charge['qrcode'] ?? null;
         } catch (\Throwable $e) {
             $this->dispatch('notify', message: 'Erro ao gerar PIX: ' . $e->getMessage());
         }

@@ -18,16 +18,17 @@ return [
     'webhook_secret' => env('EFI_WEBHOOK_SECRET'),
 
     'urls' => [
-        'pix' => env('EFI_SANDBOX', false)
-            ? 'https://pix.api.efipay.com.br/v2/'
-            : 'https://pix.api.efipay.com.br/v2/',
+        'pix' => 'https://pix.api.efipay.com.br/v2/',
         'oauth' => 'https://pix.api.efipay.com.br/oauth/token',
-        'charges' => env('EFI_SANDBOX', false)
-            ? 'https://api.efipay.com.br/v1/'
-            : 'https://api.efipay.com.br/v1/',
-        'subscriptions' => env('EFI_SANDBOX', false)
-            ? 'https://api.efipay.com.br/v1/'
-            : 'https://api.efipay.com.br/v1/',
+        'charges' => 'https://api.efipay.com.br/v1/',
+        'subscriptions' => 'https://api.efipay.com.br/v1/',
+    ],
+
+    'sandbox_urls' => [
+        'pix' => 'https://sandbox.efipay.com.br/sandbox/pix/v2/',
+        'oauth' => 'https://sandbox.efipay.com.br/oauth/token',
+        'charges' => 'https://sandbox.efipay.com.br/v1/',
+        'subscriptions' => 'https://sandbox.efipay.com.br/v1/',
     ],
 
     'suspension_after_days' => (int) env('EFI_SUSPENSION_AFTER_DAYS', 5),

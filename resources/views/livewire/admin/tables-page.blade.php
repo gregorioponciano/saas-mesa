@@ -11,49 +11,30 @@
          if (showForm) $wire.resetForm();
          if (showQr) $wire.closeQrCode();
      ">
+
     {{-- Header --}}
-    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-            <h1 class="text-2xl font-bold">Gerenciar Mesas</h1>
-            <p class="text-sm text-neutral-400 mt-1">
-                {{ $stats['total'] }} mesas cadastradas
-                <span class="text-neutral-600 mx-1">|</span>
-                Limite: {{ auth()->user()->tenant->maxTablesAllowed() }}
-                @if (auth()->user()->tenant->isFree())
-                    <span class="text-amber-400 font-medium">(Gratuito)</span>
-                    <a href="{{ route('subscription.checkout') }}" class="text-amber-400 hover:text-amber-300 underline ml-1">Fazer upgrade</a>
-                @endif
-            </p>
-        </div>
-        <div class="flex gap-2">
-            <button wire:click="openBulkForm"
-                    class="flex items-center gap-2 px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white font-medium rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
-                </svg>
+    <x-admin.page-header
+        title="Gerenciar Mesas"
+        subtitle="{{ $stats['total'] }} mesas cadastradas | Limite: {{ auth()->user()->tenant->maxTablesAllowed() }}"
+    >
+        <x-slot:action>
+            <x-admin.button variant="secondary" wire:click="openBulkForm"
+                icon='<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/></svg>'>
                 Criar em Lote
-            </button>
-            <button wire:click="openCreateForm"
-                    class="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                </svg>
+            </x-admin.button>
+            <x-admin.button variant="primary" wire:click="openCreateForm"
+                icon='<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>'>
                 Nova Mesa
-            </button>
-        </div>
-    </div>
+            </x-admin.button>
+        </x-slot:action>
+    </x-admin.page-header>
 
     {{-- Upgrade banner for free plan with hidden tables --}}
     @if (auth()->user()->tenant->hasHiddenTables())
-        <div class="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 to-amber-600/5 border border-amber-500/20">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
-                    <svg class="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                </div>
-                <div class="flex-1">
-                    <p class="text-sm font-medium text-amber-400">
+        <x-admin.alert variant="warning">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <p class="text-sm font-medium">
                         {{ auth()->user()->tenant->hiddenTablesCount() }} mesas ocultas
                     </p>
                     <p class="text-xs text-neutral-400 mt-0.5">Seu plano Gratuito permite gerenciar apenas {{ auth()->user()->tenant->maxTablesAllowed() }} mesas. Faca upgrade para Premium e gerencie todas.</p>
@@ -63,7 +44,7 @@
                     Fazer Upgrade
                 </a>
             </div>
-        </div>
+        </x-admin.alert>
     @endif
 
     {{-- Stats Bar --}}
@@ -106,15 +87,11 @@
         @endif
     </div>
 
-    {{-- Create/Edit Form --}}
+    {{-- Create/Edit Form Modal --}}
     @if($showForm)
-        <div class="fixed inset-0 z-60" wire:key="table-form">
-            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="resetForm"></div>
-            <div class="absolute inset-0 flex items-center justify-center p-4">
-                <div class="w-full max-w-2xl p-6 rounded-2xl bg-gradient-to-br from-neutral-900 to-neutral-950 border border-neutral-800 shadow-2xl shadow-black/30">
-
-        <div class="flex items-center justify-between mb-6">
-            <div class="flex gap-2">
+        <x-admin.modal show="showForm" maxWidth="max-w-2xl" title="Criar Mesa">
+            {{-- Form tabs --}}
+            <div class="flex gap-2 mb-6">
                 <button wire:click="$set('formMode', 'single')"
                         class="px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 {{ $formMode === 'single' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-800 text-neutral-400 hover:text-white' }}">
                     Unica
@@ -124,101 +101,89 @@
                     Em Lote
                 </button>
             </div>
-            <button wire:click="resetForm" class="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 transition-colors">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-            </button>
-        </div>
 
-        @if ($formMode === 'single')
-            <form wire:submit="save" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-neutral-300 mb-2">Numero *</label>
-                    <input wire:model="number" type="text" placeholder="Ex: 01, A1, Terraco 1"
-                           class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('number') border-red-500 @enderror">
-                    @error('number') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-neutral-300 mb-2">Capacidade *</label>
-                    <input wire:model="capacity" type="number" min="1" max="50"
-                           class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('capacity') border-red-500 @enderror">
-                    @error('capacity') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-neutral-300 mb-2">Status</label>
-                    <select wire:model="status"
-                            class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
-                        <option value="free">Livre</option>
-                        <option value="occupied">Ocupada</option>
-                        <option value="reserved">Reservada</option>
-                    </select>
-                </div>
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-neutral-300 mb-2">Observacao</label>
-                    <input wire:model="observation" type="text" placeholder="Observacoes sobre a mesa..."
-                           class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
-                </div>
-                <div class="md:col-span-3 flex items-center gap-3 pt-2">
-                    <button type="submit" wire:loading.attr="disabled"
-                             class="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center gap-2">
-                        <span wire:loading.remove>{{ $editingTableId ? 'Atualizar Mesa' : 'Criar Mesa' }}</span>
-                        <span wire:loading><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
-                    </button>
-                    <button type="button" wire:click="resetForm"
-                            class="px-6 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl transition-all duration-200">
-                        Cancelar
-                    </button>
-                </div>
-            </form>
-        @else
-            <form wire:submit="save" class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            @if ($formMode === 'single')
+                <form wire:submit="save" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-neutral-300 mb-2">Prefixo (opcional)</label>
-                        <input wire:model="bulkPrefix" type="text" placeholder="Ex: Mesa "
-                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-neutral-300 mb-2">Numero inicial *</label>
-                        <input wire:model="bulkStart" type="number" min="1"
-                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('bulkStart') border-red-500 @enderror">
-                        @error('bulkStart') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-neutral-300 mb-2">Numero final *</label>
-                        <input wire:model="bulkEnd" type="number" min="1"
-                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('bulkEnd') border-red-500 @enderror">
-                        @error('bulkEnd') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                        <label class="block text-sm font-medium text-neutral-300 mb-2">Numero *</label>
+                        <input wire:model="number" type="text" placeholder="Ex: 01, A1, Terraco 1"
+                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('number') border-red-500 @enderror">
+                        @error('number') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-neutral-300 mb-2">Capacidade *</label>
-                        <input wire:model="bulkCapacity" type="number" min="1" max="50"
-                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('bulkCapacity') border-red-500 @enderror">
-                        @error('bulkCapacity') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                        <input wire:model="capacity" type="number" min="1" max="50"
+                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('capacity') border-red-500 @enderror">
+                        @error('capacity') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                     </div>
-                </div>
+                    <div>
+                        <label class="block text-sm font-medium text-neutral-300 mb-2">Status</label>
+                        <select wire:model="status"
+                                class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                            <option value="free">Livre</option>
+                            <option value="occupied">Ocupada</option>
+                            <option value="reserved">Reservada</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-neutral-300 mb-2">Observacao</label>
+                        <input wire:model="observation" type="text" placeholder="Observacoes sobre a mesa..."
+                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                    </div>
+                    <div class="md:col-span-3 flex items-center gap-3 pt-2">
+                        <x-admin.button variant="primary" type="submit" wire:loading.attr="disabled">
+                            <span wire:loading.remove>{{ $editingTableId ? 'Atualizar Mesa' : 'Criar Mesa' }}</span>
+                            <span wire:loading><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
+                        </x-admin.button>
+                        <x-admin.button variant="secondary" type="button" wire:click="resetForm">
+                            Cancelar
+                        </x-admin.button>
+                    </div>
+                </form>
+            @else
+                <form wire:submit="save" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-300 mb-2">Prefixo (opcional)</label>
+                            <input wire:model="bulkPrefix" type="text" placeholder="Ex: Mesa "
+                                   class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-300 mb-2">Numero inicial *</label>
+                            <input wire:model="bulkStart" type="number" min="1"
+                                   class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('bulkStart') border-red-500 @enderror">
+                            @error('bulkStart') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-300 mb-2">Numero final *</label>
+                            <input wire:model="bulkEnd" type="number" min="1"
+                                   class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('bulkEnd') border-red-500 @enderror">
+                            @error('bulkEnd') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-neutral-300 mb-2">Capacidade *</label>
+                            <input wire:model="bulkCapacity" type="number" min="1" max="50"
+                                   class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('bulkCapacity') border-red-500 @enderror">
+                            @error('bulkCapacity') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
 
-                @error('bulkEnd')
-                    <p class="text-sm text-red-400">{{ $message }}</p>
-                @enderror
+                    @error('bulkEnd')
+                        <p class="text-sm text-red-400">{{ $message }}</p>
+                    @enderror
 
-                <div class="flex items-center gap-3 pt-2">
-                    <button type="submit" wire:loading.attr="disabled"
-                             class="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center gap-2">
-                        <span wire:loading.remove>Criar {{ max(0, $bulkEnd - $bulkStart + 1) }} Mesas</span>
-                        <span wire:loading><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
-                    </button>
-                    <button type="button" wire:click="resetForm"
-                            class="px-6 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl transition-all duration-200">
-                        Cancelar
-                    </button>
-                </div>
-            </form>
-        @endif
-                </div>
-            </div>
-        </div>
+                    <div class="flex items-center gap-3 pt-2">
+                        <x-admin.button variant="primary" type="submit" wire:loading.attr="disabled">
+                            <span wire:loading.remove>Criar {{ max(0, $bulkEnd - $bulkStart + 1) }} Mesas</span>
+                            <span wire:loading><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
+                        </x-admin.button>
+                        <x-admin.button variant="secondary" type="button" wire:click="resetForm">
+                            Cancelar
+                        </x-admin.button>
+                    </div>
+                </form>
+            @endif
+        </x-admin.modal>
     @endif
 
     {{-- Tables Grid --}}
@@ -356,14 +321,12 @@
                     </p>
                     @if (!$search && !$statusFilter)
                         <div class="flex justify-center gap-3">
-                            <button wire:click="openCreateForm"
-                                    class="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200">
+                            <x-admin.button variant="primary" wire:click="openCreateForm">
                                 Criar Primeira Mesa
-                            </button>
-                            <button wire:click="openBulkForm"
-                                    class="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-medium rounded-xl transition-all duration-200">
+                            </x-admin.button>
+                            <x-admin.button variant="secondary" wire:click="openBulkForm">
                                 Criar em Lote
-                            </button>
+                            </x-admin.button>
                         </div>
                     @endif
                 </div>
@@ -380,38 +343,31 @@
 
     {{-- QR Code Modal --}}
     @if ($showQr)
-        <div class="fixed inset-0 z-60" wire:key="qr-modal">
-            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="closeQrCode"></div>
-            <div class="absolute inset-0 flex items-center justify-center p-4">
-                <div class="w-full max-w-sm p-8 rounded-3xl bg-neutral-900 border border-neutral-800 shadow-2xl shadow-black/50">
-                    <div class="text-center">
-                        <h3 class="text-lg font-bold mb-1">QR Code da Mesa</h3>
-                        <p class="text-sm text-neutral-400 mb-6">
-                            Mesa {{ $qrTableNumber }}
-                        </p>
+        <x-admin.modal show="showQr" maxWidth="max-w-sm" title="QR Code da Mesa">
+            <div class="text-center">
+                <p class="text-sm text-neutral-400 mb-6">
+                    Mesa {{ $qrTableNumber }}
+                </p>
 
-                        <div class="w-56 h-56 mx-auto mb-6 p-3 bg-white rounded-2xl flex items-center justify-center">
-                            <img src="{{ $qrImage }}" alt="QR Code da Mesa {{ $qrTableNumber }}" class="w-full h-full">
-                        </div>
+                <div class="w-56 h-56 mx-auto mb-6 p-3 bg-white rounded-2xl flex items-center justify-center">
+                    <img src="{{ $qrImage }}" alt="QR Code da Mesa {{ $qrTableNumber }}" class="w-full h-full">
+                </div>
 
-                        <p class="text-xs text-neutral-500 mb-6 break-all bg-neutral-800/50 p-3 rounded-xl">
-                            {{ $qrUrl }}
-                        </p>
+                <p class="text-xs text-neutral-500 mb-6 break-all bg-neutral-800/50 p-3 rounded-xl">
+                    {{ $qrUrl }}
+                </p>
 
-                        <div class="flex gap-3">
-                            <a href="{{ $qrUrl }}"
-                               class="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl text-center transition-all duration-200">
-                                Abrir Cardapio
-                            </a>
-                            <button wire:click="closeQrCode"
-                                    class="px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl transition-all duration-200">
-                                Fechar
-                            </button>
-                        </div>
-                    </div>
+                <div class="flex gap-3">
+                    <a href="{{ $qrUrl }}"
+                       class="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl text-center transition-all duration-200">
+                        Abrir Cardapio
+                    </a>
+                    <x-admin.button variant="secondary" wire:click="closeQrCode">
+                        Fechar
+                    </x-admin.button>
                 </div>
             </div>
-        </div>
+        </x-admin.modal>
     @endif
 
 </div>
