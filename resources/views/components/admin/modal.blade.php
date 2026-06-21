@@ -8,7 +8,7 @@
     <div
         {{ $attributes->wire('key') ? '' : '' }}
         class="fixed inset-0 z-60"
-        x-data="{ open: @entangle('{{ $show === true ? 'showForm' : $show }}') }"
+        x-data="{ open: @entangle(($show === true ? 'showForm' : $show)) }"
         x-show="open"
         x-cloak
         @keydown.window.escape.window="open = false"

@@ -21,7 +21,7 @@
         </x-slot:action>
     </x-admin.page-header>
 
-    <x-admin.modal show="$toggle('showForm')" maxWidth="max-w-lg" title="{{ $editingUserId ? 'Editar' : 'Novo' }} Usuário">
+    <x-admin.modal show="showForm" maxWidth="max-w-lg" title="{{ $editingUserId ? 'Editar' : 'Novo' }} Usuário">
         <form wire:submit="save" class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <label class="block text-sm font-medium text-neutral-300 mb-2">Nome *</label>

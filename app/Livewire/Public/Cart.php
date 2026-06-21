@@ -498,9 +498,11 @@ class Cart extends Component
         $this->notes = '';
         $this->showCart = false;
 
-        $this->dispatch('goToMyOrders')->to('public.menu');
+        $willGeneratePix = $this->orderType === 'entrega' && $this->paymentMethod === 'pix' && $order;
 
-        $willGeneratePix = $this->orderType !== 'mesa' && $this->paymentMethod === 'pix' && $order;
+        if (!$willGeneratePix) {
+            $this->dispatch('goToMyOrders')->to('public.menu');
+        }
 
         if ($willGeneratePix) {
             $this->generateCheckoutPix($order);
@@ -811,6 +813,16 @@ class Cart extends Component
         }
         $this->qrTableNumber = null;
         $this->tableNumber = '';
+    }
+
+    public function updatedOrderType($value): void
+    {
+        if ($value === 'entrega' && !$this->selectedAddressId && !empty($this->userAddresses)) {
+            $default = collect($this->userAddresses)->firstWhere('is_default', true) ?? $this->userAddresses[0];
+            if ($default) {
+                $this->selectAddress($default['id']);
+            }
+        }
     }
 
     public function updatedTableNumber($value): void

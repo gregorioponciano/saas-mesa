@@ -1,4 +1,4 @@
-<div x-data="{ sidebarOpen: false }" class="min-h-screen flex" wire:poll.30s>
+<div x-data="{ sidebarOpen: false }" class="min-h-screen flex">
     {{-- Backdrop --}}
     <div x-show="sidebarOpen" x-cloak
          class="fixed inset-0 z-40 bg-black/60 backdrop-blur-md"
@@ -69,7 +69,10 @@
                     <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
-                    Historico
+                    <span class="flex-1 text-left">Historico</span>
+                    @if (($myOrdersCount ?? 0) > 0)
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-neutral-700/50 text-neutral-300">{{ $myOrdersCount }}</span>
+                    @endif
                 </button>
 
                 <button wire:click="switchClientTab('settings'); sidebarOpen = false"
@@ -122,21 +125,16 @@
                  activeCategory: null,
                  showMobileSearch: false,
                  hasResults: true,
-                 cartCount: 0,
-                 init() {
-                     this.activeCategory = this.$el.querySelector('[data-category]')?.dataset.category || null;
-                     this.$watch('search', () => {
-                         if (!this.search.trim()) { this.hasResults = true; return; }
-                         this.$nextTick(() => {
-                             const cards = document.querySelectorAll('[data-product-card]');
-                             this.hasResults = Array.from(cards).some(c => c.style.display !== 'none');
-                         });
-                     });
-                     this.$nextTick(() => {
-                         const counter = document.getElementById('cart-item-count');
-                         if (counter) this.cartCount = parseInt(counter.dataset.count || '0');
-                     });
-                 },
+                  init() {
+                      this.activeCategory = this.$el.querySelector('[data-category]')?.dataset.category || null;
+                      this.$watch('search', () => {
+                          if (!this.search.trim()) { this.hasResults = true; return; }
+                          this.$nextTick(() => {
+                              const cards = document.querySelectorAll('[data-product-card]');
+                              this.hasResults = Array.from(cards).some(c => c.style.display !== 'none');
+                          });
+                      });
+                  },
                  matchProduct(el) {
                      if (!this.search.trim()) return true;
                      const text = (el.innerText || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -161,11 +159,9 @@
             {{-- Toast Notification (cart only) --}}
             <div x-data="{ toasts: [], id: 0, showToast(text, duration = 3000) { const id = ++this.id; this.toasts.push({ id, text, show: true }); setTimeout(() => { const t = this.toasts.find(x => x.id === id); if (t) t.show = false; setTimeout(() => this.toasts = this.toasts.filter(x => x.id !== id), 300); }, duration); } }"
                  x-init="
-                     $wire.$on('cartUpdated', () => {
-                         showToast('Item adicionado ao carrinho!');
-                         const el = document.getElementById('cart-item-count');
-                         if (el) { cartCount = parseInt(el.dataset.count || '0'); }
-                     });
+                      $wire.$on('cartUpdated', () => {
+                          showToast('Item adicionado ao carrinho!');
+                      });
                  "
                  class="fixed top-4 right-4 z-[80] flex flex-col gap-2 pointer-events-none"
                  x-cloak>
@@ -224,15 +220,16 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                                 </svg>
                             </button>
-                            <span id="cart-item-count" data-count="{{ $cartItemsCount ?? 0 }}" class="hidden"></span>
                             <button @click="$dispatch('open-cart')"
                                     class="relative p-1.5 sm:p-2 rounded-xl hover:bg-neutral-800 text-neutral-400 hover:text-white transition-all">
                                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
                                 </svg>
-                                <span x-show="cartCount > 0"
-                                      class="absolute -top-1 -right-1 w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-amber-500 text-neutral-950 text-[9px] font-bold flex items-center justify-center shadow-lg shadow-amber-500/30"
-                                      x-text="cartCount"></span>
+                                @if (($cartItemsCount ?? 0) > 0)
+                                    <span class="absolute -top-1 -right-1 w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-amber-500 text-neutral-950 text-[9px] font-bold flex items-center justify-center shadow-lg shadow-amber-500/30">
+                                        {{ $cartItemsCount }}
+                                    </span>
+                                @endif
                             </button>
                             @auth
                                 @if (Auth::user()->isAdmin())

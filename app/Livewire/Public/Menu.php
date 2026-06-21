@@ -202,6 +202,17 @@ class Menu extends Component
     }
 
     #[Computed]
+    public function myOrdersCount(): int
+    {
+        if (!Auth::check()) {
+            return 0;
+        }
+        return Order::where('user_id', Auth::id())
+            ->whereIn('status', ['fechado', 'entregue'])
+            ->count();
+    }
+
+    #[Computed]
     public function myActiveOrders()
     {
         if (!Auth::check()) {
@@ -810,6 +821,7 @@ class Menu extends Component
             'tableEntryUrl' => $this->getTableEntryUrl(),
             'cartItemsCount' => $this->cartItemsCount,
             'cartItems' => $this->cartItems,
+            'myOrdersCount' => $this->myOrdersCount,
             'myAddresses' => Auth::check() ? $this->getMyAddresses() : collect(),
         ]);
     }

@@ -2,7 +2,7 @@
      x-init="
          $watch('open', val => document.body.style.overflow = val ? 'hidden' : '');
          $wire.$on('cartUpdated', () => open = true);
-         document.addEventListener('open-cart', () => open = true);
+         document.addEventListener('open-cart', () => { open = true; $wire.loadOrderTracking(); });
      "
      @cart-cleared.window="open = false"
      @keydown.window.escape="open = false">
@@ -25,15 +25,15 @@
             @if (!empty($cartItems))
                 @php $firstItem = collect($cartItems)->first(); @endphp
                 <span class="hidden sm:inline text-sm max-w-[120px] truncate">{{ $firstItem['product_name'] }}</span>
-                <span class="flex items-center justify-center min-w-[24px] h-[24px] rounded-full font-bold text-xs px-1.5 {{ pulse ? 'bg-neutral-950 text-emerald-400' : 'bg-amber-500/15 text-amber-400 border border-amber-500/30' }}">
+                <span class="flex items-center justify-center min-w-[24px] h-[24px] rounded-full font-bold text-xs px-1.5" :class="pulse ? 'bg-neutral-950 text-emerald-400' : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'">
                     {{ $itemsCount }}
                 </span>
-                <span class="text-sm font-bold {{ pulse ? 'text-neutral-950' : 'text-amber-400' }}">
+                <span class="text-sm font-bold" :class="pulse ? 'text-neutral-950' : 'text-amber-400'">
                     R$ {{ number_format($total, 2, ',', '.') }}
                 </span>
             @elseif ($lastOrderId && $orderTracking)
                 <span class="text-sm">Pedido #{{ $lastOrderId }}</span>
-                <span class="text-xs {{ pulse ? 'text-neutral-950' : 'text-neutral-400' }}">
+                <span class="text-xs" :class="pulse ? 'text-neutral-950' : 'text-neutral-400'">
                     {{ $orderTracking['statusLabel'] }}
                 </span>
             @else
@@ -102,7 +102,7 @@
         </div>
 
         {{-- Scrollable Content --}}
-        <div class="flex-1 overflow-y-auto p-6" wire:poll.15s="loadOrderTracking">
+        <div class="flex-1 overflow-y-auto p-6">
 
             {{-- Cart Items --}}
             @if (!empty($cartItems))
@@ -218,36 +218,49 @@
                     </div>
                   @elseif ($orderType === 'entrega')
                       {{-- Delivery Address --}}
-                      <div class="mb-4 space-y-3 p-3 rounded-xl bg-neutral-800/50 border border-neutral-700">
+                      <div class="mb-4 space-y-3 p-4 rounded-xl bg-neutral-800/50 border border-neutral-700">
                           <div class="flex items-center gap-2">
-                              <svg class="w-5 h-5 text-neutral-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg class="w-5 h-5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
                               </svg>
-                              <span class="text-xs font-medium text-neutral-400">Endereco de Entrega</span>
+                              <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider">Endereco de Entrega</span>
                           </div>
 
                           @if (Auth::check() && !empty($userAddresses))
                               <div class="space-y-2">
                                   @foreach ($userAddresses as $address)
-                                      <div class="flex items-center gap-3 p-3 rounded-xl bg-neutral-900/50 border border-neutral-800 cursor-pointer hover:bg-neutral-800/50 transition-all"
+                                      @php $isSelected = $selectedAddressId == $address['id']; @endphp
+                                      <div class="flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all duration-200"
                                            wire:click="selectAddress({{ $address['id'] }})"
-                                           x-data="{ selected: {{ $selectedAddressId == $address['id'] ? 'true' : 'false' }} }"
-                                           :class="{ 'ring-2 ring-amber-500': selected }">
+                                           :class="{
+                                               'bg-amber-500/10 border-2 border-amber-500 shadow-lg shadow-amber-500/10': {{ $isSelected ? 'true' : 'false' }},
+                                               'bg-neutral-900/50 border border-neutral-800 hover:bg-neutral-800/50 hover:border-neutral-700': {{ $isSelected ? 'false' : 'true' }}
+                                           }">
                                           <div class="flex-1 min-w-0">
                                               <div class="flex items-center gap-2">
-                                                  <p class="font-medium text-sm">{{ $address['label'] }}</p>
+                                                  <p class="font-medium text-sm" :class="'{{ $isSelected }}' === '1' ? 'text-amber-400' : 'text-white'">{{ $address['label'] }}</p>
                                                   @if ($address['is_default'])
-                                                      <span class="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/20 text-amber-400">Padrao</span>
+                                                      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">Padrao</span>
                                                   @endif
                                               </div>
-                                              <p class="text-xs text-neutral-400 truncate">{{ $address['full_address'] }}</p>
+                                              <p class="text-xs mt-0.5 {{ $isSelected ? 'text-amber-300/80' : 'text-neutral-400' }}">{{ $address['full_address'] }}</p>
                                           </div>
-                                          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                                               :class="{ 'text-amber-400': selected, 'text-neutral-600': !selected }">
-                                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                          </svg>
+                                          @if ($isSelected)
+                                              <div class="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/30">
+                                                  <svg class="w-3.5 h-3.5 text-neutral-950" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                                              </div>
+                                          @else
+                                              <div class="w-6 h-6 rounded-full bg-neutral-800 border border-neutral-700 shrink-0"></div>
+                                          @endif
                                       </div>
                                   @endforeach
+                              </div>
+                          @elseif (Auth::check())
+                              <div class="text-center py-6 text-neutral-500 bg-neutral-900/30 rounded-xl border border-dashed border-neutral-700">
+                                  <svg class="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                  </svg>
+                                  <p class="text-sm">Nenhum endereco salvo</p>
                               </div>
                           @endif
 
@@ -258,9 +271,9 @@
                           </button>
 
                           @if ($selectedAddressId)
-                              <div class="flex items-center gap-2 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                              <div class="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                                   <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                  <span class="text-xs text-emerald-400">Endereco selecionado</span>
+                                  <span class="text-sm font-medium text-emerald-400">Endereco selecionado</span>
                               </div>
                           @endif
                       </div>
@@ -279,16 +292,8 @@
 
                 {{-- Customer Info --}}
                 <div class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-medium text-neutral-400 mb-1.5">Nome *</label>
-                        <input wire:model="customerName" type="text" placeholder="Seu nome"
-                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
-                        @error('customerName') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                    </div>
-
                     {{-- Coupon --}}
-                    <div class="p-3 rounded-xl bg-neutral-800/50 border border-neutral-700">
-                        <label class="block text-xs font-medium text-neutral-400 mb-1.5">Cupom de Desconto</label>
+                    <div x-data="{ showCoupon: false }" class="p-3 rounded-xl bg-neutral-800/50 border border-neutral-700">
                         @if ($appliedCoupon)
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-2">
@@ -300,16 +305,28 @@
                                 <button wire:click="removeCoupon" wire:loading.attr="disabled" class="text-xs text-red-400 hover:text-red-300 transition-colors disabled:opacity-50">Remover</button>
                             </div>
                         @else
-                            <div class="flex gap-2">
-                                <input wire:model="couponCode" type="text" placeholder="Digite o codigo"
-                                       class="flex-1 px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-xs transition-all uppercase">
-                                <button wire:click="applyCoupon"
-                                        wire:loading.attr="disabled"
-                                        class="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-all disabled:opacity-50">
-                                    <span wire:loading.remove>Aplicar</span>
-                                    <span wire:loading class="flex items-center gap-1"><svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
+                            <template x-if="!showCoupon">
+                                <button @click="showCoupon = true" type="button"
+                                        class="w-full flex items-center justify-center gap-2 text-sm text-neutral-400 hover:text-amber-400 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                    Adicionar Cupom
                                 </button>
-                            </div>
+                            </template>
+                            <template x-if="showCoupon">
+                                <div>
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1.5">Cupom de Desconto</label>
+                                    <div class="flex gap-2">
+                                        <input wire:model="couponCode" type="text" placeholder="Digite o codigo"
+                                               class="flex-1 px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-xs transition-all uppercase">
+                                        <button wire:click="applyCoupon"
+                                                wire:loading.attr="disabled"
+                                                class="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-all disabled:opacity-50">
+                                            <span wire:loading.remove>Aplicar</span>
+                                            <span wire:loading class="flex items-center gap-1"><svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
                         @endif
                     </div>
 
