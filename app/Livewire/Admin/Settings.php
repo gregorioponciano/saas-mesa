@@ -7,16 +7,23 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class Settings extends Component
 {
+    use WithFileUploads;
+
     public string $tenantName = '';
     public string $tenantEmail = '';
     public string $whatsapp = '';
     public string $openingTime = '';
     public string $closingTime = '';
     public string $deliveryCostPerOrder = '0';
+    public $logo = null;
+    public int $logoWidth = 44;
+    public int $logoHeight = 44;
     public string $name = '';
     public string $email = '';
     public string $password = '';
@@ -36,6 +43,9 @@ class Settings extends Component
              'openingTime' => 'nullable|date_format:H:i',
              'closingTime' => 'nullable|date_format:H:i',
              'deliveryCostPerOrder' => 'nullable|numeric|min:0|max:999999',
+             'logo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+             'logoWidth' => 'required|integer|min:20|max:120',
+             'logoHeight' => 'required|integer|min:20|max:120',
          ];
      }
 
@@ -50,31 +60,33 @@ class Settings extends Component
         'passwordConfirmation.same' => 'As senhas não conferem.',
     ];
 
-     public function mount(): void
-     {
-         $user = Auth::user()->load('tenant');
-         $tenant = $user->tenant;
+    public function mount(): void
+    {
+        $user = Auth::user()->load('tenant');
+        $tenant = $user->tenant;
 
-          $this->tenantName = $tenant->name;
-          $this->tenantEmail = $tenant->email;
-          $this->whatsapp = $tenant->whatsapp ?? '';
-          // Handle null or invalid time values gracefully
+        $this->tenantName = $tenant->name;
+        $this->tenantEmail = $tenant->email;
+        $this->whatsapp = $tenant->whatsapp ?? '';
+        $this->logoWidth = $tenant->logo_width ?? 44;
+        $this->logoHeight = $tenant->logo_height ?? 44;
           if ($tenant->opening_time) {
-              $this->openingTime = is_string($tenant->opening_time) 
-                  ? $tenant->opening_time 
+              $this->openingTime = is_string($tenant->opening_time)
+                  ? substr($tenant->opening_time, 0, 5)
                   : date('H:i', strtotime($tenant->opening_time));
           } else {
               $this->openingTime = '08:00'; // Default opening time
           }
-          
+
           if ($tenant->closing_time) {
-              $this->closingTime = is_string($tenant->closing_time) 
-                  ? $tenant->closing_time 
+              $this->closingTime = is_string($tenant->closing_time)
+                  ? substr($tenant->closing_time, 0, 5)
                   : date('H:i', strtotime($tenant->closing_time));
           } else {
               $this->closingTime = '22:00'; // Default closing time
-        $this->deliveryCostPerOrder = (string) ($tenant->delivery_cost_per_order ?? 0);
           }
+
+          $this->deliveryCostPerOrder = (string) ($tenant->delivery_cost_per_order ?? 0);
           
           $this->name = $user->name;
           $this->email = $user->email;
@@ -107,16 +119,39 @@ class Settings extends Component
          $this->validate();
 
          $tenant = Auth::user()->tenant;
-         $tenant->update([
+
+         $data = [
              'name' => $this->tenantName,
              'email' => $this->tenantEmail,
              'whatsapp' => $this->whatsapp,
              'opening_time' => $this->openingTime ? \DateTime::createFromFormat('H:i', $this->openingTime)->format('H:i:s') : null,
              'closing_time' => $this->closingTime ? \DateTime::createFromFormat('H:i', $this->closingTime)->format('H:i:s') : null,
              'delivery_cost_per_order' => (float) $this->deliveryCostPerOrder,
-         ]);
+             'logo_width' => $this->logoWidth,
+             'logo_height' => $this->logoHeight,
+         ];
+
+         if ($this->logo) {
+             if ($tenant->logo) {
+                 Storage::disk('public')->delete($tenant->logo);
+             }
+             $data['logo'] = $this->logo->store('logos/' . $tenant->id, 'public');
+         }
+
+         $tenant->update($data);
 
          $this->dispatch('notify', message: 'Dados do restaurante atualizados!');
+     }
+
+     public function removeLogo(): void
+     {
+         $tenant = Auth::user()->tenant;
+         if ($tenant->logo) {
+             Storage::disk('public')->delete($tenant->logo);
+             $tenant->update(['logo' => null]);
+         }
+         $this->logo = null;
+         $this->dispatch('notify', message: 'Logo removida!');
      }
 
     public function saveProfile(): void

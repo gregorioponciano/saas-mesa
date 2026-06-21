@@ -16,6 +16,50 @@
         </div>
 
         <form wire:submit="saveTenant" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-neutral-300 mb-2">Logo do Restaurante</label>
+                <div class="flex items-center gap-4">
+                    <div class="w-20 h-20 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-center overflow-hidden shrink-0">
+                        @if ($logo)
+                            <img src="{{ $logo->temporaryUrl() }}" class="w-full h-full object-contain">
+                        @elseif ($tenant->logo)
+                            <img src="{{ Storage::url($tenant->logo) }}" class="w-full h-full object-contain">
+                        @else
+                            <svg class="w-8 h-8 text-neutral-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                        @endif
+                    </div>
+                    <div class="flex-1 space-y-2">
+                        <input wire:model="logo" type="file" accept="image/jpeg,image/png,image/jpg,image/webp"
+                               class="w-full text-sm text-neutral-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-amber-500/10 file:text-amber-400 hover:file:bg-amber-500/20 cursor-pointer @error('logo') border-red-500 @enderror">
+                        <p class="text-xs text-neutral-500">PNG, JPG ou WebP. Max 2MB.</p>
+                        @error('logo') <p class="text-xs text-red-400">{{ $message }}</p> @enderror
+                        <div class="flex items-center gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-neutral-400 mb-1">Largura (px)</label>
+                                <input wire:model="logoWidth" type="number" min="20" max="120"
+                                       class="w-24 px-3 py-1.5 rounded-lg bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent @error('logoWidth') border-red-500 @enderror">
+                                @error('logoWidth') <p class="text-xs text-red-400">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-neutral-400 mb-1">Altura (px)</label>
+                                <input wire:model="logoHeight" type="number" min="20" max="120"
+                                       class="w-24 px-3 py-1.5 rounded-lg bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent @error('logoHeight') border-red-500 @enderror">
+                                @error('logoHeight') <p class="text-xs text-red-400">{{ $message }}</p> @enderror
+                            </div>
+                        </div>
+                    </div>
+                    @if ($logo || $tenant->logo)
+                        <button type="button" wire:click="removeLogo"
+                                class="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors shrink-0">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    @endif
+                </div>
+            </div>
             <div>
                 <label class="block text-sm font-medium text-neutral-300 mb-2">Nome do Restaurante</label>
                 <input wire:model="tenantName" type="text" placeholder="Nome"
@@ -130,12 +174,7 @@
     </x-admin.card>
 
     {{-- LGPD & Privacy --}}
-    <x-admin.card
-        x-data="{
-            showAccountDelete: @entangle('showAccountDeleteConfirm'),
-            showTenantDelete: @entangle('showTenantDeleteConfirm'),
-        }"
-    >
+    <x-admin.card>
         <div class="flex items-center gap-3 mb-6">
             <div class="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center">
                 <svg class="w-5 h-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -188,7 +227,8 @@
         </div>
 
         {{-- Account Delete Confirmation Modal --}}
-        <div x-show="showAccountDelete" x-cloak
+        <div x-data="{ showAccountDelete: $wire.entangle('showAccountDeleteConfirm') }"
+             x-show="showAccountDelete" x-cloak
              class="fixed inset-0 z-[70] flex items-center justify-center p-4"
              @keydown.window.escape="$wire.cancelAccountDelete()">
             <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="$wire.cancelAccountDelete()"></div>
@@ -232,7 +272,8 @@
         </div>
 
         {{-- Tenant Delete Confirmation Modal --}}
-        <div x-show="showTenantDelete" x-cloak
+        <div x-data="{ showTenantDelete: $wire.entangle('showTenantDeleteConfirm') }"
+             x-show="showTenantDelete" x-cloak
              class="fixed inset-0 z-[70] flex items-center justify-center p-4"
              @keydown.window.escape="$wire.cancelTenantDelete()">
             <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="$wire.cancelTenantDelete()"></div>

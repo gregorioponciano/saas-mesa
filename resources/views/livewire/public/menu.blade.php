@@ -1,4 +1,8 @@
 <div x-data="{ sidebarOpen: false }" class="min-h-screen flex">
+    @php
+        $logoW = min(max($tenant->logo_width ?? 44, 20), 120);
+        $logoH = min(max($tenant->logo_height ?? 44, 20), 120);
+    @endphp
     {{-- Backdrop --}}
     <div x-show="sidebarOpen" x-cloak
          class="fixed inset-0 z-40 bg-black/60 backdrop-blur-md"
@@ -20,14 +24,20 @@
         <div class="flex flex-col h-full">
             {{-- Brand --}}
             <div class="flex items-center gap-3 px-6 h-16 border-b border-neutral-800">
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-neutral-950 font-black text-sm shadow-lg shadow-amber-500/20">
+            @if ($tenant->logoUrl())
+                <div class="rounded-xl overflow-hidden shrink-0" style="width: {{ $logoW }}px; height: {{ $logoH }}px;">
+                    <img src="{{ $tenant->logoUrl() }}" class="w-full h-full object-contain" alt="Logo">
+                </div>
+            @else
+                <div class="rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-neutral-950 font-black text-sm shadow-lg shadow-amber-500/20" style="width: {{ $logoW }}px; height: {{ $logoH }}px;">
                     {{ mb_substr($tenant->name, 0, 1) }}
                 </div>
-                <div>
-                    <span class="font-black text-amber-400">{{ $tenant->name }}</span>
-                    <span class="font-black text-white">Digital</span>
-                </div>
+            @endif
+            <div>
+                <span class="font-black text-amber-400">{{ $tenant->name }}</span>
+                <span class="font-black text-white">Digital</span>
             </div>
+        </div>
 
             {{-- User Info --}}
             <div class="px-4 py-4 border-b border-neutral-800">
@@ -193,9 +203,15 @@
                             </svg>
                         </button>
                         @endauth
-                        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-neutral-950 font-black text-sm sm:text-lg shadow-lg shadow-amber-500/20 shrink-0">
-                            {{ mb_substr($tenant->name, 0, 1) }}
-                        </div>
+                        @if ($tenant->logoUrl())
+                            <div class="rounded-xl overflow-hidden shrink-0" style="width: {{ $logoW }}px; height: {{ $logoH }}px;">
+                                <img src="{{ $tenant->logoUrl() }}" class="w-full h-full object-contain" alt="Logo">
+                            </div>
+                        @else
+                            <div class="rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-neutral-950 font-black text-sm sm:text-lg shadow-lg shadow-amber-500/20 shrink-0" style="width: {{ $logoW }}px; height: {{ $logoH }}px;">
+                                {{ mb_substr($tenant->name, 0, 1) }}
+                            </div>
+                        @endif
                 <div class="flex-1 min-w-0">
                     <h1 class="font-bold truncate" :class="scrolled ? 'text-xs sm:text-sm' : 'text-sm sm:text-lg'" x-text="'{{ $tenant->name }}'"></h1>
                     <div class="flex items-center gap-1 sm:gap-2 mt-0.5 sm:mt-1 flex-wrap">

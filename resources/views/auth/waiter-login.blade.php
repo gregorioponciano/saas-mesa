@@ -15,7 +15,13 @@
         {{-- Company Info Panel --}}
         <div class="hidden lg:flex w-1/2 bg-gradient-to-br from-neutral-900 to-neutral-950 p-12 items-center justify-center">
             <div class="max-w-md">
-                <div class="w-20 h-20 rounded-3xl bg-amber-500 flex items-center justify-center text-neutral-950 font-black text-3xl mb-8 shadow-2xl shadow-amber-500/20">B</div>
+                @if ($tenant->logoUrl())
+                    <div class="mx-auto mb-8 rounded-3xl overflow-hidden shadow-2xl shadow-amber-500/20" style="width: 120px; height: 120px;">
+                        <img src="{{ $tenant->logoUrl() }}" class="w-full h-full object-contain" alt="{{ $tenant->name }}">
+                    </div>
+                @else
+                    <div class="mx-auto w-24 h-24 rounded-3xl bg-amber-500 flex items-center justify-center text-neutral-950 font-black text-4xl mb-8 shadow-2xl shadow-amber-500/20">{{ mb_substr($tenant->name, 0, 1) }}</div>
+                @endif
                 <h1 class="text-3xl font-black text-white mb-3">{{ $tenant->name }}</h1>
                 <p class="text-neutral-400 leading-relaxed mb-8">
                     Faça login para acessar o painel da equipe e gerenciar pedidos, mesas e atendimento do restaurante em tempo real.
@@ -53,7 +59,13 @@
         <div class="w-full lg:w-1/2 flex items-center justify-center p-8 min-h-screen">
             <div class="w-full max-w-sm">
                 <div class="lg:hidden text-center mb-8">
-                    <div class="w-14 h-14 rounded-2xl bg-amber-500 flex items-center justify-center text-neutral-950 font-black text-xl mx-auto mb-3">B</div>
+                    @if ($tenant->logoUrl())
+                        <div class="mx-auto mb-3 rounded-2xl overflow-hidden" style="width: 80px; height: 80px;">
+                            <img src="{{ $tenant->logoUrl() }}" class="w-full h-full object-contain" alt="{{ $tenant->name }}">
+                        </div>
+                    @else
+                        <div class="w-16 h-16 rounded-2xl bg-amber-500 flex items-center justify-center text-neutral-950 font-black text-2xl mx-auto mb-3">{{ mb_substr($tenant->name, 0, 1) }}</div>
+                    @endif
                     <h1 class="text-xl font-bold">{{ $tenant->name }}</h1>
                 </div>
 

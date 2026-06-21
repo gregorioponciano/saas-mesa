@@ -1,7 +1,21 @@
 <div wire:poll.3s class="flex flex-col h-full">
     {{-- Brand --}}
+    @php
+        $tenant = Auth::user()?->tenant;
+        $logoUrl = $tenant?->logoUrl();
+        $logoW = min(max($tenant?->logo_width ?? 44, 20), 120);
+        $logoH = min(max($tenant?->logo_height ?? 44, 20), 120);
+    @endphp
     <div class="flex items-center gap-3 px-6 h-16 border-b border-neutral-800">
-        <div class="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center text-neutral-950 font-black text-sm">B</div>
+        @if ($logoUrl)
+            <div class="rounded-xl overflow-hidden shrink-0" style="width: {{ $logoW }}px; height: {{ $logoH }}px;">
+                <img src="{{ $logoUrl }}" class="w-full h-full object-contain" alt="Logo">
+            </div>
+        @else
+            <div class="rounded-xl bg-amber-500 flex items-center justify-center text-neutral-950 font-black text-sm" style="width: {{ $logoW }}px; height: {{ $logoH }}px;">
+                {{ mb_substr($tenant?->name ?? 'B', 0, 1) }}
+            </div>
+        @endif
         <div>
             <span class="font-black text-amber-400">Burguer</span>
             <span class="font-black text-white">SaaS</span>

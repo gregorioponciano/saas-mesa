@@ -5,6 +5,7 @@ namespace App\Models;
 use Database\Factories\TenantFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Tenant extends Model
 {
@@ -35,6 +36,9 @@ class Tenant extends Model
         'slug',
         'domain',
         'whatsapp',
+        'logo',
+        'logo_width',
+        'logo_height',
         'opening_time',
         'closing_time',
         'plan',
@@ -108,6 +112,14 @@ class Tenant extends Model
     public function canAddTable(): bool
     {
         return $this->tables()->count() < $this->max_tables;
+    }
+
+    public function logoUrl(): ?string
+    {
+        if (!$this->logo) {
+            return null;
+        }
+        return Storage::url($this->logo);
     }
 
     public function maxTablesAllowed(): int
