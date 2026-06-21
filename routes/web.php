@@ -59,6 +59,12 @@ Route::middleware(['throttle:10,1'])->group(function () {
 // Como usar: POST para '/logout' (obrigatório ser POST por segurança contra CSRF) ou route('logout')
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+// Recuperação de senha do administrador
+Route::get('/login/recuperar-senha', [AuthController::class, 'adminForgotPasswordForm'])->name('admin.forgot.form');
+Route::post('/login/recuperar-senha', [AuthController::class, 'adminSendResetLink'])->name('admin.forgot.send');
+Route::get('/login/redefinir-senha/{token}', [AuthController::class, 'adminResetPasswordForm'])->name('admin.reset.form');
+Route::post('/login/redefinir-senha/{token}', [AuthController::class, 'adminResetPassword'])->name('admin.reset');
+
 
 /**
  * --------------------------------------------------------------------------

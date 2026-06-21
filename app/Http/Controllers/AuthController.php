@@ -345,6 +345,93 @@ class AuthController extends Controller
         return $this->redirectByRole($user);
     }
 
+    public function adminForgotPasswordForm(): View
+    {
+        return view('auth.admin-forgot-password');
+    }
+
+    public function adminSendResetLink(Request $request): RedirectResponse
+    {
+        $request->validate(['email' => 'required|email']);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return back()->withErrors(['email' => 'Email nao encontrado.']);
+        }
+
+        $token = Str::random(64);
+        $tenant = $user->tenant;
+
+        DB::table('password_resets')->updateOrInsert(
+            ['email' => $request->email, 'tenant_id' => $tenant->id],
+            ['token' => $token, 'created_at' => now()]
+        );
+
+        try {
+            Mail::to($request->email)->send(new ResetPasswordMail($tenant, $token, $request->email, isAdmin: true));
+        } catch (\Exception $e) {
+            Log::error('Erro ao enviar email de reset admin: ' . $e->getMessage());
+            return back()->withErrors(['email' => 'Erro ao enviar email. Tente novamente mais tarde.']);
+        }
+
+        return back()->with('status', 'Link de redefinição enviado para seu email!');
+    }
+
+    public function adminResetPasswordForm(string $token): View|RedirectResponse
+    {
+        $reset = DB::table('password_resets')
+            ->where('token', $token)
+            ->first();
+
+        if (!$reset || now()->diffInMinutes($reset->created_at) > 60) {
+            return redirect()->route('admin.forgot.form')
+                ->withErrors(['email' => 'Link expirado ou inválido. Solicite novamente.']);
+        }
+
+        return view('auth.admin-reset-password', [
+            'token' => $token,
+            'email' => $reset->email,
+        ]);
+    }
+
+    public function adminResetPassword(Request $request, string $token): RedirectResponse
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|min:8|confirmed',
+        ]);
+
+        $reset = DB::table('password_resets')
+            ->where('email', $request->email)
+            ->where('token', $token)
+            ->first();
+
+        if (!$reset || now()->diffInMinutes($reset->created_at) > 60) {
+            return redirect()->route('admin.forgot.form')
+                ->withErrors(['email' => 'Link expirado ou inválido. Solicite novamente.']);
+        }
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return redirect()->route('admin.forgot.form')
+                ->withErrors(['email' => 'Usuário não encontrado.']);
+        }
+
+        $user->update(['password' => $request->password]);
+
+        DB::table('password_resets')
+            ->where('email', $request->email)
+            ->where('token', $token)
+            ->delete();
+
+        Auth::login($user);
+        $request->session()->regenerate();
+
+        return $this->redirectByRole($user);
+    }
+
     private function redirectByRole($user): RedirectResponse
     {
         return match ($user->role) {

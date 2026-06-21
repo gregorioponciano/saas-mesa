@@ -73,6 +73,9 @@
                         <input type="checkbox" name="remember" class="rounded bg-neutral-900 border-neutral-700 text-amber-500 focus:ring-amber-500">
                         <span class="text-sm text-neutral-400">Lembrar-me</span>
                     </label>
+                    <a href="{{ route('admin.forgot.form') }}" class="text-sm text-neutral-500 hover:text-amber-400 transition-colors">
+                        Esqueceu a senha?
+                    </a>
                 </div>
 
                 <button type="submit"

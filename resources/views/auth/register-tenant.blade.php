@@ -84,7 +84,7 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                        <label for="email" class="block text-sm font-medium text-neutral-300 mb-2">Seu e-mail (login)</label>
+                        <label for="email" class="block text-sm font-medium text-neutral-300 mb-2">Seu e-mail (recuperar a senha)</label>
                         <input type="email" name="email" id="email" value="{{ old('email') }}" required
                                class="w-full px-4 py-3 rounded-xl bg-neutral-900 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('email') border-red-500 @enderror">
                         @error('email')
