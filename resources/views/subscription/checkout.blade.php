@@ -73,15 +73,19 @@
         $progressPct = $totalDays > 0 ? min(100, ($remainingDays / $totalDays) * 100) : 0;
         $isEnding = $diff && $diff->days <= 7 && !$expired;
     @endphp
-    <div class="mb-8 p-6 rounded-2xl bg-gradient-to-br {{ $expired ? 'from-red-500/10 to-red-600/5 border border-red-500/20' : ($isEnding ? 'from-amber-500/10 to-amber-600/5 border border-amber-500/20' : 'from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20') }}">
+    @php
+        $isPaid = $tenant->isPaid();
+        $freeBg = 'from-neutral-800/50 to-neutral-900/30 border border-neutral-700/50';
+    @endphp
+    <div class="mb-8 p-6 rounded-2xl bg-gradient-to-br {{ !$isPaid ? $freeBg : ($expired ? 'from-red-500/10 to-red-600/5 border border-red-500/20' : ($isEnding ? 'from-amber-500/10 to-amber-600/5 border border-amber-500/20' : 'from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20')) }}">
         <div class="flex items-start gap-4">
-            <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 {{ $expired ? 'bg-red-500/20' : ($isEnding ? 'bg-amber-500/20' : 'bg-emerald-500/20') }}">
-                @if ($expired)
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 {{ !$isPaid ? 'bg-neutral-700/50' : ($expired ? 'bg-red-500/20' : ($isEnding ? 'bg-amber-500/20' : 'bg-emerald-500/20')) }}">
+                @if ($isPaid && $expired)
                     <svg class="w-6 h-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                 @else
-                    <svg class="w-6 h-6 {{ $isEnding ? 'text-amber-400' : 'text-emerald-400' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg class="w-6 h-6 {{ $isPaid && $isEnding ? 'text-amber-400' : 'text-neutral-400' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                 @endif
@@ -90,14 +94,14 @@
                 <div class="flex items-center justify-between flex-wrap gap-2">
                     <div>
                         <div class="flex items-center gap-3">
-                            <h3 class="text-xl font-black tracking-tight {{ $expired ? 'text-red-400' : ($isEnding ? 'text-amber-400' : 'text-emerald-400') }}">
-                                {{ $tenant->isPaid() ? 'Premium' : 'Gratuito' }}
+                            <h3 class="text-xl font-black tracking-tight {{ !$isPaid ? 'text-neutral-300' : ($expired ? 'text-red-400' : ($isEnding ? 'text-amber-400' : 'text-emerald-400')) }}">
+                                {{ $isPaid ? 'Premium' : 'Gratuito' }}
                             </h3>
-                            <span class="px-3 py-1 text-xs font-bold rounded-full {{ $expired ? 'bg-red-500/20 text-red-400' : ($isEnding ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400') }}">
-                                {{ $expired ? 'Expirado' : ($isEnding ? 'Vencendo' : 'Ativo') }}
+                            <span class="px-3 py-1 text-xs font-bold rounded-full {{ !$isPaid ? 'bg-neutral-700/50 text-neutral-400' : ($expired ? 'bg-red-500/20 text-red-400' : ($isEnding ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400')) }}">
+                                {{ !$isPaid ? 'Ativo' : ($expired ? 'Expirado' : ($isEnding ? 'Vencendo' : 'Ativo')) }}
                             </span>
                         </div>
-                        @if ($diff && !$expired)
+                        @if ($isPaid && $diff && !$expired)
                             <div class="flex items-baseline gap-2 mt-2">
                                 <span class="text-sm text-neutral-400">Restam</span>
                                 <span class="text-2xl font-black tracking-tight text-white drop-shadow-sm">{{ $diff->d }}d</span>
@@ -108,13 +112,13 @@
                             <div class="mt-3 w-full max-w-xs h-1.5 rounded-full bg-neutral-800 overflow-hidden">
                                 <div class="h-full rounded-full transition-all duration-700 {{ $expired ? 'bg-red-500' : ($isEnding ? 'bg-amber-500' : 'bg-emerald-500') }}" style="width: {{ $progressPct }}%"></div>
                             </div>
-                        @elseif ($expired)
+                        @elseif ($isPaid && $expired)
                             <p class="text-sm text-red-400/80 mt-1 font-medium">Sua assinatura expirou. Escolha um período e renove abaixo.</p>
                         @else
-                            <p class="text-sm text-neutral-500 mt-1">Sem data de expiração definida.</p>
+                            <p class="text-sm text-neutral-500 mt-1">Plano sem vencimento.</p>
                         @endif
                     </div>
-                    @if ($isEnding)
+                    @if ($isPaid && $isEnding)
                         <span class="px-4 py-2 text-sm font-bold rounded-xl bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/25 animate-pulse">
                             Expira em {{ $diff->d }}d
                         </span>

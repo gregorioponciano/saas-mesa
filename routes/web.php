@@ -132,6 +132,9 @@ Route::prefix('/cardapio')->group(function () {
     // Exibe o cardápio público de um restaurante específico através do 'slug'
     // Como usar: GET para '/cardapio/nome-do-restaurante' ou route('menu.show', ['slug' => 'slug-da-empresa'])
     Route::get('/{slug:slug}', function (Tenant $slug) {
+        if (Auth::check() && Auth::user()->tenant_id !== $slug->id) {
+            abort(403);
+        }
         return view('menu-page', ['tenant' => $slug]);
     })->name('menu.show');
 
@@ -179,12 +182,12 @@ Route::middleware(['auth', 'tenant.scope', 'check.staff'])->prefix('/painel')->g
     Route::get('/{slug:slug}', function (Tenant $slug) {
         $user = Auth::user();
 
-        if ($slug->isFree()) {
+            if ($slug->isFree()) {
             abort(403, 'Acesso restrito. Plano Premium requerido.');
         }
 
-        if (!$user->isAdmin() && $user->tenant_id !== $slug->id) {
-            abort(403); // Bloqueia se o garçom tentar acessar o painel de outro restaurante
+        if ($user->tenant_id !== $slug->id) {
+            abort(403);
         }
 
         return view('waiter-panel', ['tenant' => $slug]);
