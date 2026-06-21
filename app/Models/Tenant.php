@@ -48,6 +48,13 @@ class Tenant extends Model
         'trial_ends_at',
         'subscription_ends_at',
         'delivery_cost_per_order',
+        'mail_host',
+        'mail_port',
+        'mail_username',
+        'mail_password',
+        'mail_encryption',
+        'mail_from_address',
+        'mail_from_name',
     ];
 
     protected function casts(): array

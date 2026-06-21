@@ -103,6 +103,12 @@
                             class="w-full py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
                         Entrar
                     </button>
+
+                    <div class="text-center">
+                        <a href="{{ route('waiter.forgot.form', $tenant->slug) }}" class="text-sm text-neutral-500 hover:text-amber-400 transition-colors">
+                            Esqueceu a senha?
+                        </a>
+                    </div>
                 </form>
 
                 <div class="mt-6 space-y-2 text-center">

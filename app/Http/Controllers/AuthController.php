@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Mail\ResetPasswordMail;
 use App\Models\SaasPlan;
 use App\Models\SaasSubscription;
 use App\Models\Table;
@@ -17,6 +18,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -230,6 +233,116 @@ class AuthController extends Controller
                 'role' => $user->role,
             ],
         ]);
+    }
+
+    private function applyTenantMailConfig(Tenant $tenant): void
+    {
+        if ($tenant->mail_host) {
+            config([
+                'mail.default' => 'smtp',
+                'mail.mailers.smtp.host' => $tenant->mail_host,
+                'mail.mailers.smtp.port' => $tenant->mail_port,
+                'mail.mailers.smtp.username' => $tenant->mail_username,
+                'mail.mailers.smtp.password' => $tenant->mail_password,
+                'mail.mailers.smtp.encryption' => $tenant->mail_encryption,
+                'mail.from.address' => $tenant->mail_from_address,
+                'mail.from.name' => $tenant->mail_from_name ?? $tenant->name,
+            ]);
+        }
+    }
+
+    public function forgotPasswordForm(Tenant $slug): View
+    {
+        return view('auth.forgot-password', ['tenant' => $slug]);
+    }
+
+    public function sendResetLink(Request $request, Tenant $slug): RedirectResponse
+    {
+        $request->validate(['email' => 'required|email']);
+
+        $user = User::where('email', $request->email)
+            ->where('tenant_id', $slug->id)
+            ->first();
+
+        if (!$user) {
+            return back()->withErrors(['email' => 'Email nao encontrado neste restaurante.']);
+        }
+
+        $token = Str::random(64);
+
+        DB::table('password_resets')->updateOrInsert(
+            ['email' => $request->email, 'tenant_id' => $slug->id],
+            ['token' => $token, 'created_at' => now()]
+        );
+
+        try {
+            $this->applyTenantMailConfig($slug);
+            Mail::to($request->email)->send(new ResetPasswordMail($slug, $token, $request->email));
+        } catch (\Exception $e) {
+            Log::error('Erro ao enviar email de reset: ' . $e->getMessage());
+            return back()->withErrors(['email' => 'Erro ao enviar email. Verifique as configuracoes de SMTP do restaurante.']);
+        }
+
+        return back()->with('status', 'Link de redefinicao enviado para seu email!');
+    }
+
+    public function resetPasswordForm(Tenant $slug, string $token): View|RedirectResponse
+    {
+        $reset = DB::table('password_resets')
+            ->where('token', $token)
+            ->where('tenant_id', $slug->id)
+            ->first();
+
+        if (!$reset || now()->diffInMinutes($reset->created_at) > 60) {
+            return redirect()->route('waiter.forgot.form', $slug->slug)
+                ->withErrors(['email' => 'Link expirado ou invalido. Solicite novamente.']);
+        }
+
+        return view('auth.reset-password', [
+            'tenant' => $slug,
+            'token' => $token,
+            'email' => $reset->email,
+        ]);
+    }
+
+    public function resetPassword(Request $request, Tenant $slug, string $token): RedirectResponse
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|min:8|confirmed',
+        ]);
+
+        $reset = DB::table('password_resets')
+            ->where('email', $request->email)
+            ->where('token', $token)
+            ->where('tenant_id', $slug->id)
+            ->first();
+
+        if (!$reset || now()->diffInMinutes($reset->created_at) > 60) {
+            return redirect()->route('waiter.forgot.form', $slug->slug)
+                ->withErrors(['email' => 'Link expirado ou invalido. Solicite novamente.']);
+        }
+
+        $user = User::where('email', $request->email)
+            ->where('tenant_id', $slug->id)
+            ->first();
+
+        if (!$user) {
+            return redirect()->route('waiter.forgot.form', $slug->slug)
+                ->withErrors(['email' => 'Usuario nao encontrado.']);
+        }
+
+        $user->update(['password' => $request->password]);
+
+        DB::table('password_resets')
+            ->where('email', $request->email)
+            ->where('tenant_id', $slug->id)
+            ->delete();
+
+        Auth::login($user);
+        $request->session()->regenerate();
+
+        return $this->redirectByRole($user);
     }
 
     private function redirectByRole($user): RedirectResponse
