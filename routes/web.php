@@ -161,9 +161,15 @@ Route::middleware(['auth', 'tenant.scope', 'check.staff'])->prefix('/painel')->g
     // Como usar: GET para '/painel/nome-do-restaurante' ou route('waiter.panel', ['slug' => 'slug-da-empresa'])
     Route::get('/{slug:slug}', function (Tenant $slug) {
         $user = Auth::user();
-        if ($user->tenant_id !== $slug->id) {
+
+        if ($slug->isFree()) {
+            abort(403, 'Acesso restrito. Plano Premium requerido.');
+        }
+
+        if (!$user->isAdmin() && $user->tenant_id !== $slug->id) {
             abort(403); // Bloqueia se o garçom tentar acessar o painel de outro restaurante
         }
+
         return view('waiter-panel', ['tenant' => $slug]);
     })->name('waiter.panel');
 

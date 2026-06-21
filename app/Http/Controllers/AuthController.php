@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class AuthController extends Controller
@@ -68,7 +69,7 @@ class AuthController extends Controller
             'tenant_email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:tenants,email'],
             'slug' => ['required', 'string', 'max:60', 'unique:tenants,slug', 'alpha_dash:ascii'],
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255'],
             'password' => ['required', 'confirmed', 'min:8'],
         ]);
 
@@ -187,7 +188,10 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
+            'email' => [
+                'required', 'string', 'lowercase', 'email', 'max:255',
+                Rule::unique('users', 'email')->where(fn ($q) => $q->where('tenant_id', $slug->id)),
+            ],
             'password' => ['required', 'confirmed', 'min:8'],
         ]);
 
