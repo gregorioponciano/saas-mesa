@@ -188,12 +188,12 @@ Route::middleware(['auth', 'tenant.scope', 'check.staff'])->prefix('/painel')->g
     Route::get('/{slug:slug}', function (Tenant $slug) {
         $user = Auth::user();
 
-            if ($slug->isFree()) {
-            abort(403, 'Acesso restrito. Plano Premium requerido.');
-        }
-
         if ($user->tenant_id !== $slug->id) {
             abort(403);
+        }
+
+        if ($slug->isFree()) {
+            abort(403, 'Acesso restrito. Plano Premium requerido.');
         }
 
         return view('waiter-panel', ['tenant' => $slug]);

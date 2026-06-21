@@ -62,7 +62,7 @@ class UserManager extends Component
 
     public function edit(int $id): void
     {
-        $user = User::findOrFail($id);
+        $user = User::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
         $this->editingUserId = $user->id;
         $this->name = $user->name;
         $this->email = $user->email;
@@ -100,7 +100,7 @@ class UserManager extends Component
         }
 
         if ($this->editingUserId) {
-            $user = User::findOrFail($this->editingUserId);
+            $user = User::where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->editingUserId);
             if ($user->isAdmin() && $this->role !== 'admin' && $user->id === auth()->id()) {
                 $this->addError('role', 'Você não pode rebaixar seu próprio cargo de administrador.');
                 return;
@@ -119,7 +119,7 @@ class UserManager extends Component
 
     public function toggleStaff(int $id): void
     {
-        $user = User::findOrFail($id);
+        $user = User::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
         if ($user->isAdmin()) {
             $this->dispatch('notify', message: 'Administradores não podem ser alterados.');
             return;
@@ -139,7 +139,7 @@ class UserManager extends Component
 
     public function delete(int $id): void
     {
-        $user = User::findOrFail($id);
+        $user = User::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
         $name = $user->name;
         $user->delete();
         $this->confirmDeleteUserId = null;

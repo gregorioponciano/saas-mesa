@@ -72,7 +72,7 @@ class AuthController extends Controller
             'tenant_email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:tenants,email'],
             'slug' => ['required', 'string', 'max:60', 'unique:tenants,slug', 'alpha_dash:ascii'],
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'confirmed', 'min:8'],
         ]);
 
@@ -260,6 +260,10 @@ class AuthController extends Controller
     {
         $request->validate(['email' => 'required|email']);
 
+        if (!$slug->mail_host) {
+            return back()->withErrors(['email' => 'Restaurante não configurou envio de email. O administrador precisa configurar em Configurar Email.']);
+        }
+
         $user = User::where('email', $request->email)
             ->where('tenant_id', $slug->id)
             ->first();
@@ -280,10 +284,10 @@ class AuthController extends Controller
             Mail::to($request->email)->send(new ResetPasswordMail($slug, $token, $request->email));
         } catch (\Exception $e) {
             Log::error('Erro ao enviar email de reset: ' . $e->getMessage());
-            return back()->withErrors(['email' => 'Erro ao enviar email. Verifique as configuracoes de SMTP do restaurante.']);
+            return back()->withErrors(['email' => 'Erro ao enviar email. Verifique as configurações de SMTP do restaurante.']);
         }
 
-        return back()->with('status', 'Link de redefinicao enviado para seu email!');
+        return back()->with('status', 'Link de redefinição enviado para seu email!');
     }
 
     public function resetPasswordForm(Tenant $slug, string $token): View|RedirectResponse
@@ -360,8 +364,12 @@ class AuthController extends Controller
             return back()->withErrors(['email' => 'Email nao encontrado.']);
         }
 
-        $token = Str::random(64);
+        if (!$user->isAdmin()) {
+            return back()->withErrors(['email' => 'Apenas administradores podem recuperar senha por aqui.']);
+        }
+
         $tenant = $user->tenant;
+        $token = Str::random(64);
 
         DB::table('password_resets')->updateOrInsert(
             ['email' => $request->email, 'tenant_id' => $tenant->id],

@@ -2,8 +2,11 @@
 
 namespace App\Models;
 
+use App\Scopes\TenantScope;
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Model;
 
+#[ScopedBy([TenantScope::class])]
 class DeliveryPerson extends Model
 {
     protected $fillable = [
