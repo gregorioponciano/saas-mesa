@@ -117,6 +117,21 @@
         </a>
 
         <div class="pt-4 mt-4 border-t border-neutral-800">
+            <p class="px-4 text-xs font-medium text-neutral-500 uppercase tracking-wider">Suporte</p>
+        </div>
+
+        <a href="{{ route('dashboard.support') }}"
+           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ request()->routeIs('dashboard.support') ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50' }}">
+            <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3v-3z"/>
+            </svg>
+            <span class="flex-1">Suporte</span>
+            @if ($openTicketsCount > 0)
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-500 text-white">{{ $openTicketsCount }}</span>
+            @endif
+        </a>
+
+        <div class="pt-4 mt-4 border-t border-neutral-800">
             <p class="px-4 text-xs font-medium text-neutral-500 uppercase tracking-wider">Restaurante</p>
         </div>
 

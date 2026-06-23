@@ -78,6 +78,18 @@
             </svg>
             Restaurante
         </a>
+
+        <div class="pt-4 mt-4 border-t border-neutral-800">
+            <p class="px-4 text-xs font-medium text-neutral-500 uppercase tracking-wider">Suporte</p>
+        </div>
+
+        <a href="{{ route('client.support', ['slug' => $tenant->slug]) }}"
+           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ request()->routeIs('client.support') ? 'bg-amber-500/10 text-amber-400' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50' }}">
+            <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3v-3z"/>
+            </svg>
+            <span class="flex-1">Suporte</span>
+        </a>
     </nav>
 
     {{-- Logout --}}

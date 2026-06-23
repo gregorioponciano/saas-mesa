@@ -127,25 +127,25 @@
                         <p class="text-neutral-400 text-sm leading-relaxed">Acompanhe faturamento, pedidos por período, desempenho do cardápio e muito mais com gráficos interativos.</p>
                     </div>
 
-                    <div class="p-6 rounded-2xl bg-neutral-900/50 border border-neutral-800 hover:border-amber-500/20 transition-all duration-300 group">
-                        <div class="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                            <svg class="w-6 h-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                            </svg>
-                        </div>
-                        <h3 class="font-bold text-lg mb-2">Múltiplos Usuários</h3>
-                        <p class="text-neutral-400 text-sm leading-relaxed">Adicione administradores e atendentes. Cada um com seu acesso ao sistema de pedidos e gestão.</p>
-                    </div>
+            <div class="p-6 rounded-2xl bg-neutral-900/50 border border-neutral-800 hover:border-amber-500/20 transition-all duration-300 group">
+                <div class="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <svg class="w-6 h-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+                    </svg>
+                </div>
+                <h3 class="font-bold text-lg mb-2">Delivery Inteligente</h3>
+                <p class="text-neutral-400 text-sm leading-relaxed">Gestão completa de entregadores com app mobile próprio. Seus entregadores aceitam corridas e atualizam status em tempo real.</p>
+            </div>
 
-                    <div class="p-6 rounded-2xl bg-neutral-900/50 border border-neutral-800 hover:border-amber-500/20 transition-all duration-300 group">
-                        <div class="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                            <svg class="w-6 h-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
-                            </svg>
-                        </div>
-                        <h3 class="font-bold text-lg mb-2">QR Code por Mesa</h3>
-                        <p class="text-neutral-400 text-sm leading-relaxed">Cada mesa tem seu QR Code único. Cliente aponta a câmera e já acessa o cardápio diretamente.</p>
-                    </div>
+            <div class="p-6 rounded-2xl bg-neutral-900/50 border border-neutral-800 hover:border-amber-500/20 transition-all duration-300 group">
+                <div class="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <svg class="w-6 h-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                </div>
+                <h3 class="font-bold text-lg mb-2">Pagamento PIX</h3>
+                <p class="text-neutral-400 text-sm leading-relaxed">QR Code dinâmico para pagamento via PIX. O valor cai direto na conta do seu restaurante. Confirmação automática via webhook.</p>
+            </div>
                 </div>
             </div>
         </section>
@@ -186,7 +186,10 @@
                     <div class="p-8 rounded-2xl bg-gradient-to-br from-amber-500/10 to-transparent border border-amber-500/30 relative">
                         <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-amber-500 text-neutral-950 text-xs font-bold rounded-full">Recomendado</div>
                         <h3 class="font-bold text-xl mb-2">Premium</h3>
-                        <p class="text-4xl font-black mb-6">R$ <span class="text-3xl">97</span><span class="text-lg text-neutral-400">,90/mês</span></p>
+                        <p class="text-4xl font-black mb-2">R$ <span class="text-3xl">97</span><span class="text-lg text-neutral-400">,90/mês</span></p>
+                        <p class="text-xs text-neutral-500 mb-6">
+                            Descontos por período: 3m <span class="text-amber-400">-15%</span> • 6m <span class="text-amber-400">-23%</span> • 12m <span class="text-amber-400">-32%</span>
+                        </p>
                         <ul class="text-left space-y-3 text-neutral-400 mb-8">
                             <li class="flex items-center gap-2">
                                 <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -215,7 +218,7 @@
                         </ul>
                         <a href="{{ route('register.tenant') }}"
                            class="block w-full py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200">
-                            Assinar Premium
+                            Começar Trial Grátis
                         </a>
                     </div>
                 </div>
@@ -223,13 +226,52 @@
         </section>
     </main>
 
-    <footer class="border-t border-neutral-800/50 py-8 px-4">
-        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-neutral-600">
-            <div class="flex items-center gap-2">
-                <span class="w-6 h-6 rounded-lg bg-amber-500 flex items-center justify-center text-neutral-950 font-black text-xs">B</span>
-                <span>BurguerSaaS</span>
+    <footer class="border-t border-neutral-800/50 py-16 px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+                <div class="md:col-span-2">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="w-8 h-8 rounded-xl bg-amber-500 flex items-center justify-center text-neutral-950 font-black text-sm">B</span>
+                        <span class="font-bold text-base">BurguerSaaS</span>
+                    </div>
+                    <p class="text-sm text-neutral-500 leading-relaxed max-w-sm">Plataforma SaaS de gestão de restaurantes. Cardápio digital, pedidos, delivery e pagamentos.</p>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-neutral-300 mb-4">Links</p>
+                    <div class="space-y-3 text-sm">
+                        <a href="{{ route('terms') }}" class="block text-neutral-500 hover:text-amber-400 transition-colors">Termos de Uso</a>
+                        <a href="{{ route('privacy') }}" class="block text-neutral-500 hover:text-amber-400 transition-colors">Política de Privacidade</a>
+                        <a href="{{ route('register.tenant') }}" class="block text-neutral-500 hover:text-amber-400 transition-colors">Criar Conta</a>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-neutral-300 mb-4">Redes Sociais</p>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <a href="#" target="_blank" rel="noopener noreferrer" aria-label="Instagram" class="inline-block transform transition duration-200 hover:scale-125 hover:opacity-80">
+                            <img src="{{ asset('image/sociais/instagram.png') }}" alt="Instagram" class="w-8 h-8">
+                        </a>
+                        <a href="#" target="_blank" rel="noopener noreferrer" aria-label="Facebook" class="inline-block transform transition duration-200 hover:scale-125 hover:opacity-80">
+                            <img src="{{ asset('image/sociais/facebook.png') }}" alt="Facebook" class="w-8 h-8">
+                        </a>
+                        <a href="#" target="_blank" rel="noopener noreferrer" aria-label="Twitter" class="inline-block transform transition duration-200 hover:scale-125 hover:opacity-80">
+                            <img src="{{ asset('image/sociais/twitter.png') }}" alt="Twitter" class="w-8 h-8">
+                        </a>
+                        <a href="#" target="_blank" rel="noopener noreferrer" aria-label="Telegram" class="inline-block transform transition duration-200 hover:scale-125 hover:opacity-80">
+                            <img src="{{ asset('image/sociais/telegram.png') }}" alt="Telegram" class="w-8 h-8">
+                        </a>
+                        <a href="#" target="_blank" rel="noopener noreferrer" aria-label="Discord" class="inline-block transform transition duration-200 hover:scale-125 hover:opacity-80">
+                            <img src="{{ asset('image/sociais/discord.png') }}" alt="Discord" class="w-8 h-8">
+                        </a>
+                        <a href="#" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" class="inline-block transform transition duration-200 hover:scale-125 hover:opacity-80">
+                            <img src="{{ asset('image/sociais/whatzapp.png') }}" alt="WhatsApp" class="w-8 h-8">
+                        </a>
+                    </div>
+                </div>
             </div>
-            <p>&copy; {{ date('Y') }} BurguerSaaS. Todos os direitos reservados.</p>
+            <div class="border-t border-neutral-800/50 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-neutral-500">
+                <p>&copy; {{ date('Y') }} BurguerSaaS. Todos os direitos reservados.</p>
+                <p>Feito com <span class="text-amber-400">&hearts;</span> para restaurantes do Brasil</p>
+            </div>
         </div>
     </footer>
 </body>

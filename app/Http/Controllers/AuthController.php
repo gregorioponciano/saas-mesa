@@ -196,6 +196,7 @@ class AuthController extends Controller
                 Rule::unique('users', 'email')->where(fn ($q) => $q->where('tenant_id', $slug->id)),
             ],
             'password' => ['required', 'confirmed', 'min:8'],
+            'accept_terms' => ['required', 'accepted'],
         ]);
 
         $user = User::create([

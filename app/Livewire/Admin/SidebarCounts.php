@@ -4,6 +4,7 @@ namespace App\Livewire\Admin;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\SupportTicket;
 use App\Models\Table;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
@@ -13,10 +14,18 @@ use Livewire\Component;
 class SidebarCounts extends Component
 {
     public ?int $lastNotifiedOrderId = null;
+    public ?int $lastNotifiedTicketId = null;
+
+    private function activeTicketStatuses(): array
+    {
+        return ['aberto', 'em_atendimento', 'aguardando_cliente'];
+    }
 
     public function mount(): void
     {
         $this->lastNotifiedOrderId = Order::whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])
+            ->latest()->value('id');
+        $this->lastNotifiedTicketId = SupportTicket::whereIn('status', $this->activeTicketStatuses())
             ->latest()->value('id');
     }
 
@@ -58,6 +67,12 @@ class SidebarCounts extends Component
         return (clone $tenant->manageableTables())->where('status', 'occupied')->count();
     }
 
+    #[Computed]
+    public function openTicketsCount(): int
+    {
+        return SupportTicket::whereIn('status', $this->activeTicketStatuses())->count();
+    }
+
     public function checkNewOrders(): void
     {
         $latest = Order::with('table')->whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])
@@ -73,9 +88,24 @@ class SidebarCounts extends Component
         }
     }
 
+    public function checkNewTickets(): void
+    {
+        $latest = SupportTicket::with('user')
+            ->whereIn('status', $this->activeTicketStatuses())
+            ->latest()
+            ->first();
+
+        if ($latest && $latest->id !== $this->lastNotifiedTicketId) {
+            $this->lastNotifiedTicketId = $latest->id;
+            $userName = $latest->user?->name ?? 'Cliente';
+            $this->dispatch('notify', message: "Novo ticket de suporte: {$latest->subject} - {$userName}");
+        }
+    }
+
     public function render()
     {
         $this->checkNewOrders();
+        $this->checkNewTickets();
 
         return view('livewire.admin.sidebar-counts', [
             'activeOrdersCount' => $this->activeOrdersCount,
@@ -84,6 +114,7 @@ class SidebarCounts extends Component
             'disabledProductsCount' => $this->disabledProductsCount,
             'tablesCount' => $this->tablesCount,
             'occupiedTablesCount' => $this->occupiedTablesCount,
+            'openTicketsCount' => $this->openTicketsCount,
             'isAdmin' => Auth::user()?->isAdmin() ?? false,
         ]);
     }

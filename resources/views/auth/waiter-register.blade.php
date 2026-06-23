@@ -118,6 +118,18 @@
                                class="w-full px-4 py-3 rounded-xl bg-neutral-900 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
                     </div>
 
+                    <div class="flex items-start gap-3">
+                        <input type="checkbox" name="accept_terms" id="accept_terms" value="1" required
+                               class="mt-1 w-4 h-4 rounded bg-neutral-900 border-neutral-700 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 focus:ring-2 cursor-pointer">
+                        <label for="accept_terms" class="text-xs text-neutral-500 leading-relaxed cursor-pointer select-none">
+                            Li e aceito os
+                            <a href="{{ route('terms') }}" target="_blank" class="text-amber-400 hover:text-amber-300 underline underline-offset-2">Termos de Servico</a>
+                            e a
+                            <a href="{{ route('privacy') }}" target="_blank" class="text-amber-400 hover:text-amber-300 underline underline-offset-2">Politica de Privacidade</a>
+                            da plataforma.
+                        </label>
+                    </div>
+
                     <button type="submit"
                             class="w-full py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
                         Criar Conta

@@ -31,6 +31,16 @@ class Menu extends Component
     public string $profilePassword = '';
     public string $profilePasswordConfirmation = '';
 
+    // Support
+    public string $supportTab = 'my_tickets';
+    public string $supportNewSubject = '';
+    public string $supportNewCategory = 'outro';
+    public string $supportNewPriority = 'media';
+    public string $supportNewBody = '';
+    public ?int $supportViewingTicketId = null;
+    public ?array $supportViewingTicket = null;
+    public string $supportReplyBody = '';
+
     public ?int $selectedTableId = null;
     public ?string $selectedTableNumber = null;
     public ?string $selectedTableToken = null;
@@ -185,6 +195,124 @@ class Menu extends Component
         $this->profilePassword = '';
         $this->profilePasswordConfirmation = '';
         $this->dispatch('notify', message: 'Perfil atualizado com sucesso!');
+    }
+
+    // ─── Support ────────────────────────────────────────────────
+
+    #[Computed]
+    public function supportMyTickets()
+    {
+        if (!Auth::check()) return collect();
+        return \App\Models\SupportTicket::with('lastMessage')
+            ->where('user_id', Auth::id())
+            ->latest('updated_at')
+            ->get();
+    }
+
+    public function supportOpenTicket(): void
+    {
+        if (!Auth::check()) return;
+
+        $this->validate([
+            'supportNewSubject'  => 'required|string|max:200',
+            'supportNewCategory' => 'required|in:pedido,pagamento,cardapio,entrega,conta,outro',
+            'supportNewPriority' => 'required|in:baixa,media,alta',
+            'supportNewBody'     => 'required|string|min:10|max:2000',
+        ]);
+
+        $ticket = \App\Models\SupportTicket::create([
+            'tenant_id' => $this->tenant->id,
+            'user_id'   => Auth::id(),
+            'subject'   => $this->supportNewSubject,
+            'category'  => $this->supportNewCategory,
+            'priority'  => $this->supportNewPriority,
+            'status'    => 'aberto',
+        ]);
+
+        \App\Models\SupportTicketMessage::create([
+            'ticket_id'   => $ticket->id,
+            'user_id'     => Auth::id(),
+            'body'        => $this->supportNewBody,
+            'author_role' => 'cliente',
+            'author_name' => Auth::user()->name,
+        ]);
+
+        $this->reset(['supportNewSubject', 'supportNewCategory', 'supportNewPriority', 'supportNewBody']);
+        $this->supportTab = 'my_tickets';
+        $this->dispatch('notify', message: 'Ticket aberto com sucesso!');
+    }
+
+    public function supportViewTicket(int $ticketId): void
+    {
+        if (!Auth::check()) return;
+
+        $ticket = \App\Models\SupportTicket::with([
+            'messages' => fn($q) => $q->where('is_internal', false)->oldest(),
+            'assignedTo',
+        ])->where('user_id', Auth::id())->findOrFail($ticketId);
+
+        $this->supportViewingTicketId = $ticketId;
+        $this->supportViewingTicket = [
+            'id'              => $ticket->id,
+            'subject'         => $ticket->subject,
+            'categoryLabel'   => $ticket->categoryLabel(),
+            'priorityLabel'   => $ticket->priorityLabel(),
+            'priorityClasses' => $ticket->priorityClasses(),
+            'status'          => $ticket->status,
+            'statusLabel'     => $ticket->statusLabel(),
+            'statusClasses'   => $ticket->statusClasses(),
+            'created_at'      => $ticket->created_at->format('d/m/Y H:i'),
+            'assigned_to'     => $ticket->assignedTo?->name,
+            'messages'        => $ticket->messages->map(fn($m) => [
+                'body'        => $m->body,
+                'author_role' => $m->author_role,
+                'author_name' => $m->author_name,
+                'created_at'  => $m->created_at->format('d/m/Y H:i'),
+            ])->toArray(),
+        ];
+        $this->supportReplyBody = '';
+    }
+
+    public function supportSendReply(): void
+    {
+        if (!Auth::check() || !$this->supportViewingTicketId) return;
+
+        $this->validate(['supportReplyBody' => 'required|string|min:1|max:2000']);
+
+        $ticket = \App\Models\SupportTicket::where('user_id', Auth::id())
+            ->findOrFail($this->supportViewingTicketId);
+
+        \App\Models\SupportTicketMessage::create([
+            'ticket_id'   => $ticket->id,
+            'user_id'     => Auth::id(),
+            'body'        => $this->supportReplyBody,
+            'author_role' => 'cliente',
+            'author_name' => Auth::user()->name,
+        ]);
+
+        if ($ticket->status === 'aguardando_cliente') {
+            $ticket->update(['status' => 'em_atendimento']);
+        }
+
+        $this->supportReplyBody = '';
+        $this->supportViewTicket($this->supportViewingTicketId);
+        $this->dispatch('notify', message: 'Resposta enviada!');
+    }
+
+    public function supportCloseTicket(int $ticketId): void
+    {
+        if (!Auth::check()) return;
+        \App\Models\SupportTicket::where('user_id', Auth::id())
+            ->findOrFail($ticketId)->update(['status' => 'fechado']);
+        $this->supportViewingTicketId = null;
+        $this->supportViewingTicket = null;
+        $this->dispatch('notify', message: 'Ticket fechado.');
+    }
+
+    public function supportBackToList(): void
+    {
+        $this->supportViewingTicketId = null;
+        $this->supportViewingTicket = null;
     }
 
     #[Computed]

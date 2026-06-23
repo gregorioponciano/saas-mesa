@@ -114,7 +114,10 @@
                 </button>
 
                 <p class="text-center text-xs text-neutral-500">
-                    Ao criar uma conta, voce concorda com nossos Termos de Servico e Politica de Privacidade.
+                    Ao criar uma conta, voce concorda com nossos
+                    <a href="{{ route('terms') }}" target="_blank" class="text-amber-400 hover:text-amber-300 underline underline-offset-2">Termos de Servico</a>
+                    e
+                    <a href="{{ route('privacy') }}" target="_blank" class="text-amber-400 hover:text-amber-300 underline underline-offset-2">Politica de Privacidade</a>.
                 </p>
             </form>
 

@@ -11,12 +11,19 @@ use App\Livewire\Admin\MenuManager;
 use App\Livewire\Admin\Settings;
 use App\Livewire\Admin\SubscriptionCheckout;
 use App\Livewire\Admin\TablesPage;
+use App\Livewire\Admin\SupportManager;
 use App\Livewire\Admin\UserManager;
 use App\Livewire\Client\ClientDashboard;
+use App\Livewire\Client\SupportPage;
 use App\Livewire\Waiter\WaiterDashboard;
+use App\Livewire\Waiter\WaiterSupport;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
+use League\CommonMark\CommonMarkConverter;
+use League\CommonMark\Extension\Table\TableExtension;
+use League\CommonMark\Extension\HeadingPermalink\HeadingPermalinkExtension;
 
 /**
  * --------------------------------------------------------------------------
@@ -29,6 +36,43 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 });
+
+/**
+ * --------------------------------------------------------------------------
+ * Páginas Institucionais
+ * --------------------------------------------------------------------------
+ */
+Route::get('/termos-de-uso', function () {
+    $path = base_path('docs/termos-de-uso-saas-mesa.md');
+    if (!file_exists($path)) {
+        abort(404);
+    }
+    $markdown = file_get_contents($path);
+    $converter = new CommonMarkConverter([
+        'html_input' => 'strip',
+        'allow_unsafe_links' => false,
+        'max_nesting_level' => 6,
+    ]);
+    $converter->getEnvironment()->addExtension(new TableExtension());
+    $content = $converter->convert($markdown)->getContent();
+    return view('terms', compact('content'));
+})->name('terms');
+
+Route::get('/politica-de-privacidade', function () {
+    $path = base_path('docs/termos-clientes-finais.md');
+    if (!file_exists($path)) {
+        abort(404);
+    }
+    $markdown = file_get_contents($path);
+    $converter = new CommonMarkConverter([
+        'html_input' => 'strip',
+        'allow_unsafe_links' => false,
+        'max_nesting_level' => 6,
+    ]);
+    $converter->getEnvironment()->addExtension(new TableExtension());
+    $content = $converter->convert($markdown)->getContent();
+    return view('terms', compact('content'));
+})->name('privacy');
 
 /**
  * --------------------------------------------------------------------------
@@ -124,6 +168,9 @@ Route::get('/dashboard/configurar-email', \App\Livewire\Admin\SmtpSettings::clas
     // Cancela a assinatura ativa da empresa na plataforma
     // Como usar: POST para '/subscription/cancel' ou route('subscription.cancel')
     Route::post('/subscription/cancel', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
+
+    // Suporte
+    Route::get('/dashboard/suporte', SupportManager::class)->name('dashboard.support');
 });
 
 
@@ -208,6 +255,9 @@ Route::middleware(['auth', 'tenant.scope', 'check.staff'])->prefix('/painel')->g
         }
         return view('waiter-panel', ['tenant' => $slug, 'tab' => 'settings']);
     })->name('waiter.panel.settings');
+
+    // Suporte
+    Route::get('/{slug:slug}/suporte', WaiterSupport::class)->name('waiter.support');
 });
 
 
@@ -229,6 +279,9 @@ Route::middleware(['auth', 'tenant.scope'])->prefix('/conta')->group(function ()
         }
         return view('client-panel', ['tenant' => $slug]);
     })->name('client.panel');
+
+    // Suporte
+    Route::get('/{slug:slug}/suporte', SupportPage::class)->name('client.support');
 });
 
 /**

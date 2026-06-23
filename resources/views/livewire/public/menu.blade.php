@@ -93,6 +93,18 @@
                     </svg>
                     Configuracoes
                 </button>
+
+                <div class="pt-4 mt-4 border-t border-neutral-800">
+                    <p class="px-4 text-xs font-medium text-neutral-500 uppercase tracking-wider">Suporte</p>
+                </div>
+
+                <button wire:click="switchClientTab('support'); sidebarOpen = false"
+                        class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ $clientTab === 'support' ? 'bg-amber-500/10 text-amber-400' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50' }}">
+                    <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3v-3z"/>
+                    </svg>
+                    <span class="flex-1 text-left">Suporte</span>
+                </button>
             </nav>
 
             {{-- Cart Summary in Sidebar --}}
@@ -1034,6 +1046,171 @@
                             </div>
                         </form>
                     </div>
+                </div>
+
+            {{-- TAB: Support --}}
+            @elseif ($clientTab === 'support' && Auth::check())
+                <div class="px-4 mt-4 max-w-2xl mx-auto pb-8"
+                     x-init="$nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }))">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold">Suporte</h2>
+                        <button wire:click="switchClientTab('menu')"
+                                class="text-xs text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                            Voltar ao Cardapio
+                        </button>
+                    </div>
+
+                    {{-- Support Tabs: Meus Tickets / Novo Ticket --}}
+                    <div class="flex gap-1 p-1 rounded-xl bg-neutral-900 border border-neutral-800 overflow-x-auto mb-6">
+                        <button wire:click="$set('supportTab', 'my_tickets')"
+                                class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 {{ $supportTab === 'my_tickets' ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/20' : 'text-neutral-400 hover:text-white hover:bg-neutral-800' }}">
+                            Meus Tickets
+                        </button>
+                        <button wire:click="$set('supportTab', 'new_ticket')"
+                                class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 {{ $supportTab === 'new_ticket' ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/20' : 'text-neutral-400 hover:text-white hover:bg-neutral-800' }}">
+                            Abrir Ticket
+                        </button>
+                    </div>
+
+                    @if ($supportTab === 'my_tickets')
+                        {{-- Ticket List --}}
+                        @if ($supportViewingTicketId)
+                            {{-- Ticket Detail --}}
+                            <button wire:click="supportBackToList" class="flex items-center gap-2 text-sm text-neutral-400 hover:text-white transition-colors mb-4">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                                Voltar
+                            </button>
+
+                            <div class="p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800/80 mb-4">
+                                <div class="flex items-start justify-between gap-3 mb-3">
+                                    <h3 class="text-sm font-bold">{{ $supportViewingTicket['subject'] ?? '' }}</h3>
+                                    <span class="shrink-0 px-2.5 py-1 text-[10px] font-semibold rounded-full {{ $supportViewingTicket['statusClasses'] ?? '' }}">
+                                        {{ $supportViewingTicket['statusLabel'] ?? '' }}
+                                    </span>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-2 text-xs text-neutral-400">
+                                    <span class="px-2 py-0.5 rounded bg-neutral-800/50">{{ $supportViewingTicket['categoryLabel'] ?? '' }}</span>
+                                    <span class="px-2 py-0.5 rounded {{ $supportViewingTicket['priorityClasses'] ?? '' }}">{{ $supportViewingTicket['priorityLabel'] ?? '' }}</span>
+                                    <span>Aberto: {{ $supportViewingTicket['created_at'] ?? '' }}</span>
+                                </div>
+                            </div>
+
+                            <div class="space-y-3 mb-4">
+                                @foreach (($supportViewingTicket['messages'] ?? []) as $msg)
+                                    <div class="flex {{ $msg['author_role'] === 'cliente' ? 'justify-end' : 'justify-start' }}">
+                                        <div class="max-w-[80%] p-3 rounded-2xl {{ $msg['author_role'] === 'cliente' ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-neutral-800/50 border border-neutral-700/50' }}">
+                                            <div class="flex items-center gap-2 mb-1">
+                                                <span class="text-xs font-medium {{ $msg['author_role'] === 'cliente' ? 'text-amber-400' : 'text-neutral-300' }}">
+                                                    {{ $msg['author_name'] ?? 'Equipe' }}
+                                                </span>
+                                                <span class="text-[10px] text-neutral-500">{{ $msg['created_at'] }}</span>
+                                            </div>
+                                            <p class="text-sm text-neutral-200 whitespace-pre-wrap">{{ $msg['body'] }}</p>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            @if (!in_array(($supportViewingTicket['status'] ?? ''), ['resolvido', 'fechado']))
+                                <div class="p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800/80">
+                                    <textarea wire:model="supportReplyBody" rows="3"
+                                              class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm resize-none"
+                                              placeholder="Digite sua resposta..."></textarea>
+                                    @error('supportReplyBody') <p class="text-xs text-red-400 mt-1">{{ $message }}</p> @enderror
+                                    <div class="flex items-center justify-between mt-3">
+                                        <button wire:click="supportCloseTicket({{ $supportViewingTicket['id'] ?? 0 }})"
+                                                class="text-xs text-neutral-500 hover:text-red-400 transition-colors">
+                                            Fechar Ticket
+                                        </button>
+                                        <button wire:click="supportSendReply" wire:loading.attr="disabled"
+                                                class="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-sm font-semibold transition-all disabled:opacity-50">
+                                            <span wire:loading.remove>Enviar Resposta</span>
+                                            <span wire:loading>Enviando...</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            @else
+                                <div class="p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800/80 text-center">
+                                    <p class="text-sm text-neutral-400">Ticket {{ $supportViewingTicket['statusLabel'] ?? '' }}.</p>
+                                </div>
+                            @endif
+                        @else
+                            @forelse ($this->supportMyTickets as $ticket)
+                                <div wire:key="st-{{ $ticket->id }}"
+                                     class="p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800/80 mb-3 hover:border-neutral-700 transition-colors cursor-pointer"
+                                     wire:click="supportViewTicket({{ $ticket->id }})">
+                                    <div class="flex items-start justify-between gap-3 mb-2">
+                                        <h3 class="text-sm font-semibold">{{ $ticket->subject }}</h3>
+                                        <span class="shrink-0 px-2.5 py-1 text-[10px] font-semibold rounded-full {{ $ticket->statusClasses() }}">
+                                            {{ $ticket->statusLabel() }}
+                                        </span>
+                                    </div>
+                                    <div class="flex flex-wrap items-center gap-2 text-[10px] text-neutral-500">
+                                        <span class="px-2 py-0.5 rounded bg-neutral-800/50">{{ $ticket->categoryLabel() }}</span>
+                                        <span class="px-2 py-0.5 rounded {{ $ticket->priorityClasses() }}">{{ $ticket->priorityLabel() }}</span>
+                                        <span>{{ $ticket->created_at->format('d/m/Y H:i') }}</span>
+                                    </div>
+                                </div>
+                            @empty
+                                <div class="text-center py-16">
+                                    <svg class="w-14 h-14 mx-auto text-neutral-700 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3v-3z"/>
+                                    </svg>
+                                    <p class="text-neutral-400 mb-4">Nenhum ticket aberto.</p>
+                                    <button wire:click="$set('supportTab', 'new_ticket')"
+                                            class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-sm font-semibold transition-all">
+                                        Abrir Ticket
+                                    </button>
+                                </div>
+                            @endforelse
+                        @endif
+                    @else
+                        {{-- New Ticket Form --}}
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-neutral-300 mb-1.5">Assunto</label>
+                                <input type="text" wire:model="supportNewSubject"
+                                       class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                                       placeholder="Resumo do problema" maxlength="200">
+                                @error('supportNewSubject') <p class="text-xs text-red-400 mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-neutral-300 mb-1.5">Categoria</label>
+                                    <select wire:model="supportNewCategory"
+                                            class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm">
+                                        @foreach (\App\Models\SupportTicket::CATEGORY_LABELS as $value => $label)
+                                            <option value="{{ $value }}">{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-neutral-300 mb-1.5">Prioridade</label>
+                                    <select wire:model="supportNewPriority"
+                                            class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm">
+                                        @foreach (\App\Models\SupportTicket::PRIORITY_LABELS as $value => $label)
+                                            <option value="{{ $value }}">{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-neutral-300 mb-1.5">Descreva o problema</label>
+                                <textarea wire:model="supportNewBody" rows="5"
+                                          class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm resize-none min-h-[120px]"
+                                          placeholder="Conte-nos detalhadamente o que esta acontecendo..."></textarea>
+                                @error('supportNewBody') <p class="text-xs text-red-400 mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div class="flex justify-end pt-2">
+                                <button wire:click="supportOpenTicket" wire:loading.attr="disabled"
+                                        class="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-sm font-semibold transition-all disabled:opacity-50">
+                                    <span wire:loading.remove>Enviar Ticket</span>
+                                    <span wire:loading>Enviando...</span>
+                                </button>
+                            </div>
+                        </div>
+                    @endif
                 </div>
             @endif
 
