@@ -112,6 +112,12 @@
                         <div class="flex items-center gap-3 p-4 rounded-2xl bg-neutral-800/50 border border-neutral-800">
                             <div class="flex-1 min-w-0">
                                 <p class="font-medium text-sm">{{ $item['product_name'] }}</p>
+                                @if (!empty($item['is_points_item']))
+                                    <span class="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded mt-1">
+                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        Resgatado com pontos
+                                    </span>
+                                @endif
                                 @if (!empty($item['options']))
                                     <div class="flex flex-wrap gap-1 mt-1">
                                         @foreach ($item['options'] as $opt)
@@ -292,43 +298,81 @@
 
                 {{-- Customer Info --}}
                 <div class="space-y-4">
-                    {{-- Coupon --}}
-                    <div x-data="{ showCoupon: false }" class="p-3 rounded-xl bg-neutral-800/50 border border-neutral-700">
-                        @if ($appliedCoupon)
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-sm font-bold text-emerald-400">{{ $appliedCoupon['code'] }}</span>
-                                    <span class="text-xs text-neutral-400">
-                                        {{ $appliedCoupon['discount_type'] === 'percentage' ? $appliedCoupon['discount_value'] . '%' : 'R$ ' . number_format($appliedCoupon['discount_value'], 2, ',', '.') }}
-                                    </span>
-                                </div>
-                                <button wire:click="removeCoupon" wire:loading.attr="disabled" class="text-xs text-red-400 hover:text-red-300 transition-colors disabled:opacity-50">Remover</button>
+                {{-- Coupon --}}
+                @if ($couponsEnabled)
+                <div x-data="{ showCoupon: false }" class="p-3 rounded-xl bg-neutral-800/50 border border-neutral-700">
+                    @if ($appliedCoupon)
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm font-bold text-emerald-400">{{ $appliedCoupon['code'] }}</span>
+                                <span class="text-xs text-neutral-400">
+                                    {{ $appliedCoupon['discount_type'] === 'percentage' ? $appliedCoupon['discount_value'] . '%' : 'R$ ' . number_format($appliedCoupon['discount_value'], 2, ',', '.') }}
+                                </span>
                             </div>
-                        @else
-                            <template x-if="!showCoupon">
-                                <button @click="showCoupon = true" type="button"
-                                        class="w-full flex items-center justify-center gap-2 text-sm text-neutral-400 hover:text-amber-400 transition-colors">
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-                                    Adicionar Cupom
-                                </button>
-                            </template>
-                            <template x-if="showCoupon">
-                                <div>
-                                    <label class="block text-xs font-medium text-neutral-400 mb-1.5">Cupom de Desconto</label>
-                                    <div class="flex gap-2">
-                                        <input wire:model="couponCode" type="text" placeholder="Digite o codigo"
-                                               class="flex-1 px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-xs transition-all uppercase">
-                                        <button wire:click="applyCoupon"
-                                                wire:loading.attr="disabled"
-                                                class="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-all disabled:opacity-50">
-                                            <span wire:loading.remove>Aplicar</span>
-                                            <span wire:loading class="flex items-center gap-1"><svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
-                                        </button>
-                                    </div>
+                            <button wire:click="removeCoupon" wire:loading.attr="disabled" class="text-xs text-red-400 hover:text-red-300 transition-colors disabled:opacity-50">Remover</button>
+                        </div>
+                    @else
+                        <template x-if="!showCoupon">
+                            <button @click="showCoupon = true" type="button"
+                                    class="w-full flex items-center justify-center gap-2 text-sm text-neutral-400 hover:text-amber-400 transition-colors">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                Adicionar Cupom
+                            </button>
+                        </template>
+                        <template x-if="showCoupon">
+                            <div>
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <label class="block text-xs font-medium text-neutral-400">Cupom de Desconto</label>
+                                    <button @click="showCoupon = false" type="button" class="text-neutral-500 hover:text-neutral-300 transition-colors">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                    </button>
                                 </div>
-                            </template>
-                        @endif
-                    </div>
+                                <div class="flex gap-2">
+                                    <input wire:model="couponCode" type="text" placeholder="Digite o codigo"
+                                           class="flex-1 px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-xs transition-all uppercase">
+                                    <button wire:click="applyCoupon"
+                                            wire:loading.attr="disabled"
+                                            class="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-all disabled:opacity-50">
+                                        <span wire:loading.remove>Aplicar</span>
+                                        <span wire:loading class="flex items-center gap-1"><svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    @endif
+                </div>
+                @endif
+
+                    {{-- Points --}}
+                    @if ($pointsActive && Auth::check() && $pointsBalance > 0)
+                        <div class="p-3 rounded-xl bg-neutral-800/50 border border-neutral-700">
+                            @if ($usePoints)
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm font-bold text-amber-400">Pontos</span>
+                                        <span class="text-xs text-neutral-400">-R$ {{ number_format($pointsDiscount, 2, ',', '.') }}</span>
+                                    </div>
+                                    <button wire:click="removePoints" wire:loading.attr="disabled" class="text-xs text-red-400 hover:text-red-300 transition-colors disabled:opacity-50">Remover</button>
+                                </div>
+                            @else
+                    <button wire:click="togglePoints" wire:loading.attr="disabled" type="button"
+                            class="w-full flex items-center justify-between text-sm transition-colors disabled:opacity-50">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <span class="text-neutral-400">Usar meus pontos</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-emerald-400 font-bold">{{ number_format($pointsBalance, 0, ',', '.') }}</span>
+                            <span class="text-neutral-500 text-[10px] block">pontos disponiveis</span>
+                            @php $ptsValue = $this->pointsMonetaryValue; @endphp
+                            @if ($ptsValue > 0)
+                                <span class="text-amber-400/70 text-[10px] block">equivalente a R$ {{ number_format($ptsValue, 2, ',', '.') }}</span>
+                            @endif
+                        </div>
+                    </button>
+                            @endif
+                        </div>
+                    @endif
 
                     <div>
                         <label class="block text-xs font-medium text-neutral-400 mb-1.5">Observacao</label>
@@ -389,8 +433,14 @@
                             </div>
                             @if ($discount > 0)
                                 <div class="flex items-center justify-between">
-                                    <span class="text-emerald-400">Desconto</span>
+                                    <span class="text-emerald-400">Desconto Cupom</span>
                                     <span class="text-emerald-400">-R$ {{ number_format($discount, 2, ',', '.') }}</span>
+                                </div>
+                            @endif
+                            @if ($usePoints && $pointsDiscount > 0)
+                                <div class="flex items-center justify-between">
+                                    <span class="text-amber-400">Desconto Pontos</span>
+                                    <span class="text-amber-400">-R$ {{ number_format($pointsDiscount, 2, ',', '.') }}</span>
                                 </div>
                             @endif
                             @if ($cost > 0)
@@ -510,6 +560,15 @@
                                 </div>
                             @endforeach
                             @php $trackingCost = (float) ($orderTracking['delivery_cost'] ?? 0); @endphp
+                            @if (!empty($orderTracking['points_used']) && $orderTracking['points_discount'] > 0)
+                                <div class="flex items-center justify-between text-xs text-emerald-400 pt-1">
+                                    <span class="flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        Desconto Pontos
+                                    </span>
+                                    <span>-R$ {{ number_format($orderTracking['points_discount'], 2, ',', '.') }} ({{ number_format($orderTracking['points_spent'], 0, ',', '.') }} pts)</span>
+                                </div>
+                            @endif
                             <div class="flex items-center justify-between pt-2 border-t border-neutral-700 font-bold">
                                 <span>Total</span>
                                 <span class="text-amber-400">R$ {{ number_format($orderTracking['total'], 2, ',', '.') }}</span>

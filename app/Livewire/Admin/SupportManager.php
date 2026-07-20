@@ -28,7 +28,7 @@ class SupportManager extends Component
     #[Computed]
     public function tickets()
     {
-        return SupportTicket::with(['user', 'lastMessage', 'assignedTo'])
+        return SupportTicket::where('tenant_id', auth()->user()->tenant_id)->with(['user', 'lastMessage', 'assignedTo'])
             ->when($this->statusFilter !== 'all', fn($q) => $q->where('status', $this->statusFilter))
             ->when($this->categoryFilter !== 'all', fn($q) => $q->where('category', $this->categoryFilter))
             ->when($this->priorityFilter !== 'all', fn($q) => $q->where('priority', $this->priorityFilter))
@@ -41,15 +41,16 @@ class SupportManager extends Component
     #[Computed]
     public function metrics(): array
     {
+        $tenantId = auth()->user()->tenant_id;
         return [
-            'total'              => SupportTicket::count(),
-            'abertos'            => SupportTicket::where('status', 'aberto')->count(),
-            'em_atendimento'     => SupportTicket::where('status', 'em_atendimento')->count(),
-            'aguardando_cliente' => SupportTicket::where('status', 'aguardando_cliente')->count(),
-            'resolvidos_hoje'    => SupportTicket::where('status', 'resolvido')->whereDate('updated_at', today())->count(),
-            'tempo_medio_dias'   => round(SupportTicket::whereIn('status', ['resolvido', 'fechado'])
+            'total'              => SupportTicket::where('tenant_id', $tenantId)->count(),
+            'abertos'            => SupportTicket::where('tenant_id', $tenantId)->where('status', 'aberto')->count(),
+            'em_atendimento'     => SupportTicket::where('tenant_id', $tenantId)->where('status', 'em_atendimento')->count(),
+            'aguardando_cliente' => SupportTicket::where('tenant_id', $tenantId)->where('status', 'aguardando_cliente')->count(),
+            'resolvidos_hoje'    => SupportTicket::where('tenant_id', $tenantId)->where('status', 'resolvido')->whereDate('updated_at', today())->count(),
+            'tempo_medio_dias'   => round(SupportTicket::where('tenant_id', $tenantId)->whereIn('status', ['resolvido', 'fechado'])
                 ->avg(DB::raw('TIMESTAMPDIFF(HOUR, created_at, updated_at)')) / 24, 1),
-            'por_categoria'      => SupportTicket::selectRaw('category, count(*) as total')
+            'por_categoria'      => SupportTicket::where('tenant_id', $tenantId)->selectRaw('category, count(*) as total')
                 ->groupBy('category')->pluck('total', 'category'),
         ];
     }
@@ -65,7 +66,7 @@ class SupportManager extends Component
 
     public function viewTicket(int $ticketId): void
     {
-        $ticket = SupportTicket::with(['messages' => fn($q) => $q->oldest(), 'user', 'assignedTo'])
+        $ticket = SupportTicket::where('tenant_id', auth()->user()->tenant_id)->with(['messages' => fn($q) => $q->oldest(), 'user', 'assignedTo'])
             ->findOrFail($ticketId);
 
         $this->viewingTicketId = $ticketId;
@@ -105,7 +106,7 @@ class SupportManager extends Component
     {
         $this->validate(['replyBody' => 'required|string|min:1|max:2000']);
 
-        $ticket = SupportTicket::findOrFail($this->viewingTicketId);
+        $ticket = SupportTicket::where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->viewingTicketId);
         $user = Auth::user();
 
         SupportTicketMessage::create([
@@ -131,7 +132,7 @@ class SupportManager extends Component
 
     public function updateStatus(int $ticketId, string $status): void
     {
-        SupportTicket::findOrFail($ticketId)->update(['status' => $status]);
+        SupportTicket::where('tenant_id', auth()->user()->tenant_id)->findOrFail($ticketId)->update(['status' => $status]);
         if ($this->viewingTicketId === $ticketId) {
             $this->viewTicket($ticketId);
         }
@@ -141,14 +142,14 @@ class SupportManager extends Component
     public function reassignTicket(int $ticketId): void
     {
         $this->validate(['reassignToUserId' => 'required|exists:users,id']);
-        SupportTicket::findOrFail($ticketId)->update(['assigned_to' => $this->reassignToUserId]);
+        SupportTicket::where('tenant_id', auth()->user()->tenant_id)->findOrFail($ticketId)->update(['assigned_to' => $this->reassignToUserId]);
         $this->viewTicket($ticketId);
         $this->dispatch('notify', message: 'Ticket reatribuído!');
     }
 
     public function forceClose(int $ticketId): void
     {
-        SupportTicket::findOrFail($ticketId)->update(['status' => 'fechado']);
+        SupportTicket::where('tenant_id', auth()->user()->tenant_id)->findOrFail($ticketId)->update(['status' => 'fechado']);
         if ($this->viewingTicketId === $ticketId) {
             $this->viewTicket($ticketId);
         }
@@ -157,7 +158,7 @@ class SupportManager extends Component
 
     public function deleteTicket(int $ticketId): void
     {
-        SupportTicket::findOrFail($ticketId)->delete();
+        SupportTicket::where('tenant_id', auth()->user()->tenant_id)->findOrFail($ticketId)->delete();
         $this->showDetail = false;
         $this->viewingTicketId = null;
         $this->viewingTicket = null;

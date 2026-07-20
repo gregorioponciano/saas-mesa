@@ -10,6 +10,27 @@
         </x-slot:action>
     </x-admin.page-header>
 
+    <x-admin.card class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+            </svg>
+            <div>
+                <p class="text-sm font-medium text-neutral-200">Cupons no cardapio</p>
+                <p class="text-xs text-neutral-500">Quando ativo, os clientes veem a opcao de inserir cupom na pagina do cardapio.</p>
+            </div>
+        </div>
+        <div wire:ignore>
+            <button x-data="{ on: @js(auth()->user()->tenant->coupons_enabled) }"
+                    x-on:click="on = !on; $wire.toggleCouponsEnabled()"
+                    x-bind:style="`background-color: ${on ? '#f59e0b' : '#404040'}`"
+                    class="relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 ease-in-out cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-neutral-900">
+                <span x-bind:style="`transform: translateX(${on ? 26 : 2}px)`"
+                      class="inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-300 ease-in-out"></span>
+            </button>
+        </div>
+    </x-admin.card>
+
     {{-- List --}}
     @if ($tab === 'list')
         <div class="space-y-3">

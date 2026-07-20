@@ -30,7 +30,7 @@
     </x-admin.page-header>
 
     {{-- View Switcher --}}
-    <div class="flex gap-1 p-1 rounded-2xl bg-neutral-900 border border-neutral-800 w-fit">
+    <div class="flex gap-1 p-1 rounded-2xl bg-neutral-900 border border-neutral-800 w-fit flex-wrap">
         <button wire:click="switchView('categories')"
                 class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ $view === 'categories' ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/20' : 'text-neutral-400 hover:text-white' }}">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -45,6 +45,15 @@
             </svg>
             Produtos
         </button>
+        @if (auth()->user()->isAdmin() && $tenant->isPaid())
+            <button wire:click="switchView('pontos')"
+                    class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ $view === 'pontos' ? 'bg-emerald-500 text-neutral-950 shadow-lg shadow-emerald-500/20' : 'text-neutral-400 hover:text-white' }}">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Pontos
+            </button>
+        @endif
     </div>
 
     {{-- ========== CATEGORIES VIEW ========== --}}
@@ -125,6 +134,29 @@
                                         <p class="text-xs text-neutral-500">
                                             R$ {{ number_format($product->price, 2, ',', '.') }}
                                         </p>
+                                    </div>
+                                    <div class="flex items-center gap-2 ml-2">
+                                        @if ($product->stock > 10)
+                                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">{{ $product->stock }} em estoque</span>
+                                        @elseif ($product->stock > 0)
+                                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">{{ $product->stock }} em estoque</span>
+                                        @else
+                                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400">Sem estoque</span>
+                                        @endif
+                                        <button wire:click="openStockModal({{ $product->id }})"
+                                                class="p-1.5 rounded-lg text-neutral-500 hover:text-emerald-400 hover:bg-neutral-800 transition-all"
+                                                title="Ajustar Estoque">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                                            </svg>
+                                        </button>
+                                        <button wire:click="viewStockMovements({{ $product->id }})"
+                                                class="p-1.5 rounded-lg text-neutral-500 hover:text-blue-400 hover:bg-neutral-800 transition-all"
+                                                title="Histórico de Estoque">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                                            </svg>
+                                        </button>
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2">
@@ -320,7 +352,7 @@
         @endforelse
 
     {{-- ========== PRODUCTS VIEW ========== --}}
-    @else
+    @elseif ($view === 'products')
         @forelse ($products as $product)
             <x-admin.card :padding="false" class="overflow-hidden" wire:key="all-product-{{ $product->id }}">
                 <div class="px-6 py-4 hover:bg-neutral-800/20 transition-colors">
@@ -342,6 +374,29 @@
                                 <p class="text-xs text-neutral-500">
                                     {{ $product->category->name ?? 'Sem categoria' }} &bull; R$ {{ number_format($product->price, 2, ',', '.') }}
                                 </p>
+                            </div>
+                            <div class="flex items-center gap-2 ml-2">
+                                @if ($product->stock > 10)
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">{{ $product->stock }} em estoque</span>
+                                @elseif ($product->stock > 0)
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">{{ $product->stock }} em estoque</span>
+                                @else
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400">Sem estoque</span>
+                                @endif
+                                <button wire:click="openStockModal({{ $product->id }})"
+                                        class="p-1.5 rounded-lg text-neutral-500 hover:text-emerald-400 hover:bg-neutral-800 transition-all"
+                                        title="Ajustar Estoque">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                                    </svg>
+                                </button>
+                                <button wire:click="viewStockMovements({{ $product->id }})"
+                                        class="p-1.5 rounded-lg text-neutral-500 hover:text-blue-400 hover:bg-neutral-800 transition-all"
+                                        title="Histórico de Estoque">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                                    </svg>
+                                </button>
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
@@ -509,6 +564,61 @@
                 </button>
             </div>
         @endforelse
+    {{-- ========== PONTOS VIEW ========== --}}
+    @elseif ($view === 'pontos' && auth()->user()->isAdmin() && $tenant->isPaid())
+        <div class="space-y-3">
+            <div class="flex items-center justify-between">
+                <p class="text-sm text-neutral-400">Selecione os produtos que podem ser trocados por pontos e defina o custo em pontos.</p>
+            </div>
+            @php
+                $pointsProducts = \App\Models\Product::where('tenant_id', auth()->user()->tenant_id)
+                    ->where('status', 'active')
+                    ->with('category')
+                    ->orderBy('name')
+                    ->get();
+            @endphp
+            @forelse ($pointsProducts as $product)
+                <div class="flex items-center gap-4 p-4 rounded-2xl bg-neutral-900/50 border border-neutral-800 hover:border-emerald-500/20 transition-all">
+                    <div class="w-10 h-10 rounded-xl bg-neutral-800 overflow-hidden shrink-0">
+                        @if ($product->image_url)
+                            <img src="{{ $product->imageUrl() }}" alt="{{ $product->name }}" class="w-full h-full object-cover">
+                        @else
+                            <div class="w-full h-full flex items-center justify-center text-neutral-600">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            </div>
+                        @endif
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-sm">{{ $product->name }}</p>
+                        <p class="text-xs text-neutral-500">{{ $product->category?->name }} &bull; R$ {{ number_format($product->price, 2, ',', '.') }}</p>
+                    </div>
+                    <div class="flex items-center gap-3 shrink-0">
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-xs">pts</span>
+                            <input wire:model="pointsPrices.{{ $product->id }}" type="number" step="1" min="0" placeholder="---"
+                                   class="w-28 pl-8 pr-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
+                        </div>
+                        <button wire:click="savePointsProduct({{ $product->id }})"
+                                class="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 text-xs font-semibold transition-all hover:scale-[1.02] disabled:opacity-50"
+                                wire:loading.attr="disabled">
+                            Salvar
+                        </button>
+                        @if ($product->points_price)
+                            <button wire:click="clearPointsProduct({{ $product->id }})"
+                                    wire:confirm="Remover {{ $product->name }} da troca por pontos?"
+                                    class="p-2 rounded-xl text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-all">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        @endif
+                    </div>
+                </div>
+            @empty
+                <div class="text-center py-16 text-neutral-500">
+                    <p class="text-lg font-medium text-neutral-300 mb-1">Nenhum produto ativo</p>
+                    <p class="text-sm">Crie produtos no cardapio primeiro</p>
+                </div>
+            @endforelse
+        </div>
     @endif
 
     {{-- ========== CATEGORY FORM MODAL ========== --}}
@@ -567,6 +677,27 @@
                     </div>
                     @error('productPrice') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                 </div>
+                @if ($tenant->isPaid())
+                <div>
+                    <label class="block text-sm font-medium text-neutral-300 mb-2">Preço em Pontos <span class="text-xs text-neutral-500">(opcional)</span></label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-sm">pts</span>
+                        <input wire:model="productPointsPrice" type="number" step="1" min="0" placeholder="Deixe vazio para desabilitar"
+                               class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                    </div>
+                    <p class="mt-1 text-[10px] text-neutral-500">Produtos com preço em pontos aparecerão na aba "Pontos" do cliente para troca.</p>
+                </div>
+                @else
+                <div>
+                    <div class="p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                        <p class="text-xs text-amber-400 flex items-center gap-2">
+                            <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Programa de pontos exclusivo do plano Premium.
+                            <a href="{{ route('subscription.checkout') }}" class="text-amber-400 hover:text-amber-300 underline font-medium">Fazer Upgrade</a>
+                        </p>
+                    </div>
+                </div>
+                @endif
                 <div>
                     <label class="block text-sm font-medium text-neutral-300 mb-2">Categoria *</label>
                     <select wire:model="productCategoryId"
@@ -577,6 +708,12 @@
                         @endforeach
                     </select>
                     @error('productCategoryId') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-neutral-300 mb-2">Estoque</label>
+                    <input wire:model="productStock" type="number" step="1" min="0" placeholder="0"
+                           class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('productStock') border-red-500 @enderror">
+                    <p class="mt-1 text-[10px] text-neutral-500">Quantidade disponível em estoque. 0 = produto indisponível para venda.</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-neutral-300 mb-2">Status</label>
@@ -649,5 +786,74 @@
                 </x-admin.button>
             </div>
         </form>
+    </x-admin.modal>
+
+    {{-- ========== STOCK ADJUSTMENT MODAL ========== --}}
+    <x-admin.modal show="showStockModal" maxWidth="max-w-md" title="Ajustar Estoque">
+        <form wire:submit="adjustStock" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-neutral-300 mb-2">Nova quantidade em estoque</label>
+                <input wire:model="stockAdjustmentValue" type="number" step="1" min="0" placeholder="0"
+                       class="w-full px-4 py-3 text-2xl font-bold text-center rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
+                <p class="mt-2 text-xs text-neutral-500">Defina a quantidade total disponível para venda. 0 = produto indisponível.</p>
+            </div>
+            <div class="flex items-center gap-3 pt-2">
+                <x-admin.button type="submit" variant="primary" class="flex items-center gap-2">
+                    <span wire:loading.remove>Salvar Estoque</span>
+                    <span wire:loading><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
+                </x-admin.button>
+                <x-admin.button type="button" variant="ghost" wire:click="closeStockModal">
+                    Cancelar
+                </x-admin.button>
+            </div>
+        </form>
+    </x-admin.modal>
+
+    {{-- ========== STOCK MOVEMENTS MODAL ========== --}}
+    <x-admin.modal show="showStockMovementsModal" maxWidth="max-w-2xl" title="Histórico de Estoque: {{ $stockMovementsProductName }}">
+        <div class="space-y-2 max-h-96 overflow-y-auto">
+            @forelse ($stockMovementsData as $movement)
+                <div class="flex items-center justify-between p-3 rounded-xl bg-neutral-900/50 border border-neutral-800">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="shrink-0">
+                            @if ($movement['quantity'] > 0)
+                                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-400">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                                </span>
+                            @else
+                                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-500/10 text-red-400">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                                </span>
+                            @endif
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-neutral-200">
+                                {{ $movement['quantity'] > 0 ? '+' : '' }}{{ $movement['quantity'] }} unidades
+                                <span class="text-xs text-neutral-500 ml-1">({{ $movement['stock_before'] }} → {{ $movement['stock_after'] }})</span>
+                            </p>
+                            <p class="text-xs text-neutral-500">
+                                {{ \App\Models\StockMovement::TYPES[$movement['type']] ?? $movement['type'] }}
+                                @if ($movement['description'])
+                                    &bull; {{ $movement['description'] }}
+                                @endif
+                            </p>
+                            @if ($movement['user'])
+                                <p class="text-[10px] text-neutral-600 mt-0.5">por {{ $movement['user']['name'] ?? 'Sistema' }}</p>
+                            @endif
+                        </div>
+                    </div>
+                    <span class="text-[10px] text-neutral-600 shrink-0">{{ \Carbon\Carbon::parse($movement['created_at'])->format('d/m H:i') }}</span>
+                </div>
+            @empty
+                <div class="text-center py-8 text-neutral-500">
+                    <p class="text-sm">Nenhuma movimentação registrada.</p>
+                </div>
+            @endforelse
+        </div>
+        <div class="flex justify-end pt-3">
+            <x-admin.button type="button" variant="ghost" wire:click="closeStockMovements">
+                Fechar
+            </x-admin.button>
+        </div>
     </x-admin.modal>
 </div>

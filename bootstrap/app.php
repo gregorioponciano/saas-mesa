@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\CheckAdminRole;
+use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\CheckStaffRole;
 use App\Http\Middleware\CheckSubscription;
 use App\Http\Middleware\CheckTenantSubscription;
@@ -12,12 +13,9 @@ use App\Http\Middleware\TenantScopeMiddleware;
 use App\Http\Middleware\ValidateWebhookSignature;
 use App\Models\SaasSubscription;
 use App\Observers\SaasSubscriptionObserver;
-use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -37,8 +35,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'resolve.tenant' => ResolveTenant::class,
             'security.headers' => SecurityHeaders::class,
             'validate.webhook.signature' => ValidateWebhookSignature::class,
+            'role' => CheckRole::class,
         ]);
 
+    
         $middleware->api(prepend: [
             SecurityHeaders::class,
         ]);

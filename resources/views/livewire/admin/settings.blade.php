@@ -129,7 +129,6 @@
         </form>
     </x-admin.card>
 
-
     {{-- User Profile --}}
     <x-admin.card>
         <div class="flex items-center gap-3 mb-6">

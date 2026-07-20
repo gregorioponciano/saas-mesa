@@ -55,6 +55,7 @@ class Tenant extends Model
         'mail_encryption',
         'mail_from_address',
         'mail_from_name',
+        'coupons_enabled',
     ];
 
     protected function casts(): array
@@ -63,6 +64,7 @@ class Tenant extends Model
             'trial_ends_at' => 'datetime',
             'subscription_ends_at' => 'datetime',
             'max_tables' => 'integer',
+            'coupons_enabled' => 'boolean',
         ];
     }
 
@@ -167,6 +169,11 @@ class Tenant extends Model
     public function efiCredentials()
     {
         return $this->hasOne(TenantEfiCredentials::class);
+    }
+
+    public function loyaltyConfig()
+    {
+        return $this->hasOne(\App\Models\LoyaltyConfig::class, 'tenant_id');
     }
 
     public function isOpen(): bool

@@ -4,6 +4,7 @@ namespace App\Livewire\Waiter;
 
 use App\Livewire\Concerns\HasCart;
 use App\Models\Category;
+use App\Models\CustomerPoint;
 use App\Models\DeliveryPerson;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -12,9 +13,12 @@ use App\Models\Product;
 use App\Models\Table;
 use App\Models\UserAddress;
 use App\Services\EfiBank\TenantEfiBankService;
+use App\Services\PointsService;
+use App\Services\StockService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -153,7 +157,7 @@ class WaiterDashboard extends Component
 
         $startDate = Carbon::now()->subDays($days - 1);
 
-        $orders = Order::where('created_at', '>=', $startDate)
+        $orders = Order::where('tenant_id', auth()->user()->tenant_id)->where('created_at', '>=', $startDate)
             ->whereIn('status', ['entregue', 'saiu_entrega', 'fechado'])
             ->selectRaw('DATE(created_at) as date, SUM(total) as total')
             ->groupBy('date')
@@ -185,7 +189,7 @@ class WaiterDashboard extends Component
             return;
         }
 
-        $activeOrders = Order::where('table_id', $this->selectedTableId)
+        $activeOrders = Order::where('tenant_id', auth()->user()->tenant_id)->where('table_id', $this->selectedTableId)
             ->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue'])
             ->with('items', 'payments')
             ->latest()
@@ -214,6 +218,9 @@ class WaiterDashboard extends Component
                     'quantity' => $item->quantity,
                     'price' => $item->price,
                     'subtotal' => $item->price * $item->quantity,
+                    'cancelled_at' => $item->cancelled_at,
+                    'is_cancelled' => $item->isCancelled(),
+                    'is_points_item' => $item->is_points_item,
                 ]),
             ])->toArray();
         } else {
@@ -228,8 +235,44 @@ class WaiterDashboard extends Component
             return;
         }
 
-        $order = Order::findOrFail($orderId);
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
         $order->update(['status' => $status]);
+
+        if ($status === 'cancelado') {
+            try {
+                app(PointsService::class)->reversePointsForOrder($order->fresh());
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Erro ao estornar pontos cancelamento atendente', [
+                    'order_id' => $order->id, 'error' => $e->getMessage(),
+                ]);
+            }
+
+            try {
+                app(PointsService::class)->refundSpentPointsForOrder($order->fresh());
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Erro ao devolver pontos gastos cancelamento atendente', [
+                    'order_id' => $order->id, 'error' => $e->getMessage(),
+                ]);
+            }
+
+            if (!$order->isDelivered()) {
+                try {
+                    app(StockService::class)->returnOrderStock($order->fresh(), Auth::id());
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Erro ao devolver estoque cancelamento atendente', [
+                        'order_id' => $order->id, 'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        } elseif ($status === 'fechado') {
+            try {
+                app(PointsService::class)->grantPointsForOrder($order->fresh());
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Erro ao conceder pontos status atendente', [
+                    'order_id' => $order->id, 'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         if ($order->table_id && $status === 'novo') {
             $order->table()->update(['status' => 'occupied']);
@@ -259,7 +302,7 @@ class WaiterDashboard extends Component
             return;
         }
 
-        $order = Order::findOrFail($orderId);
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
         $nextStatus = $order->nextStatus();
 
         if ($nextStatus) {
@@ -269,7 +312,7 @@ class WaiterDashboard extends Component
 
     public function viewOrder(int $orderId): void
     {
-        $order = Order::with('items', 'table', 'user', 'payments')->findOrFail($orderId);
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->with('items', 'table', 'user', 'payments')->findOrFail($orderId);
         $this->viewingOrderId = $orderId;
         $this->viewingOrder = [
             'id' => $order->id,
@@ -287,6 +330,12 @@ class WaiterDashboard extends Component
             'payment_method' => $order->payment_method,
             'payment_change' => $order->payment_change ? (float) $order->payment_change : null,
             'notes' => $order->notes,
+            'points_used' => (bool) ($order->points_used ?? false),
+            'points_spent' => (int) ($order->points_spent ?? 0),
+            'points_discount' => (float) ($order->points_discount ?? 0),
+            'customer_points' => $order->user_id
+                ? CustomerPoint::getBalance($order->tenant, $order->user)
+                : 0,
             'address_json' => $order->address_json,
             'is_fechado' => $order->isBillClosed(),
             'nextStatusLabel' => $order->nextStatus() ? ($order->statusFlowLabels()[$order->status] ?? 'Avançar') : null,
@@ -353,25 +402,42 @@ class WaiterDashboard extends Component
             'addItemQuantity' => 'required|integer|min:1|max:99',
         ]);
 
-        $product = Product::findOrFail($this->addItemProductId);
-        $order = Order::findOrFail($this->addItemOrderId);
+        $product = Product::where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->addItemProductId);
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->addItemOrderId);
 
         if ($order->isBillClosed()) {
             $this->dispatch('notify', message: 'Conta ja fechada, nao e possivel adicionar itens.');
             return;
         }
 
+        if ($product->stock < $this->addItemQuantity) {
+            $this->dispatch('notify', message: "{$product->name} possui apenas {$product->stock} unidade(s) em estoque.");
+            return;
+        }
+
         $price = (float) $product->price;
 
-        OrderItem::create([
-            'order_id' => $order->id,
-            'product_id' => $product->id,
-            'product_name' => $product->name,
-            'quantity' => $this->addItemQuantity,
-            'price' => $price,
-        ]);
+        DB::transaction(function () use ($product, $order, $price) {
+            OrderItem::create([
+                'order_id' => $order->id,
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'quantity' => $this->addItemQuantity,
+                'price' => $price,
+            ]);
 
-        $order->increment('total', $price * $this->addItemQuantity);
+            $order->increment('total', $price * $this->addItemQuantity);
+
+            app(StockService::class)->deductStock(
+                $product->id,
+                $this->addItemQuantity,
+                $order->tenant_id,
+                $order->id,
+                Auth::id(),
+                'sale',
+                "Adicao de item - Pedido #{$order->id}"
+            );
+        });
 
         $this->showAddItemModal = false;
         $this->addItemProductId = null;
@@ -391,12 +457,25 @@ class WaiterDashboard extends Component
         $item = OrderItem::with('order')->findOrFail($itemId);
         $order = $item->order;
 
+        if (!$order || $order->tenant_id !== auth()->user()->tenant_id) { abort(403); }
+
         if ($order->isBillClosed()) {
             $this->dispatch('notify', message: 'Conta ja fechada.');
             return;
         }
 
         $subtotal = (float) $item->price * $item->quantity;
+
+        if (!$item->is_points_item && !$order->isDelivered()) {
+            try {
+                app(StockService::class)->returnItemStock($item, Auth::id());
+            } catch (\Throwable $e) {
+                Log::error('Erro ao devolver estoque ao remover item', [
+                    'item_id' => $item->id, 'order_id' => $order->id, 'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
         $item->delete();
         $order->decrement('total', $subtotal);
 
@@ -407,7 +486,7 @@ class WaiterDashboard extends Component
 
     public function openPaymentModal(int $orderId): void
     {
-        $order = Order::findOrFail($orderId);
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
         $this->paymentOrderId = $orderId;
         $this->paymentAmount = $order->pendingPaymentAmount();
         $this->paymentMethodInput = 'pix';
@@ -446,7 +525,7 @@ class WaiterDashboard extends Component
             'paymentMethodInput' => 'required|string',
         ]);
 
-        $order = Order::findOrFail($this->paymentOrderId);
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->paymentOrderId);
 
         if ($order->isBillClosed()) {
             $this->dispatch('notify', message: 'Conta ja fechada.');
@@ -468,6 +547,14 @@ class WaiterDashboard extends Component
             $order->update([
                 'status' => 'fechado',
                 'bill_closed_at' => now(),
+            ]);
+        }
+
+        try {
+            app(PointsService::class)->grantPointsForOrder($order->fresh());
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Erro ao conceder pontos pagamento atendente', [
+                'order_id' => $order->id, 'error' => $e->getMessage(),
             ]);
         }
 
@@ -498,7 +585,7 @@ class WaiterDashboard extends Component
 
     public function openCloseTableModal(int $tableId): void
     {
-        $table = Table::with(['orders' => function ($q) {
+        $table = Table::where('tenant_id', auth()->user()->tenant_id)->with(['orders' => function ($q) {
             $q->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue'])
               ->where('status', '!=', 'fechado');
         }])->findOrFail($tableId);
@@ -551,7 +638,7 @@ class WaiterDashboard extends Component
             'closeTablePaymentMethod' => 'required|string',
         ]);
 
-        $table = Table::with(['orders' => function ($q) {
+        $table = Table::where('tenant_id', auth()->user()->tenant_id)->with(['orders' => function ($q) {
             $q->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue'])
               ->where('status', '!=', 'fechado');
         }])->findOrFail($this->closeTableId);
@@ -565,6 +652,13 @@ class WaiterDashboard extends Component
                     'status' => 'fechado',
                     'bill_closed_at' => now(),
                 ]);
+                try {
+                    app(PointsService::class)->grantPointsForOrder($order->fresh());
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Erro ao conceder pontos fechamento mesa atendente', [
+                        'order_id' => $order->id, 'error' => $e->getMessage(),
+                    ]);
+                }
                 $closedCount++;
             }
         }
@@ -611,7 +705,7 @@ class WaiterDashboard extends Component
 
     public function closeBill(int $orderId): void
     {
-        $order = Order::findOrFail($orderId);
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
         if ($order->isBillClosed()) {
             return;
         }
@@ -631,6 +725,14 @@ class WaiterDashboard extends Component
             'bill_closed_at' => now(),
         ]);
 
+        try {
+            app(PointsService::class)->grantPointsForOrder($order->fresh());
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Erro ao conceder pontos fechar conta atendente', [
+                'order_id' => $order->id, 'error' => $e->getMessage(),
+            ]);
+        }
+
         $this->closeOrderModal();
         $this->loadOrderDetail();
         $this->dispatch('notify', message: "Conta do pedido #{$order->id} fechada!");
@@ -643,12 +745,21 @@ class WaiterDashboard extends Component
             $this->dispatch('notify', message: 'Apenas administradores podem reabrir contas.');
             return;
         }
-        $order = Order::findOrFail($orderId);
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
         if ($order->status !== 'fechado') {
             $this->dispatch('notify', message: 'Apenas contas fechadas podem ser reabertas.');
             return;
         }
         $order->update(['status' => 'entregue', 'bill_closed_at' => null]);
+
+        try {
+            app(PointsService::class)->refundSpentPointsForOrder($order);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Erro ao devolver pontos na reabertura atendente', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         if ($order->table_id) {
             $order->table()->update(['status' => 'occupied']);
@@ -667,7 +778,7 @@ class WaiterDashboard extends Component
             return;
         }
 
-        $order = Order::findOrFail($this->viewingOrderId);
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->viewingOrderId);
         $nextStatus = $order->nextStatus();
 
         if ($nextStatus) {
@@ -685,9 +796,9 @@ class WaiterDashboard extends Component
             return;
         }
 
-        $table = Table::findOrFail($tableId);
+        $table = Table::where('tenant_id', auth()->user()->tenant_id)->findOrFail($tableId);
 
-        $activeOrders = Order::where('table_id', $tableId)
+        $activeOrders = Order::where('tenant_id', auth()->user()->tenant_id)->where('table_id', $tableId)
             ->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue'])
             ->get();
 
@@ -697,6 +808,13 @@ class WaiterDashboard extends Component
                     'status' => 'fechado',
                     'bill_closed_at' => now(),
                 ]);
+                try {
+                    app(PointsService::class)->grantPointsForOrder($activeOrder->fresh());
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Erro ao conceder pontos liberar mesa atendente', [
+                        'order_id' => $activeOrder->id, 'error' => $e->getMessage(),
+                    ]);
+                }
             } else {
                 $activeOrder->update(['status' => 'entregue']);
             }
@@ -714,7 +832,7 @@ class WaiterDashboard extends Component
     public function setTableReserved(int $tableId): void
     {
         if (!$this->isStaff()) return;
-        Table::findOrFail($tableId)->update(['status' => 'reserved']);
+        Table::where('tenant_id', auth()->user()->tenant_id)->findOrFail($tableId)->update(['status' => 'reserved']);
         $this->dispatch('orderUpdated');
         $this->dispatch('notify', message: 'Mesa reservada!');
     }
@@ -722,7 +840,7 @@ class WaiterDashboard extends Component
     public function setTableOccupied(int $tableId): void
     {
         if (!$this->isStaff()) return;
-        Table::findOrFail($tableId)->update(['status' => 'occupied']);
+        Table::where('tenant_id', auth()->user()->tenant_id)->findOrFail($tableId)->update(['status' => 'occupied']);
         $this->dispatch('orderUpdated');
         $this->dispatch('notify', message: 'Mesa ocupada!');
     }
@@ -731,9 +849,9 @@ class WaiterDashboard extends Component
     {
         if (!$this->isStaff()) return;
 
-        $table = Table::findOrFail($tableId);
+        $table = Table::where('tenant_id', auth()->user()->tenant_id)->findOrFail($tableId);
 
-        $activeOrders = Order::where('table_id', $tableId)
+        $activeOrders = Order::where('tenant_id', auth()->user()->tenant_id)->where('table_id', $tableId)
             ->whereNotIn('status', ['fechado', 'cancelado'])
             ->exists();
 
@@ -888,6 +1006,14 @@ class WaiterDashboard extends Component
             }
         }
 
+        $stockErrors = app(StockService::class)->validateStockForCartItems($this->cartItems, $this->tenant->id);
+        if (!empty($stockErrors)) {
+            foreach ($stockErrors as $error) {
+                $this->dispatch('notify', message: $error);
+            }
+            return;
+        }
+
         $orderId = null;
 
         DB::transaction(function () use ($tableId, &$orderId) {
@@ -928,6 +1054,8 @@ class WaiterDashboard extends Component
                     'selected_options_json' => $item['options'],
                 ]);
             }
+
+            app(StockService::class)->deductOrderStock($order, Auth::id());
 
             $orderId = $order->id;
         });
@@ -994,9 +1122,9 @@ class WaiterDashboard extends Component
 
     public function notifyNewOrder(): void
     {
-        $latest = Order::with('table')->where('status', 'novo')->latest()->first();
+        $latest = Order::where('tenant_id', auth()->user()->tenant_id)->with('table')->where('status', 'novo')->latest()->first();
         $tableInfo = $latest?->table ? " na Mesa {$latest->table->number}" : '';
-        $itemCount = $latest?->items()->count() ?? 0;
+        $itemCount = $latest?->items->count() ?? 0;
         $extra = $itemCount > 0 ? " ({$itemCount} itens)" : '';
         $this->dispatch('notify', message: "Novo pedido{$tableInfo}!{$extra}");
     }
@@ -1004,13 +1132,13 @@ class WaiterDashboard extends Component
     #[Computed]
     public function totalRevenue()
     {
-        return Order::whereIn('status', ['entregue', 'saiu_entrega', 'fechado'])->sum('total');
+        return Order::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', ['entregue', 'saiu_entrega', 'fechado'])->sum('total');
     }
 
     #[Computed]
     public function deliveryRevenue()
     {
-        return Order::whereIn('status', ['entregue', 'saiu_entrega', 'fechado'])
+        return Order::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', ['entregue', 'saiu_entrega', 'fechado'])
             ->where('type', 'entrega')
             ->sum('total');
     }
@@ -1018,7 +1146,7 @@ class WaiterDashboard extends Component
     #[Computed]
     public function tableRevenue()
     {
-        return Order::whereIn('status', ['entregue', 'saiu_entrega', 'fechado'])
+        return Order::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', ['entregue', 'saiu_entrega', 'fechado'])
             ->where('type', 'mesa')
             ->sum('total');
     }
@@ -1026,7 +1154,7 @@ class WaiterDashboard extends Component
     #[Computed]
     public function pickupRevenue()
     {
-        return Order::whereIn('status', ['entregue', 'saiu_entrega', 'fechado'])
+        return Order::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', ['entregue', 'saiu_entrega', 'fechado'])
             ->where('type', 'retirada')
             ->sum('total');
     }
@@ -1034,13 +1162,13 @@ class WaiterDashboard extends Component
     #[Computed]
     public function ordersToday()
     {
-        return Order::whereDate('created_at', Carbon::today())->count();
+        return Order::where('tenant_id', auth()->user()->tenant_id)->whereDate('created_at', Carbon::today())->count();
     }
 
     #[Computed]
     public function deliveryOrdersToday()
     {
-        return Order::whereDate('created_at', Carbon::today())
+        return Order::where('tenant_id', auth()->user()->tenant_id)->whereDate('created_at', Carbon::today())
             ->where('type', 'entrega')
             ->count();
     }
@@ -1048,7 +1176,7 @@ class WaiterDashboard extends Component
     #[Computed]
     public function tableOrdersToday()
     {
-        return Order::whereDate('created_at', Carbon::today())
+        return Order::where('tenant_id', auth()->user()->tenant_id)->whereDate('created_at', Carbon::today())
             ->where('type', 'mesa')
             ->count();
     }
@@ -1056,7 +1184,7 @@ class WaiterDashboard extends Component
     #[Computed]
     public function pickupOrdersToday()
     {
-        return Order::whereDate('created_at', Carbon::today())
+        return Order::where('tenant_id', auth()->user()->tenant_id)->whereDate('created_at', Carbon::today())
             ->where('type', 'retirada')
             ->count();
     }
@@ -1064,19 +1192,19 @@ class WaiterDashboard extends Component
     #[Computed]
     public function pendingOrders()
     {
-        return Order::where('status', 'novo')->count();
+        return Order::where('tenant_id', auth()->user()->tenant_id)->where('status', 'novo')->count();
     }
 
     #[Computed]
     public function preparingOrders()
     {
-        return Order::where('status', 'em_preparo')->count();
+        return Order::where('tenant_id', auth()->user()->tenant_id)->where('status', 'em_preparo')->count();
     }
 
     #[Computed]
     public function activeOrders()
     {
-        return Order::whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue'])
+        return Order::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue'])
             ->with('items', 'table', 'payments')
             ->latest()
             ->get();
@@ -1111,7 +1239,7 @@ class WaiterDashboard extends Component
     #[Computed]
     public function occupiedTablesWithOrders()
     {
-        return Table::where('status', 'occupied')
+        return Table::where('tenant_id', auth()->user()->tenant_id)->where('status', 'occupied')
             ->withCount(['orders' => function ($q) {
                 $q->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue']);
             }])
@@ -1122,7 +1250,7 @@ class WaiterDashboard extends Component
     #[Computed]
     public function availableProducts()
     {
-        return Product::active()->with('category')->orderBy('name')->get();
+        return Product::where('tenant_id', auth()->user()->tenant_id)->active()->with('category')->orderBy('name')->get();
     }
 
     #[Computed]
@@ -1148,63 +1276,33 @@ class WaiterDashboard extends Component
     }
 
     #[Computed]
-    public function deliveryActiveOrders()
-    {
-        return Order::whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega'])
-            ->where('type', 'entrega')
-            ->with('items', 'table')
-            ->latest()
-            ->get();
-    }
-
-    #[Computed]
-    public function tableActiveOrders()
-    {
-        return Order::whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega'])
-            ->where('type', 'mesa')
-            ->with('items', 'table')
-            ->latest()
-            ->get();
-    }
-
-    #[Computed]
-    public function pickupActiveOrders()
-    {
-        return Order::whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega'])
-            ->where('type', 'retirada')
-            ->with('items')
-            ->latest()
-            ->get();
-    }
-
-    #[Computed]
     public function pendingOrdersCount()
     {
-        return Order::where('status', 'novo')->count();
+        return Order::where('tenant_id', auth()->user()->tenant_id)->where('status', 'novo')->count();
     }
 
     #[Computed]
     public function preparingOrdersCount()
     {
-        return Order::where('status', 'em_preparo')->count();
+        return Order::where('tenant_id', auth()->user()->tenant_id)->where('status', 'em_preparo')->count();
     }
 
     #[Computed]
     public function deliveringOrdersCount()
     {
-        return Order::where('status', 'saiu_entrega')->count();
+        return Order::where('tenant_id', auth()->user()->tenant_id)->where('status', 'saiu_entrega')->count();
     }
 
     #[Computed]
     public function readyOrdersCount()
     {
-        return Order::where('status', 'pronto')->count();
+        return Order::where('tenant_id', auth()->user()->tenant_id)->where('status', 'pronto')->count();
     }
 
     #[Computed]
     public function pendingDeliveryCount()
     {
-        return Order::where('status', 'novo')
+        return Order::where('tenant_id', auth()->user()->tenant_id)->where('status', 'novo')
             ->where('type', 'entrega')
             ->count();
     }
@@ -1218,7 +1316,7 @@ class WaiterDashboard extends Component
     #[Computed]
     public function pendingTableCount()
     {
-        return Order::where('status', 'novo')
+        return Order::where('tenant_id', auth()->user()->tenant_id)->where('status', 'novo')
             ->where('type', 'mesa')
             ->count();
     }
@@ -1226,7 +1324,7 @@ class WaiterDashboard extends Component
     #[Computed]
     public function pendingPickupCount()
     {
-        return Order::where('status', 'novo')
+        return Order::where('tenant_id', auth()->user()->tenant_id)->where('status', 'novo')
             ->where('type', 'retirada')
             ->count();
     }
@@ -1234,7 +1332,7 @@ class WaiterDashboard extends Component
     #[Computed]
     public function waiterDeliveryOrders()
     {
-        $query = Order::where('type', 'entrega')
+        $query = Order::where('tenant_id', auth()->user()->tenant_id)->where('type', 'entrega')
             ->whereIn('status', ['novo', 'em_preparo', 'saiu_entrega', 'entregue'])
             ->with('items', 'table', 'deliveryPerson', 'payments');
 
@@ -1260,8 +1358,8 @@ class WaiterDashboard extends Component
 
     public function assignDeliveryPerson(int $orderId, int $deliveryPersonId): void
     {
-        $order = Order::findOrFail($orderId);
-        $delivery = DeliveryPerson::findOrFail($deliveryPersonId);
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
+        $delivery = DeliveryPerson::where('tenant_id', auth()->user()->tenant_id)->findOrFail($deliveryPersonId);
 
         $order->update([
             'delivery_person_id' => $delivery->id,
@@ -1277,7 +1375,7 @@ class WaiterDashboard extends Component
 
     public function removeDeliveryPerson(int $orderId): void
     {
-        $order = Order::findOrFail($orderId);
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
         $order->update(['delivery_person_id' => null]);
 
         $this->dispatch('notify', message: "Entregador removido do pedido #{$order->id}!");
@@ -1298,7 +1396,7 @@ class WaiterDashboard extends Component
     #[Computed]
     public function myOrders()
     {
-        return Order::where('user_id', Auth::id())
+        return Order::where('tenant_id', auth()->user()->tenant_id)->where('user_id', Auth::id())
             ->with('items', 'table')
             ->latest()
             ->take(20)
@@ -1308,7 +1406,7 @@ class WaiterDashboard extends Component
     #[Computed]
     public function myActiveOrders()
     {
-        return Order::where('user_id', Auth::id())
+        return Order::where('tenant_id', auth()->user()->tenant_id)->where('user_id', Auth::id())
             ->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega'])
             ->with('items', 'table')
             ->latest()
@@ -1318,7 +1416,7 @@ class WaiterDashboard extends Component
     #[Computed]
     public function orderHistory()
     {
-        $query = Order::with('items', 'table');
+        $query = Order::where('tenant_id', auth()->user()->tenant_id)->with('items', 'table');
 
         if ($this->isCliente()) {
             $query->where('user_id', Auth::id());
@@ -1421,7 +1519,7 @@ class WaiterDashboard extends Component
     // Table Management
     public function editTable(int $id): void
     {
-        $table = Table::findOrFail($id);
+        $table = Table::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
         $this->editTableId = $table->id;
         $this->editTableNumber = $table->number;
         $this->editTableCapacity = $table->capacity;
@@ -1448,7 +1546,7 @@ class WaiterDashboard extends Component
             return;
         }
 
-        Table::findOrFail($this->editTableId)->update([
+        Table::where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->editTableId)->update([
             'number' => $this->editTableNumber,
             'capacity' => $this->editTableCapacity,
             'status' => $this->editTableStatus,
@@ -1470,7 +1568,7 @@ class WaiterDashboard extends Component
 
     public function toggleTableStatus(int $id): void
     {
-        $table = Table::findOrFail($id);
+        $table = Table::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
         $newStatus = match ($table->status) {
             'free' => 'occupied',
             'occupied' => 'reserved',
@@ -1479,7 +1577,7 @@ class WaiterDashboard extends Component
         };
 
         if ($newStatus === 'free') {
-            $activeOrders = Order::where('table_id', $id)
+            $activeOrders = Order::where('tenant_id', auth()->user()->tenant_id)->where('table_id', $id)
                 ->whereNotIn('status', ['fechado', 'cancelado'])
                 ->exists();
 
@@ -1502,7 +1600,7 @@ class WaiterDashboard extends Component
 
     public function showTableQrCode(int $id): void
     {
-        $table = Table::with('tenant')->findOrFail($id);
+        $table = Table::where('tenant_id', auth()->user()->tenant_id)->with('tenant')->findOrFail($id);
         $this->qrTableId = $id;
         $this->qrTableNumber = $table->number;
         $this->qrUrl = route('menu.show', [
@@ -1532,9 +1630,6 @@ class WaiterDashboard extends Component
             'categories' => $this->categories,
             'selectedProductModel' => $this->selectedProductModel,
             'activeOrders' => $this->activeOrders,
-            'deliveryActiveOrders' => $this->deliveryActiveOrders,
-            'tableActiveOrders' => $this->tableActiveOrders,
-            'pickupActiveOrders' => $this->pickupActiveOrders,
             'pendingOrdersCount' => $this->pendingOrdersCount,
             'preparingOrdersCount' => $this->preparingOrdersCount,
             'deliveringOrdersCount' => $this->deliveringOrdersCount,

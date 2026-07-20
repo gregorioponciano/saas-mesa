@@ -23,16 +23,16 @@ class SidebarCounts extends Component
 
     public function mount(): void
     {
-        $this->lastNotifiedOrderId = Order::whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])
+        $this->lastNotifiedOrderId = Order::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])
             ->latest()->value('id');
-        $this->lastNotifiedTicketId = SupportTicket::whereIn('status', $this->activeTicketStatuses())
+        $this->lastNotifiedTicketId = SupportTicket::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', $this->activeTicketStatuses())
             ->latest()->value('id');
     }
 
     #[Computed]
     public function activeOrdersCount(): int
     {
-        return Order::whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])->count();
+        return Order::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])->count();
     }
 
     #[Computed]
@@ -44,13 +44,13 @@ class SidebarCounts extends Component
     #[Computed]
     public function activeProductsCount(): int
     {
-        return Product::active()->count();
+        return Product::where('tenant_id', auth()->user()->tenant_id)->active()->count();
     }
 
     #[Computed]
     public function disabledProductsCount(): int
     {
-        return Product::where('status', '!=', 'active')->count();
+        return Product::where('tenant_id', auth()->user()->tenant_id)->where('status', '!=', 'active')->count();
     }
 
     #[Computed]
@@ -70,12 +70,12 @@ class SidebarCounts extends Component
     #[Computed]
     public function openTicketsCount(): int
     {
-        return SupportTicket::whereIn('status', $this->activeTicketStatuses())->count();
+        return SupportTicket::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', $this->activeTicketStatuses())->count();
     }
 
     public function checkNewOrders(): void
     {
-        $latest = Order::with('table')->whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])
+        $latest = Order::where('tenant_id', auth()->user()->tenant_id)->with('table')->whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])
             ->latest()
             ->first();
 
@@ -90,7 +90,7 @@ class SidebarCounts extends Component
 
     public function checkNewTickets(): void
     {
-        $latest = SupportTicket::with('user')
+        $latest = SupportTicket::where('tenant_id', auth()->user()->tenant_id)->with('user')
             ->whereIn('status', $this->activeTicketStatuses())
             ->latest()
             ->first();

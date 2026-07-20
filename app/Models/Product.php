@@ -20,6 +20,8 @@ class Product extends Model
         'name',
         'description',
         'price',
+        'points_price',
+        'stock',
         'image_url',
         'status',
     ];
@@ -28,6 +30,8 @@ class Product extends Model
     {
         return [
             'price' => 'decimal:2',
+            'points_price' => 'decimal:2',
+            'stock' => 'integer',
         ];
     }
 
@@ -57,8 +61,28 @@ class Product extends Model
         return $this->image_url;
     }
 
+    public function stockMovements()
+    {
+        return $this->hasMany(StockMovement::class);
+    }
+
+    public function isOutOfStock(): bool
+    {
+        return $this->stock <= 0;
+    }
+
+    public function hasStock(int $quantity = 1): bool
+    {
+        return $this->stock >= $quantity;
+    }
+
     public function scopeActive($query)
     {
         return $query->where('status', 'active');
+    }
+
+    public function scopeInStock($query)
+    {
+        return $query->where('stock', '>', 0);
     }
 }

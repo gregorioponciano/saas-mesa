@@ -3,6 +3,7 @@
 namespace App\Livewire\Public;
 
 use App\Models\Category;
+use App\Models\LoyaltyConfig;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Payment;
@@ -10,6 +11,7 @@ use App\Models\Product;
 use App\Models\Table;
 use App\Models\UserAddress;
 use App\Services\EfiBank\TenantEfiBankService;
+use App\Services\PointsService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -53,7 +55,6 @@ class Menu extends Component
         'orderUpdated' => '$refresh',
         'notifyNewOrder' => '$refresh',
         'tableSelected' => 'onTableSelectedFromCart',
-        'cartUpdated' => '$refresh',
         'tableFreed' => 'clearTableSession',
         'goToMyOrders' => 'goToMyOrders',
     ];
@@ -321,12 +322,12 @@ class Menu extends Component
         if (!Auth::check()) {
             return collect();
         }
-        return Order::where('user_id', Auth::id())
-            ->whereIn('status', ['fechado', 'entregue'])
-            ->with('items', 'table', 'payments')
-            ->latest()
-            ->take(50)
-            ->get();
+    return Order::where('user_id', Auth::id())
+        ->whereIn('status', ['fechado', 'entregue', 'cancelado'])
+        ->with('items', 'table', 'payments')
+        ->latest()
+        ->take(50)
+        ->get();
     }
 
     #[Computed]
@@ -335,9 +336,9 @@ class Menu extends Component
         if (!Auth::check()) {
             return 0;
         }
-        return Order::where('user_id', Auth::id())
-            ->whereIn('status', ['fechado', 'entregue'])
-            ->count();
+    return Order::where('user_id', Auth::id())
+        ->whereIn('status', ['fechado', 'entregue', 'cancelado'])
+        ->count();
     }
 
     #[Computed]
@@ -441,7 +442,7 @@ class Menu extends Component
                 $this->pixPaymentConfirmed = true;
                 $this->pixPaymentError = false;
 
-                $order = Order::find($this->pixOrderId);
+                $order = Order::where('user_id', Auth::id())->find($this->pixOrderId);
                 if ($order && !$order->payments->where('status', 'paid')->count()) {
                     Payment::create([
                         'order_id' => $order->id,
@@ -452,6 +453,7 @@ class Menu extends Component
                         'paid_at' => now(),
                         'notes' => 'Pagamento PIX confirmado via API',
                     ]);
+                    app(PointsService::class)->grantPointsForOrder($order->fresh());
                 }
 
                 if ($order && $order->table_id) {
@@ -584,6 +586,7 @@ class Menu extends Component
                 }
                 if ($order->pendingPaymentAmount() <= 0) {
                     $order->update(['status' => 'fechado']);
+                    app(PointsService::class)->grantPointsForOrder($order->fresh());
                 }
             }
             Table::tryFreeTable($tableId);
@@ -825,6 +828,80 @@ class Menu extends Component
     }
 
     #[Computed]
+    public function pointsBalance(): int
+    {
+        if (!Auth::check()) {
+            return 0;
+        }
+        return app(PointsService::class)->getCustomerBalance($this->tenant, Auth::user());
+    }
+
+    #[Computed]
+    public function pointsVisible(): bool
+    {
+        return app(PointsService::class)->arePointsVisibleForCustomer($this->tenant);
+    }
+
+    public function pointsPercentageData(): int
+    {
+        return LoyaltyConfig::forTenant($this->tenant)->points_percentage ?? 10;
+    }
+
+    #[Computed]
+    public function pointsProducts()
+    {
+        return Product::where('tenant_id', $this->tenant->id)
+            ->active()
+            ->get();
+    }
+
+    public function redeemProductWithPoints(int $productId): void
+    {
+        if (!Auth::check()) {
+            $this->redirect(route('waiter.login.form', $this->tenant->slug) . '?redirect=' . urlencode(route('menu.show', $this->tenant->slug)));
+            return;
+        }
+
+        $product = Product::where('tenant_id', $this->tenant->id)
+            ->active()
+            ->findOrFail($productId);
+
+        if ($product->isOutOfStock()) {
+            $this->dispatch('notify', message: "{$product->name} esta sem estoque no momento.");
+            return;
+        }
+
+        $pointsPrice = (int) ($product->points_price ?? 0);
+
+        if ($pointsPrice <= 0) {
+            $this->dispatch('notify', message: 'Este produto ainda nao tem um custo em pontos definido.');
+            return;
+        }
+
+        $pointsService = app(PointsService::class);
+
+        if (!$pointsService->isPointsActive($this->tenant)) {
+            $this->dispatch('notify', message: 'Sistema de pontos inativo.');
+            return;
+        }
+
+        $balance = $pointsService->getCustomerBalance($this->tenant, Auth::user());
+
+        if ($balance < $pointsPrice) {
+            $this->dispatch('notify', message: 'Saldo de pontos insuficiente. Voce tem ' . number_format($balance, 0, ',', '.') . ' pontos, mas precisa de ' . number_format($pointsPrice, 0, ',', '.') . '.');
+            return;
+        }
+
+        $this->dispatch('addRedeemedPointsItem',
+            productId: $product->id,
+            productName: $product->name,
+            pointsPrice: $pointsPrice,
+        )->to('public.cart');
+
+        $this->dispatch('notify', message: "Produto {$product->name} adicionado ao carrinho! Finalize o pedido para usar seus pontos.");
+    }
+
+    #[Computed]
     public function availableTables()
     {
         return $this->tenant->manageableTables()
@@ -951,6 +1028,10 @@ class Menu extends Component
             'cartItems' => $this->cartItems,
             'myOrdersCount' => $this->myOrdersCount,
             'myAddresses' => Auth::check() ? $this->getMyAddresses() : collect(),
+            'pointsBalance' => $this->pointsBalance,
+            'pointsVisible' => $this->pointsVisible,
+            'pointsPercentageData' => $this->pointsPercentageData(),
+            'pointsProducts' => $this->pointsProducts,
         ]);
     }
 }

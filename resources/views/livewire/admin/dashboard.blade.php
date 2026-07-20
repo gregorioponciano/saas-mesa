@@ -17,8 +17,8 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
             </svg>
             <span class="hidden xs:inline">Mapa de Mesas</span><span class="xs:hidden">Mesas</span>
-            @if ($occupiedTablesCount > 0)
-                <span class="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-red-500/20 text-red-400">{{ $occupiedTablesCount }}</span>
+            @if ($overviewStats->occupied_tables > 0)
+                <span class="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-red-500/20 text-red-400">{{ $overviewStats->occupied_tables }}</span>
             @endif
         </button>
 
@@ -28,8 +28,8 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2-1m2 1l2-1m2 1l2-1m2-2v2a1 1 0 001 1h2m0 0a1 1 0 100 2m-2-2a1 1 0 110 2m-10-4h.01M16 12h4m0 0l-3-3m3 3l-3 3"/>
             </svg>
             <span class="hidden xs:inline">Entregas</span><span class="xs:hidden">Delivery</span>
-            @if ($pendingDeliveryCount > 0)
-                <span class="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-500/20 text-blue-400">{{ $pendingDeliveryCount }}</span>
+            @if ($overviewStats->pending_delivery_count > 0)
+                <span class="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-500/20 text-blue-400">{{ $overviewStats->pending_delivery_count }}</span>
             @endif
         </button>
         <button wire:click="switchTab('history')"
@@ -54,7 +54,7 @@
                       </div>
                       <span class="text-[10px] sm:text-xs font-medium text-neutral-500 uppercase tracking-wider truncate">Faturamento Total</span>
                   </div>
-                  <p class="text-lg sm:text-xl lg:text-2xl font-bold text-amber-400">R$ {{ number_format($totalRevenue, 2, ',', '.') }}</p>
+                   <p class="text-lg sm:text-xl lg:text-2xl font-bold text-amber-400">R$ {{ number_format($revenueStats->total_revenue, 2, ',', '.') }}</p>
               </div>
 
               <div class="p-3 sm:p-4 lg:p-5 rounded-2xl bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/10 hover:border-blue-500/20 transition-all duration-300">
@@ -66,7 +66,7 @@
                       </div>
                       <span class="text-[10px] sm:text-xs font-medium text-neutral-500 uppercase tracking-wider truncate">Faturamento Delivery</span>
                   </div>
-                  <p class="text-lg sm:text-xl lg:text-2xl font-bold text-blue-400">R$ {{ number_format($deliveryRevenue, 2, ',', '.') }}</p>
+                   <p class="text-lg sm:text-xl lg:text-2xl font-bold text-blue-400">R$ {{ number_format($revenueStats->delivery_revenue, 2, ',', '.') }}</p>
               </div>
 
               <div class="p-3 sm:p-4 lg:p-5 rounded-2xl bg-gradient-to-br from-red-500/10 to-red-600/5 border border-red-500/10 hover:border-red-500/20 transition-all duration-300">
@@ -78,7 +78,7 @@
                       </div>
                       <span class="text-[10px] sm:text-xs font-medium text-neutral-500 uppercase tracking-wider truncate">Faturamento Mesa</span>
                   </div>
-                  <p class="text-lg sm:text-xl lg:text-2xl font-bold text-red-400">R$ {{ number_format($tableRevenue, 2, ',', '.') }}</p>
+                   <p class="text-lg sm:text-xl lg:text-2xl font-bold text-red-400">R$ {{ number_format($revenueStats->table_revenue, 2, ',', '.') }}</p>
               </div>
 
               <div class="p-3 sm:p-4 lg:p-5 rounded-2xl bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/10 hover:border-green-500/20 transition-all duration-300">
@@ -90,7 +90,7 @@
                       </div>
                       <span class="text-[10px] sm:text-xs font-medium text-neutral-500 uppercase tracking-wider truncate">Hoje Delivery</span>
                   </div>
-                  <p class="text-lg sm:text-xl lg:text-2xl font-bold text-green-400">{{ $deliveryOrdersToday }}</p>
+                  <p class="text-lg sm:text-xl lg:text-2xl font-bold text-green-400">{{ $revenueStats->delivery_orders_today }}</p>
               </div>
 
               <div class="p-3 sm:p-4 lg:p-5 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-indigo-600/5 border border-indigo-500/10 hover:border-indigo-500/20 transition-all duration-300">
@@ -102,7 +102,7 @@
                       </div>
                       <span class="text-[10px] sm:text-xs font-medium text-neutral-500 uppercase tracking-wider truncate">Hoje Mesa</span>
                   </div>
-                  <p class="text-lg sm:text-xl lg:text-2xl font-bold text-indigo-400">{{ $tableOrdersToday }}</p>
+                  <p class="text-lg sm:text-xl lg:text-2xl font-bold text-indigo-400">{{ $revenueStats->table_orders_today }}</p>
               </div>
 
               <div class="p-3 sm:p-4 lg:p-5 rounded-2xl bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/10 hover:border-purple-500/20 transition-all duration-300">
@@ -114,26 +114,26 @@
                       </div>
                       <span class="text-[10px] sm:text-xs font-medium text-neutral-500 uppercase tracking-wider truncate">Pedidos Hoje</span>
                   </div>
-                  <p class="text-lg sm:text-xl lg:text-2xl font-bold text-purple-400">{{ $ordersToday }}</p>
+                  <p class="text-lg sm:text-xl lg:text-2xl font-bold text-purple-400">{{ $revenueStats->orders_today }}</p>
               </div>
           </div>
 
         {{-- Table Stats Mini --}}
         <div class="grid grid-cols-4 gap-2 sm:gap-3">
             <div class="p-2 sm:p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-center">
-                <p class="text-base sm:text-2xl font-bold text-emerald-400">{{ $tableStats['free'] }}</p>
+                <p class="text-base sm:text-2xl font-bold text-emerald-400">{{ $overviewStats->free_tables }}</p>
                 <p class="text-[10px] sm:text-xs text-neutral-500 mt-0.5 sm:mt-1">Livres</p>
             </div>
             <div class="p-2 sm:p-4 rounded-xl bg-red-500/5 border border-red-500/10 text-center">
-                <p class="text-base sm:text-2xl font-bold text-red-400">{{ $tableStats['occupied'] }}</p>
+                <p class="text-base sm:text-2xl font-bold text-red-400">{{ $overviewStats->occupied_tables }}</p>
                 <p class="text-[10px] sm:text-xs text-neutral-500 mt-0.5 sm:mt-1">Ocupadas</p>
             </div>
             <div class="p-2 sm:p-4 rounded-xl bg-blue-500/5 border border-blue-500/10 text-center">
-                <p class="text-base sm:text-2xl font-bold text-blue-400">{{ $tableStats['reserved'] }}</p>
+                <p class="text-base sm:text-2xl font-bold text-blue-400">{{ $overviewStats->reserved_tables }}</p>
                 <p class="text-[10px] sm:text-xs text-neutral-500 mt-0.5 sm:mt-1">Reservadas</p>
             </div>
             <div class="p-2 sm:p-4 rounded-xl bg-purple-500/5 border border-purple-500/10 text-center">
-                <p class="text-base sm:text-2xl font-bold text-purple-400">{{ $pickupOrdersToday }}</p>
+                <p class="text-base sm:text-2xl font-bold text-purple-400">{{ $revenueStats->pickup_orders_today }}</p>
                 <p class="text-[10px] sm:text-xs text-neutral-500 mt-0.5 sm:mt-1">Retiradas</p>
             </div>
         </div>
@@ -141,11 +141,11 @@
         {{-- Delivery Costs --}}
         <div class="grid grid-cols-2 gap-2 sm:gap-3">
             <div class="p-2 sm:p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 text-center">
-                <p class="text-base sm:text-2xl font-bold text-amber-400">R$ {{ number_format($totalDeliveryCost, 2, ',', '.') }}</p>
+                <p class="text-base sm:text-2xl font-bold text-amber-400">R$ {{ number_format($overviewStats->total_delivery_cost, 2, ',', '.') }}</p>
                 <p class="text-[10px] sm:text-xs text-neutral-500 mt-0.5 sm:mt-1">Custo Total Entregas</p>
             </div>
             <div class="p-2 sm:p-4 rounded-xl bg-blue-500/5 border border-blue-500/10 text-center">
-                <p class="text-base sm:text-2xl font-bold text-blue-400">R$ {{ number_format($pendingDeliveryCost, 2, ',', '.') }}</p>
+                <p class="text-base sm:text-2xl font-bold text-blue-400">R$ {{ number_format($overviewStats->pending_delivery_cost, 2, ',', '.') }}</p>
                 <p class="text-[10px] sm:text-xs text-neutral-500 mt-0.5 sm:mt-1">Custo Pendente Entregas</p>
             </div>
         </div>
@@ -158,7 +158,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                     </svg>
                     Mesas Ocupadas
-                    <span class="text-xs text-neutral-500 font-normal">({{ $tableStats['occupied'] }})</span>
+                    <span class="text-xs text-neutral-500 font-normal">({{ $overviewStats->occupied_tables }})</span>
                 </h2>
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                     @foreach ($occupiedTablesWithOrders as $table)
@@ -209,7 +209,51 @@
             </div>
         </x-admin.card>
 
-         {{-- Active Orders --}}
+        {{-- Low Stock Products --}}
+        <x-admin.card :padding="false" class="p-3 sm:p-5">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-xs sm:text-sm font-bold flex items-center gap-2">
+                    <svg class="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                    </svg>
+                    Produtos com Estoque Baixo
+                    <span class="text-xs text-neutral-500 font-normal">({{ $lowStockProducts->count() }})</span>
+                </h2>
+            </div>
+            @if ($lowStockProducts->count() === 0)
+                <div class="text-center py-6 text-neutral-500">
+                    <svg class="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <p class="text-xs">Todos os produtos estão com estoque adequado</p>
+                </div>
+            @else
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    @foreach ($lowStockProducts as $product)
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-red-500/5 border border-red-500/10">
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-neutral-200 truncate">{{ $product->name }}</p>
+                                <div class="flex items-center gap-2 mt-0.5">
+                                    @if ($product->stock > 0)
+                                        <span class="text-xs text-amber-400 font-medium">{{ $product->stock }} unid.</span>
+                                    @else
+                                        <span class="text-xs text-red-400 font-medium">Sem estoque</span>
+                                    @endif
+                                </div>
+                            </div>
+                            @if (auth()->user()->isAdmin())
+                                <button wire:click="openStockModal({{ $product->id }})"
+                                        class="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-medium transition-all">
+                                    Ajustar Estoque
+                                </button>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </x-admin.card>
+
+        {{-- Active Orders --}}
          <div>
              <h2 class="text-sm sm:text-lg font-bold mb-4">Pedidos Ativos</h2>
              @if ($activeOrders->count() === 0)
@@ -287,12 +331,12 @@
                                                          {{ $order->statusFlowLabels()[$order->status] ?? 'Avançar' }}
                                                      </button>
                                                  @endif
-                                                 @if (in_array($order->status, ['novo', 'em_preparo', 'pronto']))
-                                                     <button wire:click="updateStatus({{ $order->id }}, 'cancelado')"
-                                                             class="px-2.5 py-1 text-[10px] sm:text-xs font-semibold rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all duration-200">
-                                                         Cancelar
-                                                     </button>
-                                                 @endif
+                                                @if (!in_array($order->status, ['fechado', 'cancelado']))
+                                                    <button wire:click="updateStatus({{ $order->id }}, 'cancelado')"
+                                                            class="px-2.5 py-1 text-[10px] sm:text-xs font-semibold rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all duration-200">
+                                                        Cancelar
+                                                    </button>
+                                                @endif
                                              </div>
                                          </div>
                                      @endforeach
@@ -376,13 +420,13 @@
                                                      {{ $order->statusFlowLabels()[$order->status] ?? 'Avançar' }}
                                                  </button>
                                              @endif
-                                             @if (in_array($order->status, ['novo', 'em_preparo', 'pronto']))
-                                                 <button wire:click="updateStatus({{ $order->id }}, 'cancelado')"
-                                                         class="px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all duration-200">
-                                                     Cancelar
-                                                 </button>
-                                             @endif
-                                         </td>
+                                              @if (!in_array($order->status, ['fechado', 'cancelado']))
+                                                  <button wire:click="updateStatus({{ $order->id }}, 'cancelado')"
+                                                          class="px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all duration-200">
+                                                      Cancelar
+                                                  </button>
+                                              @endif
+                                          </td>
                                      </tr>
                                  @endforeach
                              </tbody>
@@ -550,7 +594,7 @@
                                         {{ $order->statusFlowLabels()[$order->status] ?? 'Avancar' }}
                                     </button>
                                 @endif
-                                @if (in_array($order->status, ['novo', 'em_preparo', 'pronto']))
+                                @if (!in_array($order->status, ['fechado', 'cancelado']))
                                     <button wire:click="updateStatus({{ $order->id }}, 'cancelado')"
                                             class="px-3 py-2 text-[11px] font-semibold rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all border border-red-500/20">
                                         Cancelar
@@ -786,6 +830,15 @@
                                 <p class="text-sm font-medium">{{ $viewingOrder['customer_phone'] }}</p>
                             </div>
                         @endif
+                        @if ($viewingOrder['customer_points'] > 0)
+                            <div>
+                                <p class="text-xs text-neutral-500 mb-1">Pontos do Cliente</p>
+                                <p class="text-sm font-medium text-emerald-400 flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    {{ number_format($viewingOrder['customer_points'], 0, ',', '.') }} pts
+                                </p>
+                            </div>
+                        @endif
                         @if ($viewingOrder['table_number'])
                             <div>
                                 <p class="text-xs text-neutral-500 mb-1">Mesa</p>
@@ -889,6 +942,15 @@
                         </div>
                     @endif
 
+                    @if ($viewingOrder['points_used'])
+                        <div class="flex items-center justify-between text-sm pt-2">
+                            <span class="text-emerald-400 flex items-center gap-1.5">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                Desconto por Pontos
+                            </span>
+                            <span class="text-emerald-400">-R$ {{ number_format($viewingOrder['points_discount'], 2, ',', '.') }} ({{ number_format($viewingOrder['points_spent'], 0, ',', '.') }} pts)</span>
+                        </div>
+                    @endif
                     <div class="flex items-center justify-between pt-3 border-t border-neutral-800">
                         <span class="text-sm font-medium text-neutral-400">Total</span>
                         <span class="text-lg font-bold text-amber-400">R$ {{ number_format($viewingOrder['total'], 2, ',', '.') }}</span>
@@ -920,7 +982,7 @@
                             {{ $viewingOrder['nextStatusLabel'] }}
                         </button>
                     @endif
-                     @if (!in_array($viewingOrder['status'], \App\Models\Order::STATUS_FINISHED) && !$viewingOrder['is_fechado'])
+                     @if (!in_array($viewingOrder['status'], ['fechado', 'cancelado']) && !$viewingOrder['is_fechado'])
                         <button wire:click="updateStatus({{ $viewingOrder['id'] }}, 'cancelado')"
                                 class="px-4 py-2.5 text-sm font-semibold rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all duration-200">
                             Cancelar
@@ -1111,6 +1173,37 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Stock Adjustment Modal --}}
+    @if ($showStockModal)
+        <div class="fixed inset-0 z-80 flex items-center justify-center p-4"
+             @keydown.window.escape="$wire.closeStockModal()">
+            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" wire:click="closeStockModal"></div>
+            <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/60 p-6">
+                <h3 class="text-lg font-bold mb-2">Ajustar Estoque</h3>
+                <p class="text-sm text-neutral-400 mb-6">Defina a nova quantidade para este produto.</p>
+                <form wire:submit="adjustStock" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-neutral-300 mb-2">Nova quantidade em estoque</label>
+                        <input wire:model="stockAdjustmentValue" type="number" step="1" min="0" placeholder="0"
+                               class="w-full px-4 py-3 text-2xl font-bold text-center rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all">
+                        <p class="mt-2 text-xs text-neutral-500">Defina a quantidade total disponível para venda. 0 = produto indisponível.</p>
+                    </div>
+                    <div class="flex gap-3 pt-2">
+                        <button type="submit" wire:loading.class="opacity-50"
+                                class="flex-1 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold transition-all flex items-center justify-center gap-2">
+                            <span wire:loading.remove>Salvar Estoque</span>
+                            <span wire:loading><svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
+                        </button>
+                        <button type="button" wire:click="closeStockModal"
+                                class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all">
+                            Cancelar
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     @endif

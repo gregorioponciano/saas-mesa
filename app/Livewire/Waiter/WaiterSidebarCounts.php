@@ -22,16 +22,16 @@ class WaiterSidebarCounts extends Component
 
     public function mount(): void
     {
-        $this->lastNotifiedOrderId = Order::whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])
+        $this->lastNotifiedOrderId = Order::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])
             ->latest()->value('id');
-        $this->lastNotifiedTicketId = SupportTicket::whereIn('status', $this->activeTicketStatuses())
+        $this->lastNotifiedTicketId = SupportTicket::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', $this->activeTicketStatuses())
             ->latest()->value('id');
     }
 
     #[Computed]
     public function pendingOrdersCount(): int
     {
-        return Order::where('status', 'novo')->count();
+        return Order::where('tenant_id', auth()->user()->tenant_id)->where('status', 'novo')->count();
     }
 
     #[Computed]
@@ -45,12 +45,12 @@ class WaiterSidebarCounts extends Component
     #[Computed]
     public function openTicketsCount(): int
     {
-        return SupportTicket::whereIn('status', $this->activeTicketStatuses())->count();
+        return SupportTicket::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', $this->activeTicketStatuses())->count();
     }
 
     public function checkNewOrders(): void
     {
-        $latest = Order::with('table')->whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])
+        $latest = Order::where('tenant_id', auth()->user()->tenant_id)->with('table')->whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])
             ->latest()
             ->first();
 
@@ -65,7 +65,7 @@ class WaiterSidebarCounts extends Component
 
     public function checkNewTickets(): void
     {
-        $latest = SupportTicket::with('user')
+        $latest = SupportTicket::where('tenant_id', auth()->user()->tenant_id)->with('user')
             ->whereIn('status', $this->activeTicketStatuses())
             ->latest()
             ->first();

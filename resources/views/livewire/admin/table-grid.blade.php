@@ -206,7 +206,7 @@
                                                     {{ $nextStatusLabel }}
                                                 </button>
                                             @endif
-                                            @if (in_array($detail['status'], ['novo', 'em_preparo', 'pronto']) && !$isFechado)
+                                            @if (!in_array($detail['status'], ['fechado', 'cancelado']) && !$isFechado)
                                                 <button wire:click="updateOrderStatus({{ $detail['id'] }}, 'cancelado')"
                                                         class="flex-1 min-w-[120px] py-3 px-4 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 font-semibold rounded-xl transition-all duration-200">
                                                     Cancelar Pedido

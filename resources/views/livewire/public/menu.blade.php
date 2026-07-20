@@ -85,6 +85,19 @@
                     @endif
                 </button>
 
+                @if ($pointsVisible)
+                <button wire:click="switchClientTab('pontos'); sidebarOpen = false"
+                        class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ $clientTab === 'pontos' ? 'bg-emerald-500/10 text-emerald-400' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50' }}">
+                    <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="flex-1 text-left">Pontos</span>
+                    @if ($pointsBalance > 0)
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">{{ number_format($pointsBalance, 0, ',', '.') }}</span>
+                    @endif
+                </button>
+                @endif
+
                 <button wire:click="switchClientTab('settings'); sidebarOpen = false"
                         class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ $clientTab === 'settings' ? 'bg-amber-500/10 text-amber-400' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50' }}">
                     <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -108,16 +121,18 @@
             </nav>
 
             {{-- Cart Summary in Sidebar --}}
-            <div class="px-3 py-3 border-t border-neutral-800">
+            <div class="px-3 py-3 border-t border-neutral-800"
+                 x-data="{ badgeCount: {{ $cartItemsCount ?? 0 }} }"
+                 @cart-badge-update.window="badgeCount = $event.detail.count">
                 <button @click="$dispatch('open-cart'); sidebarOpen = false"
                         class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-400 hover:text-amber-400 hover:bg-amber-500/5 transition-all duration-200">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
                     </svg>
                     <span class="flex-1 text-left">Carrinho</span>
-                    @if ($cartItemsCount > 0)
-                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">{{ $cartItemsCount }}</span>
-                    @endif
+                    <template x-if="badgeCount > 0">
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30" x-text="badgeCount"></span>
+                    </template>
                 </button>
             </div>
 
@@ -249,15 +264,17 @@
                                 </svg>
                             </button>
                             <button @click="$dispatch('open-cart')"
+                                    x-data="{ badgeCount: {{ $cartItemsCount ?? 0 }} }"
+                                    @cart-badge-update.window="badgeCount = $event.detail.count"
                                     class="relative p-1.5 sm:p-2 rounded-xl hover:bg-neutral-800 text-neutral-400 hover:text-white transition-all">
                                 <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
                                 </svg>
-                                @if (($cartItemsCount ?? 0) > 0)
-                                    <span class="absolute -top-1 -right-1 w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-amber-500 text-neutral-950 text-[9px] font-bold flex items-center justify-center shadow-lg shadow-amber-500/30">
-                                        {{ $cartItemsCount }}
+                                <template x-if="badgeCount > 0">
+                                    <span class="absolute -top-1 -right-1 w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-amber-500 text-neutral-950 text-[9px] font-bold flex items-center justify-center shadow-lg shadow-amber-500/30"
+                                          x-text="badgeCount">
                                     </span>
-                                @endif
+                                </template>
                             </button>
                             @auth
                                 @if (Auth::user()->isAdmin())
@@ -414,6 +431,15 @@
                                                          class="w-full h-full object-cover transition-all duration-500 group-hover:scale-110"
                                                          loading="lazy">
                                                     <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                                    @if ($product->isOutOfStock())
+                                                        <div class="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                                            <span class="text-[10px] font-bold text-red-400 bg-red-500/20 px-2 py-1 rounded-md">SEM ESTOQUE</span>
+                                                        </div>
+                                                    @elseif ($product->stock > 0 && $product->stock <= 5)
+                                                        <div class="absolute top-1 right-1">
+                                                            <span class="text-[9px] font-medium text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded-md">{{ $product->stock }} restante</span>
+                                                        </div>
+                                                    @endif
                                                 </div>
                                                 <div class="flex-1 min-w-0 flex flex-col justify-between">
                                                     <div>
@@ -424,7 +450,12 @@
                                                     </div>
                                                     <div class="flex items-center justify-between mt-2">
                                                         <p class="text-lg font-bold text-amber-400 group-hover:scale-105 transition-transform origin-left">R$ {{ number_format($product->price, 2, ',', '.') }}</p>
-                                                        @if (!$product->attributes->count())
+                                                        @if ($product->isOutOfStock())
+                                                            <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-neutral-800 text-neutral-500 cursor-not-allowed">
+                                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                                                Indisponível
+                                                            </span>
+                                                        @elseif (!$product->attributes->count())
                                                             <span @click.stop
                                                                   @click="$wire.$dispatchTo('public.cart', 'addToCart', {productId: {{ $product->id }}, productName: @js($product->name), price: {{ $product->price }}, selectedOptions: [], quantity: 1}); added = true; setTimeout(() => added = false, 1200);"
                                                                   class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer"
@@ -1212,6 +1243,116 @@
                         </div>
                     @endif
                 </div>
+
+            {{-- TAB: Pontos --}}
+            @elseif ($clientTab === 'pontos' && Auth::check() && $pointsVisible)
+                <div class="px-4 mt-4 max-w-2xl mx-auto pb-8"
+                     x-init="$nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }))">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold">Meus Pontos</h2>
+                        <button wire:click="switchClientTab('menu')"
+                                class="text-xs text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                            Voltar ao Cardapio
+                        </button>
+                    </div>
+
+                    {{-- Points Balance Card --}}
+                    <div class="p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/10 mb-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-emerald-400/70 font-medium uppercase tracking-wider">Saldo de Pontos</p>
+                                <p class="text-3xl font-black text-emerald-400 mt-1">{{ number_format($pointsBalance, 0, ',', '.') }}</p>
+                                <p class="text-xs text-neutral-400 mt-1">equivalem a <strong class="text-amber-400">R$ {{ number_format($pointsBalance / 100, 2, ',', '.') }}</strong> em descontos no carrinho</p>
+                            </div>
+                            <button @click="$dispatch('open-cart')"
+                                    class="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all text-sm hover:scale-[1.02] active:scale-[0.98] shrink-0">
+                                Usar no Pedido
+                            </button>
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-emerald-500/10 flex items-center gap-2 text-xs text-neutral-400">
+                            <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                            <span>Ganhe <strong class="text-emerald-400">{{ $pointsPercentageData }}%</strong> de volta em pontos a cada pedido</span>
+                        </div>
+                    </div>
+
+                    {{-- Products Exchangeable for Points --}}
+                    <div>
+                        <h3 class="text-sm font-semibold text-neutral-300 mb-4 flex items-center gap-2">
+                            <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                            Produtos Disponiveis para Troca
+                        </h3>
+
+                        @if ($pointsProducts->count() === 0)
+                            <div class="text-center py-12 text-neutral-600 rounded-2xl bg-neutral-900/30 border border-dashed border-neutral-800">
+                                <svg class="w-14 h-14 mx-auto mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <p class="text-sm font-medium text-neutral-400">Nenhum produto disponivel para troca</p>
+                                <p class="text-xs text-neutral-600 mt-1">Em breve novos produtos estarao disponiveis</p>
+                            </div>
+                        @else
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                @foreach ($pointsProducts as $product)
+                                    <div class="p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800/80 hover:border-emerald-500/30 transition-all duration-300 group">
+                                        <div class="flex gap-4">
+                                            <div class="w-20 h-20 rounded-xl overflow-hidden shrink-0 bg-neutral-800/50 relative">
+                                                <img src="{{ $product->imageUrl() }}"
+                                                     alt="{{ $product->name }}"
+                                                     class="w-full h-full object-cover transition-all duration-500 group-hover:scale-110"
+                                                     loading="lazy">
+                                                @if ($product->isOutOfStock())
+                                                    <div class="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                                        <span class="text-[9px] font-bold text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded-md">SEM ESTOQUE</span>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                            <div class="flex-1 min-w-0 flex flex-col justify-between">
+                                                <div>
+                                                    <h4 class="font-semibold text-sm group-hover:text-emerald-400 transition-colors">{{ $product->name }}</h4>
+                                                    @if ($product->description)
+                                                        <p class="text-xs text-neutral-400 mt-1 line-clamp-2">{{ $product->description }}</p>
+                                                    @endif
+                                                </div>
+                                                    <div class="flex items-center justify-between mt-2">
+                                                        <div>
+                                                            @php $ptsPrice = (int) ($product->points_price ?? 0); @endphp
+                                                            <span class="text-lg font-bold text-emerald-400">{{ number_format($ptsPrice, 0, ',', '.') }}</span>
+                                                            <span class="text-xs text-neutral-500"> pontos</span>
+                                                        </div>
+                                                        @if ($product->isOutOfStock())
+                                                            <span class="text-xs text-red-400">Sem estoque</span>
+                                                        @elseif ($ptsPrice > 0 && $pointsBalance >= $ptsPrice)
+                                                            <button wire:click="redeemProductWithPoints({{ $product->id }})"
+                                                                    wire:loading.attr="disabled"
+                                                                    wire:target="redeemProductWithPoints({{ $product->id }})"
+                                                                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-neutral-950 disabled:opacity-50">
+                                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                                                <span wire:loading.remove wire:target="redeemProductWithPoints({{ $product->id }})">Resgatar</span>
+                                                                <span wire:loading wire:target="redeemProductWithPoints({{ $product->id }})">...</span>
+                                                            </button>
+                                                        @elseif ($ptsPrice > 0 && $pointsBalance < $ptsPrice)
+                                                            <span class="text-xs text-neutral-500">Pontos insuficientes</span>
+                                                        @else
+                                                            <span class="text-xs text-neutral-600">Indisponivel</span>
+                                                        @endif
+                                                    </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+
+                    @if ($pointsBalance > 0)
+                        <div class="mt-6 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10">
+                            <p class="text-sm text-neutral-300 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                Quer usar seus pontos como desconto?
+                                <button @click="$dispatch('open-cart')" class="text-amber-400 hover:text-amber-300 underline font-medium">Clique aqui</button>
+                            </p>
+                        </div>
+                    @endif
+                </div>
             @endif
 
             {{-- PIX Payment Modal --}}
@@ -1527,7 +1668,14 @@
                                     </button>
                                 </div>
 
-                                <p class="text-2xl font-bold text-amber-400 mb-6">R$ {{ number_format($selectedProduct->price, 2, ',', '.') }}</p>
+                                <div class="flex items-center justify-between mb-6">
+                                    <p class="text-2xl font-bold text-amber-400">R$ {{ number_format($selectedProduct->price, 2, ',', '.') }}</p>
+                                    @if ($selectedProduct->isOutOfStock())
+                                        <span class="text-xs font-bold text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20">ESGOTADO</span>
+                                    @elseif ($selectedProduct->stock > 0 && $selectedProduct->stock <= 5)
+                                        <span class="text-xs text-amber-400 bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20">Apenas {{ $selectedProduct->stock }} em estoque</span>
+                                    @endif
+                                </div>
 
                                 <form @submit.prevent="
                                     const form = $event.target;
@@ -1609,13 +1757,13 @@
                                     @endforeach
 
                                     <button type="submit"
-                                            :disabled="animating"
+                                            :disabled="animating || {{ $selectedProduct->isOutOfStock() ? 'true' : 'false' }}"
                                             class="w-full py-3.5 px-4 bg-amber-500 hover:bg-amber-400 disabled:bg-amber-600 disabled:opacity-60 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 flex items-center justify-center gap-2">
                                         <svg x-show="animating" class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                                         </svg>
-                                        <span x-text="animating ? 'Adicionando...' : 'Adicionar ao Pedido'"></span>
+                                        <span x-text="animating ? 'Adicionando...' : '{{ $selectedProduct->isOutOfStock() ? 'Indisponível' : 'Adicionar ao Pedido' }}'"></span>
                                     </button>
                                 </form>
                             </div>

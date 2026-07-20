@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\DeliveryPerson;
 use App\Models\Order;
+use App\Services\PointsService;
+use App\Services\StockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -158,7 +160,29 @@ class DeliveryController extends Controller
             return response()->json(['message' => 'Pedido nao encontrado'], 404);
         }
 
+        $previousStatus = $order->status;
         $order->update(['status' => $request->status]);
+
+        if ($request->status === 'cancelado') {
+            try {
+                app(PointsService::class)->reversePointsForOrder($order);
+                app(PointsService::class)->refundSpentPointsForOrder($order);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Erro ao processar pontos cancelamento delivery', [
+                    'order_id' => $order->id, 'error' => $e->getMessage(),
+                ]);
+            }
+
+            if (!in_array($previousStatus, ['entregue', 'fechado'])) {
+                try {
+                    app(StockService::class)->returnOrderStock($order->fresh(), $delivery->id);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Erro ao devolver estoque cancelamento delivery', [
+                        'order_id' => $order->id, 'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
 
         return response()->json(['message' => 'Status atualizado', 'status' => $order->status]);
     }

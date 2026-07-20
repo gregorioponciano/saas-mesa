@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin;
 
+use App\Models\CustomerPoint;
 use App\Models\User;
 use Livewire\Component;
 
@@ -158,10 +159,27 @@ class UserManager extends Component
             ->get();
     }
 
+    public function getUserPointsProperty(): array
+    {
+        $tenantId = auth()->user()?->tenant_id;
+        if (!$tenantId) {
+            return [];
+        }
+        return CustomerPoint::where('tenant_id', $tenantId)
+            ->pluck('balance', 'user_id')
+            ->toArray();
+    }
+
     public function render()
     {
+        $tenantId = auth()->user()?->tenant_id;
+        $userPoints = $tenantId
+            ? CustomerPoint::where('tenant_id', $tenantId)->pluck('balance', 'user_id')->toArray()
+            : [];
+
         return view('livewire.admin.user-manager', [
             'users' => $this->users,
+            'userPoints' => $userPoints,
         ])->extends('layouts.admin');
     }
 }

@@ -104,10 +104,12 @@ Route::middleware(['throttle:10,1'])->group(function () {
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Recuperação de senha do administrador
-Route::get('/login/recuperar-senha', [AuthController::class, 'adminForgotPasswordForm'])->name('admin.forgot.form');
-Route::post('/login/recuperar-senha', [AuthController::class, 'adminSendResetLink'])->name('admin.forgot.send');
-Route::get('/login/redefinir-senha/{token}', [AuthController::class, 'adminResetPasswordForm'])->name('admin.reset.form');
-Route::post('/login/redefinir-senha/{token}', [AuthController::class, 'adminResetPassword'])->name('admin.reset');
+Route::middleware('throttle:5,1')->group(function () {
+    Route::get('/login/recuperar-senha', [AuthController::class, 'adminForgotPasswordForm'])->name('admin.forgot.form');
+    Route::post('/login/recuperar-senha', [AuthController::class, 'adminSendResetLink'])->name('admin.forgot.send');
+    Route::get('/login/redefinir-senha/{token}', [AuthController::class, 'adminResetPasswordForm'])->name('admin.reset.form');
+    Route::post('/login/redefinir-senha/{token}', [AuthController::class, 'adminResetPassword'])->name('admin.reset');
+});
 
 
 /**
@@ -142,20 +144,14 @@ Route::middleware(['auth', 'tenant.scope', 'check.subscription', 'check.admin'])
     // Como usar: GET para '/dashboard/entregadores' ou route('dashboard.delivery-people')
     Route::get('/dashboard/entregadores', DeliveryPeopleManager::class)->name('dashboard.delivery-people');
 
+    // Gerenciamento do programa de pontos e fidelidade
+    // Como usar: GET para '/dashboard/pontos' ou route('dashboard.loyalty')
+    Route::get('/dashboard/pontos', \App\Livewire\Admin\LoyaltyManager::class)->name('dashboard.loyalty');
+
 
     // Configurações gerais da empresa (nome, horários, endereço, etc.)
     // Como usar: GET para '/dashboard/configuracoes' ou route('dashboard.settings')
     Route::get('/dashboard/configuracoes', Settings::class)->name('dashboard.settings');
-
-// Credenciais EfiBank do tenant (receber pagamentos dos clientes)
-// Como usar: GET para '/dashboard/efi-credentials' ou route('dashboard.efi-credentials')
-Route::get('/dashboard/efi-credentials', \App\Livewire\Admin\EfiCredentialsManager::class)
-    ->name('dashboard.efi-credentials');
-
-// Configuração de Email SMTP do tenant
-// Como usar: GET para '/dashboard/configurar-email' ou route('dashboard.smtp-settings')
-Route::get('/dashboard/configurar-email', \App\Livewire\Admin\SmtpSettings::class)
-    ->name('dashboard.smtp-settings');
 
     // Tela de checkout de assinatura do plano da plataforma
     // Como usar: GET para '/subscription' ou route('subscription.checkout')
@@ -168,6 +164,14 @@ Route::get('/dashboard/configurar-email', \App\Livewire\Admin\SmtpSettings::clas
     // Cancela a assinatura ativa da empresa na plataforma
     // Como usar: POST para '/subscription/cancel' ou route('subscription.cancel')
     Route::post('/subscription/cancel', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
+
+    // EfiBank credentials do tenant
+    Route::get('/dashboard/efi-credentials', \App\Livewire\Admin\EfiCredentialsManager::class)
+        ->name('dashboard.efi-credentials');
+
+    // Configuração de Email SMTP do tenant
+    Route::get('/dashboard/configurar-email', \App\Livewire\Admin\SmtpSettings::class)
+        ->name('dashboard.smtp-settings');
 
     // Suporte
     Route::get('/dashboard/suporte', SupportManager::class)->name('dashboard.support');
@@ -193,31 +197,39 @@ Route::prefix('/cardapio')->group(function () {
 
     // Exibe a tela de login exclusiva para Garçons/Staff do restaurante informando o slug
     // Como usar: GET para '/cardapio/nome-do-restaurante/acesso'
-    Route::get('/{slug:slug}/acesso', [AuthController::class, 'waiterLoginForm'])->name('waiter.login.form');
+    Route::get('/{slug:slug}/acesso', [AuthController::class, 'waiterLoginForm'])
+        ->middleware('throttle:10,1')->name('waiter.login.form');
     
     // Processa o login do garçom
     // Como usar: POST para '/cardapio/nome-do-restaurante/acesso' com as credenciais do garçom
-    Route::post('/{slug:slug}/acesso', [AuthController::class, 'waiterLogin'])->name('waiter.login');
+    Route::post('/{slug:slug}/acesso', [AuthController::class, 'waiterLogin'])
+        ->middleware('throttle:10,1')->name('waiter.login');
 
     // Exibe o formulário de cadastro/auto-registro para novos garçons
     // Como usar: GET para '/cardapio/nome-do-restaurante/cadastro'
-    Route::get('/{slug:slug}/cadastro', [AuthController::class, 'waiterRegisterForm'])->name('waiter.register.form');
+    Route::get('/{slug:slug}/cadastro', [AuthController::class, 'waiterRegisterForm'])
+        ->middleware('throttle:10,1')->name('waiter.register.form');
     
     // Processa o registro do novo garçom
     // Como usar: POST para '/cardapio/nome-do-restaurante/cadastro' com dados do funcionário
-    Route::post('/{slug:slug}/cadastro', [AuthController::class, 'waiterRegister'])->name('waiter.register');
+    Route::post('/{slug:slug}/cadastro', [AuthController::class, 'waiterRegister'])
+        ->middleware('throttle:10,1')->name('waiter.register');
 
     // Exibe formulário de recuperação de senha
-    Route::get('/{slug:slug}/recuperar-senha', [AuthController::class, 'forgotPasswordForm'])->name('waiter.forgot.form');
+    Route::get('/{slug:slug}/recuperar-senha', [AuthController::class, 'forgotPasswordForm'])
+        ->middleware('throttle:5,1')->name('waiter.forgot.form');
 
     // Processa solicitação de recuperação de senha
-    Route::post('/{slug:slug}/recuperar-senha', [AuthController::class, 'sendResetLink'])->name('waiter.forgot.send');
+    Route::post('/{slug:slug}/recuperar-senha', [AuthController::class, 'sendResetLink'])
+        ->middleware('throttle:5,1')->name('waiter.forgot.send');
 
     // Exibe formulário de redefinição de senha com token
-    Route::get('/{slug:slug}/redefinir-senha/{token}', [AuthController::class, 'resetPasswordForm'])->name('waiter.reset.form');
+    Route::get('/{slug:slug}/redefinir-senha/{token}', [AuthController::class, 'resetPasswordForm'])
+        ->middleware('throttle:5,1')->name('waiter.reset.form');
 
     // Processa redefinição de senha
-    Route::post('/{slug:slug}/redefinir-senha/{token}', [AuthController::class, 'resetPassword'])->name('waiter.reset');
+    Route::post('/{slug:slug}/redefinir-senha/{token}', [AuthController::class, 'resetPassword'])
+        ->middleware('throttle:5,1')->name('waiter.reset');
 });
 
 

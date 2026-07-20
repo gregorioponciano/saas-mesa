@@ -2,9 +2,11 @@
 
 namespace App\Livewire\Client;
 
+use App\Models\LoyaltyConfig;
 use App\Models\Order;
 use App\Models\Table;
 use App\Models\UserAddress;
+use App\Services\PointsService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
@@ -293,6 +295,7 @@ class ClientDashboard extends Component
                 'status' => 'fechado',
                 'bill_closed_at' => now(),
             ]);
+            app(PointsService::class)->grantPointsForOrder($order->fresh());
         }
 
         Table::tryFreeTable($tableId);
@@ -349,6 +352,23 @@ class ClientDashboard extends Component
             ->get();
     }
 
+    public function pointsActive(): bool
+    {
+        return app(PointsService::class)->arePointsVisibleForCustomer($this->tenant);
+    }
+
+    public function pointsPercentageData(): int
+    {
+        return LoyaltyConfig::forTenant($this->tenant)->points_percentage ?? 10;
+    }
+
+    #[Computed]
+    public function myPointsBalance(): int
+    {
+        if (!Auth::check()) return 0;
+        return app(PointsService::class)->getCustomerBalance($this->tenant, Auth::user());
+    }
+
     public function render()
     {
         return view('livewire.client.client-dashboard', [
@@ -356,6 +376,9 @@ class ClientDashboard extends Component
             'myActiveOrders' => $this->myActiveOrders,
             'orderHistory' => $this->orderHistory,
             'myAddresses' => $this->myAddresses,
+            'myPointsBalance' => $this->myPointsBalance,
+            'pointsActive' => $this->pointsActive(),
+            'pointsPercentageData' => $this->pointsPercentageData(),
             'tenant' => $this->tenant,
         ])->extends('layouts.client');
     }

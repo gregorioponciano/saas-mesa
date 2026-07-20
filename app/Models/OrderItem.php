@@ -16,6 +16,10 @@ class OrderItem extends Model
         'change_requested',
         'change_requested_at',
         'change_note',
+        'cancelled_at',
+        'cancelled_by',
+        'is_points_item',
+        'points_cost',
     ];
 
     protected function casts(): array
@@ -25,6 +29,8 @@ class OrderItem extends Model
             'selected_options_json' => 'array',
             'change_requested' => 'boolean',
             'change_requested_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'is_points_item' => 'boolean',
         ];
     }
 
@@ -36,6 +42,16 @@ class OrderItem extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function cancelledBy()
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->cancelled_at !== null;
     }
 
     public function canRequestChange(): bool

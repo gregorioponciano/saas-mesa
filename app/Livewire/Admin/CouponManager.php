@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Coupon;
+use App\Models\Tenant;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -56,7 +57,7 @@ class CouponManager extends Component
 
     public function edit(int $id): void
     {
-        $coupon = Coupon::findOrFail($id);
+        $coupon = Coupon::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
         $this->editingCouponId = $coupon->id;
         $this->code = $coupon->code;
         $this->discountType = $coupon->discount_type;
@@ -84,7 +85,7 @@ class CouponManager extends Component
         ];
 
         if ($this->editingCouponId) {
-            Coupon::findOrFail($this->editingCouponId)->update($data);
+            Coupon::where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->editingCouponId)->update($data);
             $this->dispatch('notify', message: 'Cupom atualizado com sucesso!');
         } else {
             Coupon::create($data);
@@ -97,19 +98,25 @@ class CouponManager extends Component
 
     public function toggleActive(int $id): void
     {
-        $coupon = Coupon::findOrFail($id);
+        $coupon = Coupon::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
         $coupon->update(['active' => !$coupon->active]);
     }
 
     public function delete(int $id): void
     {
-        Coupon::findOrFail($id)->delete();
+        Coupon::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id)->delete();
         $this->dispatch('notify', message: 'Cupom removido.');
+    }
+
+    public function toggleCouponsEnabled(): void
+    {
+        $tenant = Auth::user()->tenant;
+        $tenant->update(['coupons_enabled' => !$tenant->coupons_enabled]);
     }
 
     public function render()
     {
-        $coupons = Coupon::orderBy('created_at', 'desc')->paginate(15);
+        $coupons = Coupon::where('tenant_id', auth()->user()->tenant_id)->orderBy('created_at', 'desc')->paginate(15);
 
         return view('livewire.admin.coupon-manager', [
             'coupons' => $coupons,

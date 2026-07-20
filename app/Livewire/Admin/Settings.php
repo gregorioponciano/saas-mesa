@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Admin;
 
+use App\Models\CustomerPoint;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\PointsService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -87,7 +89,7 @@ class Settings extends Component
           }
 
           $this->deliveryCostPerOrder = (string) ($tenant->delivery_cost_per_order ?? 0);
-          
+
           $this->name = $user->name;
           $this->email = $user->email;
      }

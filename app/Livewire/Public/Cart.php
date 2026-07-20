@@ -4,12 +4,16 @@ namespace App\Livewire\Public;
 
 use App\Livewire\Concerns\HasCart;
 use App\Models\Coupon;
+use App\Models\CustomerPoint;
+use App\Models\LoyaltyConfig;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Table;
 use App\Models\UserAddress;
 use App\Services\EfiBank\TenantEfiBankService;
+use App\Services\PointsService;
+use App\Services\StockService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -63,6 +67,12 @@ class Cart extends Component
 
     public float $discount = 0;
 
+    public bool $usePoints = false;
+
+    public float $pointsDiscount = 0;
+
+    public bool $couponsEnabled = true;
+
     public array $userAddresses = [];
     public ?int $selectedAddressId = null;
 
@@ -88,11 +98,12 @@ class Cart extends Component
     public string $newAddressZipcode = '';
     public string $newAddressReference = '';
 
-    protected $listeners = ['addToCart', 'cartUpdated' => '$refresh', 'tableSelected' => 'onTableSelected', 'tableFreed' => 'clearTable'];
+    protected $listeners = ['addToCart', 'addRedeemedPointsItem', 'tableSelected' => 'onTableSelected', 'tableFreed' => 'clearTable'];
 
     public function mount($tenant, ?string $token = null): void
     {
         $this->tenant = $tenant;
+        $this->couponsEnabled = $tenant->coupons_enabled ?? true;
 
         $this->restoreCartFromSession();
 
@@ -184,7 +195,7 @@ class Cart extends Component
     {
         $orderId = Session::get("last_order_{$this->tenant->id}");
         if ($orderId) {
-            $order = Order::with('items')->find($orderId);
+            $order = Order::with('items', 'table')->find($orderId);
             if ($order && $order->tenant_id === $this->tenant->id) {
                 $this->lastOrderId = $order->id;
                 $this->previousOrderStatus = $order->status;
@@ -226,6 +237,28 @@ class Cart extends Component
         $this->addCartItem($productId, $productName, $price, $selectedOptions, $quantity);
         $this->showCart = true;
         $this->dispatch('cartUpdated');
+        $this->dispatchBrowserCartEvent();
+    }
+
+    public function addRedeemedPointsItem($productId, $productName, $pointsPrice, $quantity = 1): void
+    {
+        if (!Auth::check()) {
+            $this->redirect(route('waiter.login.form', $this->tenant->slug) . '?redirect=' . urlencode(route('menu.show', $this->tenant->slug)));
+            return;
+        }
+
+        $this->addCartItem($productId, $productName, 0, [], $quantity);
+
+        $key = $productId . '-' . md5(json_encode([]));
+        if (isset($this->cartItems[$key])) {
+            $this->cartItems[$key]['is_points_item'] = true;
+            $this->cartItems[$key]['points_cost'] = (int) $pointsPrice;
+            $this->persistCartToSession();
+        }
+
+        $this->showCart = true;
+        $this->dispatch('cartUpdated');
+        $this->dispatchBrowserCartEvent();
     }
 
     public function removeItem($key): void
@@ -235,12 +268,14 @@ class Cart extends Component
             $this->showCart = false;
         }
         $this->dispatch('cartUpdated');
+        $this->dispatchBrowserCartEvent();
     }
 
     public function updateQuantity($key, $delta): void
     {
         $this->adjustCartQuantity($key, $delta);
         $this->dispatch('cartUpdated');
+        $this->dispatchBrowserCartEvent();
     }
 
     #[Computed]
@@ -248,7 +283,9 @@ class Cart extends Component
     {
         $cartTotal = $this->calcCartTotal();
         $deliveryCost = $this->orderType === 'entrega' ? (float) ($this->tenant->delivery_cost_per_order ?? 0) : 0;
-        return max(0, $cartTotal - $this->discount + $deliveryCost);
+        $subtotal = max(0, $cartTotal - $this->discount + $deliveryCost);
+        $pointsDiscount = $this->usePoints ? $this->pointsDiscount : 0;
+        return max(0, $subtotal - $pointsDiscount);
     }
 
     #[Computed]
@@ -268,6 +305,11 @@ class Cart extends Component
     public function applyCoupon(): void
     {
         $this->reset('appliedCoupon', 'discount');
+
+        if (!$this->couponsEnabled) {
+            $this->dispatch('notify', message: 'Cupons estao desativados.');
+            return;
+        }
 
         if (!$this->couponCode) {
             $this->dispatch('notify', message: 'Digite um codigo de cupom.');
@@ -305,6 +347,68 @@ class Cart extends Component
     {
         $this->reset('appliedCoupon', 'discount', 'couponCode');
         $this->dispatch('notify', message: 'Cupom removido.');
+    }
+
+    #[Computed]
+    public function pointsBalance(): int
+    {
+        if (!Auth::check()) return 0;
+        return app(PointsService::class)->getCustomerBalance($this->tenant, Auth::user());
+    }
+
+    #[Computed]
+    public function pointsActive(): bool
+    {
+        return app(PointsService::class)->arePointsVisibleForCustomer($this->tenant);
+    }
+
+    #[Computed]
+    public function pointsMonetaryValue(): float
+    {
+        return app(PointsService::class)->pointsToMoney($this->pointsBalance);
+    }
+
+    #[Computed]
+    public function maxSpendablePoints(): int
+    {
+        if (!Auth::check() || !$this->pointsActive) return 0;
+        return app(PointsService::class)->getMaxSpendablePoints(
+            $this->tenant, Auth::user(), $this->calcCartTotal()
+        );
+    }
+
+    public function togglePoints(): void
+    {
+        $this->usePoints = !$this->usePoints;
+
+        if ($this->usePoints) {
+            $cartTotal = $this->calcCartTotal();
+            $deliveryCost = $this->orderType === 'entrega' ? (float) ($this->tenant->delivery_cost_per_order ?? 0) : 0;
+            $totalBeforePoints = max(0, $cartTotal - $this->discount + $deliveryCost);
+            $minOrderValue = (float) (LoyaltyConfig::forTenant($this->tenant)->min_points_order_value ?? 10.00);
+
+            if ($totalBeforePoints < $minOrderValue) {
+                $this->usePoints = false;
+                $this->dispatch('notify', message: 'Valor minimo do pedido para usar pontos: R$ ' . number_format($minOrderValue, 2, ',', '.'));
+                return;
+            }
+
+            $maxPoints = $this->maxSpendablePoints;
+            if ($maxPoints <= 0) {
+                $this->usePoints = false;
+                $this->dispatch('notify', message: 'Voce nao tem pontos suficientes.');
+                return;
+            }
+            $this->pointsDiscount = app(PointsService::class)->pointsToMoney($maxPoints);
+        } else {
+            $this->pointsDiscount = 0;
+        }
+    }
+
+    public function removePoints(): void
+    {
+        $this->reset('usePoints', 'pointsDiscount');
+        $this->dispatch('notify', message: 'Desconto por pontos removido.');
     }
 
     public function openAddressModal(): void
@@ -428,10 +532,20 @@ class Cart extends Component
             }
         }
 
+        $stockErrors = app(StockService::class)->validateStockForCartItems($this->cartItems, $this->tenant->id);
+        if (!empty($stockErrors)) {
+            foreach ($stockErrors as $error) {
+                $this->dispatch('notify', message: $error);
+            }
+            return;
+        }
+
         $orderId = null;
         $order = null;
+        $pointsSpent = 0;
+        $redeemPointsSpent = 0;
 
-        DB::transaction(function () use ($tableId, &$orderId, &$order) {
+        DB::transaction(function () use ($tableId, &$orderId, &$order, &$pointsSpent, &$redeemPointsSpent) {
             $addressData = null;
             if ($this->orderType === 'entrega' && $this->deliveryAddress) {
                 $addressData = [
@@ -448,6 +562,37 @@ class Cart extends Component
             }
 
             $deliveryCost = $this->orderType === 'entrega' ? (float) ($this->tenant->delivery_cost_per_order ?? 0) : 0;
+            $cartTotal = $this->calcCartTotal();
+            $totalBeforePoints = max(0, $cartTotal - $this->discount + $deliveryCost);
+            $pointsDiscount = $this->usePoints ? $this->pointsDiscount : 0;
+
+            $redeemPointsSpent = collect($this->cartItems)->sum(fn($i) => $i['points_cost'] ?? 0);
+            $hasRedeemedItems = $redeemPointsSpent > 0;
+
+            if ($hasRedeemedItems) {
+                $balance = app(PointsService::class)->getCustomerBalance($this->tenant, Auth::user());
+                $totalNeeded = $redeemPointsSpent;
+                if ($this->usePoints && $pointsDiscount > 0) {
+                    $totalNeeded += app(PointsService::class)->moneyToPoints($pointsDiscount);
+                }
+                if ($balance < $totalNeeded) {
+                    throw new \RuntimeException('Saldo de pontos insuficiente para itens resgatados.');
+                }
+            }
+
+            if ($this->usePoints && $pointsDiscount > 0) {
+                $minOrderValue = (float) (LoyaltyConfig::forTenant($this->tenant)->min_points_order_value ?? 10.00);
+                if ($totalBeforePoints < $minOrderValue) {
+                    throw new \RuntimeException('Valor minimo do pedido para usar pontos: R$ ' . number_format($minOrderValue, 2, ',', '.'));
+                }
+            }
+
+            $pointsSpent = $this->usePoints && $pointsDiscount > 0
+                ? app(PointsService::class)->moneyToPoints($pointsDiscount)
+                : 0;
+
+            $totalPointsSpent = $pointsSpent + $redeemPointsSpent;
+            $orderTotal = max(0, $totalBeforePoints - $pointsDiscount);
 
             $order = Order::create([
                 'tenant_id' => $this->tenant->id,
@@ -455,7 +600,7 @@ class Cart extends Component
                 'table_id' => $tableId,
                 'customer_name' => $this->customerName,
                 'customer_phone' => $this->customerPhone,
-                'total' => max(0, $this->calcCartTotal() - $this->discount + $deliveryCost),
+                'total' => $orderTotal,
                 'discount' => $this->discount,
                 'discount_type' => $this->appliedCoupon['discount_type'] ?? null,
                 'coupon_id' => $this->appliedCoupon['id'] ?? null,
@@ -466,6 +611,9 @@ class Cart extends Component
                 'type' => $this->orderType,
                 'address_json' => $addressData,
                 'notes' => $this->notes,
+                'points_used' => $totalPointsSpent > 0,
+                'points_spent' => $totalPointsSpent,
+                'points_discount' => ($this->usePoints ? $this->pointsDiscount : 0) + app(PointsService::class)->pointsToMoney($redeemPointsSpent),
             ]);
 
             foreach ($this->cartItems as $item) {
@@ -476,7 +624,25 @@ class Cart extends Component
                     'quantity' => $item['quantity'],
                     'price' => $item['unit_price'],
                     'selected_options_json' => $item['options'],
+                    'is_points_item' => $item['is_points_item'] ?? false,
+                    'points_cost' => $item['points_cost'] ?? null,
                 ]);
+            }
+
+            app(StockService::class)->deductOrderStock($order, Auth::id());
+
+            if ($totalPointsSpent > 0) {
+                $result = app(PointsService::class)->spendPoints(
+                    $this->tenant,
+                    Auth::user(),
+                    $totalPointsSpent,
+                    $order,
+                    "Resgate de {$totalPointsSpent} pontos no Pedido #{$order->id}"
+                );
+
+                if (!$result['success']) {
+                    throw new \RuntimeException($result['message'] ?? 'Erro ao resgatar pontos.');
+                }
             }
 
             $orderId = $order->id;
@@ -510,12 +676,13 @@ class Cart extends Component
 
         $this->cashAmount = null;
         $this->resetCart();
+        $this->dispatchBrowserCartEvent();
 
         if (!$this->qrTableNumber) {
             $this->tableNumber = '';
         }
 
-        $this->reset('appliedCoupon', 'discount', 'couponCode');
+        $this->reset('appliedCoupon', 'discount', 'couponCode', 'usePoints', 'pointsDiscount');
 
         if ($this->orderType === 'entrega' && Auth::check()) {
             $this->autoSaveDeliveryAddress();
@@ -586,7 +753,7 @@ class Cart extends Component
                 $this->pixPaymentConfirmed = true;
                 $this->pixPaymentError = false;
 
-                $order = Order::find($this->pixOrderId);
+                $order = Order::where('user_id', Auth::id())->find($this->pixOrderId);
                 if ($order && !$order->hasPayment()) {
                     Payment::create([
                         'order_id' => $order->id,
@@ -597,6 +764,7 @@ class Cart extends Component
                         'paid_at' => now(),
                         'notes' => 'Pagamento PIX confirmado via API',
                     ]);
+                    app(PointsService::class)->grantPointsForOrder($order->fresh());
                 }
 
                 $this->showPixCheckoutModal = false;
@@ -649,6 +817,11 @@ class Cart extends Component
         ]);
     }
 
+    protected function dispatchBrowserCartEvent(): void
+    {
+        $this->dispatch('cart-badge-update', count: $this->calcCartItemsCount());
+    }
+
     protected function syncTableWithSession(): void
     {
         $sessionToken = Session::get("table_token_{$this->tenant->id}");
@@ -678,7 +851,7 @@ class Cart extends Component
             return;
         }
 
-        $order = Order::with('items')->find($this->lastOrderId);
+        $order = Order::with('items', 'table', 'payments')->find($this->lastOrderId);
 
         if ($order) {
             if ($this->previousOrderStatus && $order->status !== $this->previousOrderStatus) {
@@ -692,6 +865,9 @@ class Cart extends Component
                 'customer_name' => $order->customer_name,
                 'total' => $order->total,
                 'discount' => (float) $order->discount,
+                'points_discount' => (float) ($order->points_discount ?? 0),
+                'points_used' => (bool) ($order->points_used ?? false),
+                'points_spent' => (int) ($order->points_spent ?? 0),
                 'status' => $order->status,
                 'type' => $order->type,
                 'statusLabel' => $order->statusLabel(),
@@ -898,6 +1074,9 @@ class Cart extends Component
             'total' => $this->total,
             'itemsCount' => $this->itemsCount,
             'freeTables' => $this->freeTables,
+            'pointsBalance' => $this->pointsBalance,
+            'pointsActive' => $this->pointsActive,
+            'maxSpendablePoints' => $this->maxSpendablePoints,
         ]);
     }
 }

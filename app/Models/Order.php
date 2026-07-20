@@ -26,6 +26,9 @@ class Order extends Model
         'type',
         'address_json',
         'notes',
+        'points_used',
+        'points_spent',
+        'points_discount',
         'bill_closed_at',
         'coupon_id',
         'discount',
@@ -271,8 +274,28 @@ class Order extends Model
         return $this->hasMany(Payment::class);
     }
 
+    public function pointsTransactions()
+    {
+        return $this->hasMany(PointsTransaction::class);
+    }
+
     public function deliveryPerson()
     {
         return $this->belongsTo(DeliveryPerson::class);
+    }
+
+    public function stockMovements()
+    {
+        return $this->hasMany(StockMovement::class);
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->status === 'cancelado';
+    }
+
+    public function isDelivered(): bool
+    {
+        return in_array($this->status, ['entregue', 'fechado']);
     }
 }

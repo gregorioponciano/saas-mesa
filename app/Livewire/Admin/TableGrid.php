@@ -12,9 +12,12 @@ use App\Models\Table;
 use App\Models\UserAddress;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use App\Services\EfiBank\TenantEfiBankService;
+use App\Services\PointsService;
+use App\Services\StockService;
 
 class TableGrid extends Component
 {
@@ -95,7 +98,7 @@ class TableGrid extends Component
             return;
         }
 
-        $activeOrders = Order::where('table_id', $this->selectedTableId)
+        $activeOrders = Order::where('tenant_id', auth()->user()->tenant_id)->where('table_id', $this->selectedTableId)
             ->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue'])
             ->with('items', 'payments')
             ->latest()
@@ -117,9 +120,13 @@ class TableGrid extends Component
                 'has_payment' => $order->hasPayment(),
                 'pending_payment' => $order->pendingPaymentAmount(),
                 'items' => $order->items->map(fn($item) => [
+                    'id' => $item->id,
                     'product_name' => $item->product_name,
                     'quantity' => $item->quantity,
                     'price' => $item->price,
+                    'cancelled_at' => $item->cancelled_at,
+                    'is_cancelled' => $item->isCancelled(),
+                    'is_points_item' => $item->is_points_item,
                 ]),
             ]);
             $grouped = $ordersData->groupBy('customer_name');
@@ -138,7 +145,8 @@ class TableGrid extends Component
 
     public function advanceOrder(int $orderId): void
     {
-        $order = Order::findOrFail($orderId);
+        if (!auth()->user()->isAdmin()) { abort(403); }
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
         $nextStatus = $order->nextStatus();
 
         if ($nextStatus) {
@@ -148,7 +156,8 @@ class TableGrid extends Component
 
     public function updateOrderStatus(int $orderId, string $status): void
     {
-        $order = Order::findOrFail($orderId);
+        if (!auth()->user()->isAdmin()) { abort(403); }
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
         $order->update(['status' => $status]);
 
         if ($order->table_id && $status === 'novo') {
@@ -163,14 +172,105 @@ class TableGrid extends Component
             }
         }
 
+        if ($status === 'fechado') {
+            app(PointsService::class)->grantPointsForOrder($order->fresh());
+        }
+
+        if ($status === 'cancelado') {
+            app(PointsService::class)->reversePointsForOrder($order->fresh());
+            app(PointsService::class)->refundSpentPointsForOrder($order->fresh());
+            if (!$order->isDelivered()) {
+                try {
+                    app(StockService::class)->returnOrderStock($order->fresh(), auth()->id());
+                } catch (\Throwable $e) {
+                    Log::error('Erro ao devolver estoque no cancelamento', [
+                        'order_id' => $order->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+
         $this->loadOrderDetail();
         $this->dispatch('orderUpdated');
         $this->dispatch('notify', message: 'Status do pedido atualizado!');
     }
 
+    public function cancelItem(int $itemId): void
+    {
+        if (!auth()->user()->isAdmin()) { abort(403); }
+
+        $item = OrderItem::with('order')->findOrFail($itemId);
+        $order = $item->order;
+
+        if (!$order || $order->tenant_id !== auth()->user()->tenant_id) {
+            abort(403);
+        }
+
+        if ($item->isCancelled()) {
+            $this->dispatch('notify', message: 'Item ja cancelado.');
+            return;
+        }
+
+        if ($order->isBillClosed()) {
+            $this->dispatch('notify', message: 'Conta ja fechada, nao e possivel cancelar itens.');
+            return;
+        }
+
+        if ($order->isDelivered() && !$order->isCancelled()) {
+            $this->dispatch('notify', message: 'Pedido ja entregue. Estoque nao sera devolvido automaticamente. Se necessario, ajuste manualmente.');
+        }
+
+        $deduction = (float) $item->price * (int) $item->quantity;
+
+        $item->update([
+            'cancelled_at' => now(),
+            'cancelled_by' => auth()->id(),
+        ]);
+
+        $order->decrement('total', $deduction);
+
+        if (!$order->isDelivered()) {
+            try {
+                app(StockService::class)->returnItemStock($item, Auth::id());
+            } catch (\Throwable $e) {
+                Log::error('Erro ao devolver estoque por item cancelado', [
+                    'item_id' => $item->id,
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if ($item->is_points_item && $item->points_cost) {
+            try {
+                app(PointsService::class)->refundPointsForItem($item);
+                $order->decrement('points_spent', (int) $item->points_cost);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Erro ao devolver pontos por item cancelado', [
+                    'item_id' => $item->id,
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $remainingActive = $order->items()->whereNull('cancelled_at')->count();
+        if ($remainingActive === 0 && !$order->isBillClosed()) {
+            $order->update(['status' => 'cancelado']);
+            app(PointsService::class)->reversePointsForOrder($order->fresh());
+            app(PointsService::class)->refundSpentPointsForOrder($order->fresh());
+        }
+
+        $this->loadOrderDetail();
+        $this->dispatch('orderUpdated');
+        $this->dispatch('notify', message: 'Item removido do pedido!');
+    }
+
     public function openPaymentModal(int $orderId): void
     {
-        $order = Order::findOrFail($orderId);
+        if (!auth()->user()->isAdmin()) { abort(403); }
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
         $this->paymentOrderId = $orderId;
         $this->paymentAmount = $order->pendingPaymentAmount();
         $this->paymentMethod = 'pix';
@@ -204,12 +304,13 @@ class TableGrid extends Component
 
     public function registerPayment(): void
     {
+        if (!auth()->user()->isAdmin()) { abort(403); }
         $this->validate([
             'paymentAmount' => 'required|numeric|min:0.01',
             'paymentMethod' => 'required|string',
         ]);
 
-        $order = Order::findOrFail($this->paymentOrderId);
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->paymentOrderId);
 
         if ($order->isBillClosed()) {
             $this->dispatch('notify', message: 'Conta ja fechada.');
@@ -232,6 +333,7 @@ class TableGrid extends Component
                 'status' => 'fechado',
                 'bill_closed_at' => now(),
             ]);
+            app(PointsService::class)->grantPointsForOrder($order->fresh());
         }
 
         $this->showPaymentModal = false;
@@ -265,30 +367,48 @@ class TableGrid extends Component
 
     public function addItemToOrder(): void
     {
+        if (!auth()->user()->isAdmin()) { abort(403); }
         $this->validate([
             'addItemProductId' => 'required|exists:products,id',
             'addItemQuantity' => 'required|integer|min:1|max:99',
         ]);
 
-        $product = Product::findOrFail($this->addItemProductId);
-        $order = Order::findOrFail($this->addItemOrderId);
+        $product = Product::where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->addItemProductId);
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->addItemOrderId);
 
         if ($order->isBillClosed()) {
             $this->dispatch('notify', message: 'Conta ja fechada, nao e possivel adicionar itens.');
             return;
         }
 
+        if ($product->stock < $this->addItemQuantity) {
+            $this->dispatch('notify', message: "{$product->name} possui apenas {$product->stock} unidade(s) em estoque.");
+            return;
+        }
+
         $price = (float) $product->price;
 
-        OrderItem::create([
-            'order_id' => $order->id,
-            'product_id' => $product->id,
-            'product_name' => $product->name,
-            'quantity' => $this->addItemQuantity,
-            'price' => $price,
-        ]);
+        DB::transaction(function () use ($product, $order, $price) {
+            $item = OrderItem::create([
+                'order_id' => $order->id,
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'quantity' => $this->addItemQuantity,
+                'price' => $price,
+            ]);
 
-        $order->increment('total', $price * $this->addItemQuantity);
+            $order->increment('total', $price * $this->addItemQuantity);
+
+            app(StockService::class)->deductStock(
+                $product->id,
+                $this->addItemQuantity,
+                $order->tenant_id,
+                $order->id,
+                Auth::id(),
+                'sale',
+                "Adicao de item - Pedido #{$order->id}"
+            );
+        });
 
         $this->showAddItemModal = false;
         $this->addItemProductId = null;
@@ -300,7 +420,7 @@ class TableGrid extends Component
 
     public function openCloseTableModal(int $tableId): void
     {
-        $table = Table::with(['orders' => function ($q) {
+        $table = Table::where('tenant_id', auth()->user()->tenant_id)->with(['orders' => function ($q) {
             $q->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue'])
               ->where('status', '!=', 'fechado');
         }])->findOrFail($tableId);
@@ -350,7 +470,7 @@ class TableGrid extends Component
             'closeTablePaymentMethod' => 'required|string',
         ]);
 
-        $table = Table::with(['orders' => function ($q) {
+        $table = Table::where('tenant_id', auth()->user()->tenant_id)->with(['orders' => function ($q) {
             $q->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue'])
               ->where('status', '!=', 'fechado');
         }])->findOrFail($this->closeTableId);
@@ -364,6 +484,7 @@ class TableGrid extends Component
                     'status' => 'fechado',
                     'bill_closed_at' => now(),
                 ]);
+                app(PointsService::class)->grantPointsForOrder($order->fresh());
                 $closedCount++;
             }
         }
@@ -404,9 +525,10 @@ class TableGrid extends Component
 
     public function freeTable(int $tableId): void
     {
-        $table = Table::findOrFail($tableId);
+        if (!auth()->user()->isAdmin()) { abort(403); }
+        $table = Table::where('tenant_id', auth()->user()->tenant_id)->findOrFail($tableId);
 
-        $activeOrders = Order::where('table_id', $tableId)
+        $activeOrders = Order::where('tenant_id', auth()->user()->tenant_id)->where('table_id', $tableId)
             ->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue'])
             ->get();
 
@@ -416,6 +538,7 @@ class TableGrid extends Component
                     'status' => 'fechado',
                     'bill_closed_at' => now(),
                 ]);
+                app(PointsService::class)->grantPointsForOrder($activeOrder->fresh());
             } else {
                 $activeOrder->update(['status' => 'entregue']);
             }
@@ -432,7 +555,8 @@ class TableGrid extends Component
 
     public function setTableReserved(int $tableId): void
     {
-        Table::findOrFail($tableId)->update(['status' => 'reserved']);
+        if (!auth()->user()->isAdmin()) { abort(403); }
+        Table::where('tenant_id', auth()->user()->tenant_id)->findOrFail($tableId)->update(['status' => 'reserved']);
         $this->dispatch('tableFreed')->to('public.menu');
         $this->dispatch('tableFreed')->to('public.cart');
         $this->dispatch('orderUpdated');
@@ -560,13 +684,13 @@ class TableGrid extends Component
     public function selectedProductModel()
     {
         if (!$this->selectedProduct) return null;
-        return Product::with('attributes.options')->find($this->selectedProduct);
+        return Product::where('tenant_id', auth()->user()->tenant_id)->with('attributes.options')->find($this->selectedProduct);
     }
 
     #[Computed]
     public function availableProducts()
     {
-        return Product::active()->with('category')->orderBy('name')->get();
+        return Product::where('tenant_id', auth()->user()->tenant_id)->active()->with('category')->orderBy('name')->get();
     }
 
     public function placeOrder(): void
@@ -606,6 +730,14 @@ class TableGrid extends Component
                 $tableId = $table->id;
                 $this->orderingTableNumber = $table->number;
             }
+        }
+
+        $stockErrors = app(StockService::class)->validateStockForCartItems($this->cartItems, $this->tenant->id);
+        if (!empty($stockErrors)) {
+            foreach ($stockErrors as $error) {
+                $this->dispatch('notify', message: $error);
+            }
+            return;
         }
 
         $orderId = null;
@@ -652,6 +784,8 @@ class TableGrid extends Component
                     'selected_options_json' => $item['options'],
                 ]);
             }
+
+            app(StockService::class)->deductOrderStock($order, Auth::id());
 
             $orderId = $order->id;
         });

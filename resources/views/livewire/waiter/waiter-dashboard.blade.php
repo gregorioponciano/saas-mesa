@@ -681,7 +681,7 @@
                                         {{ $order->statusFlowLabels()[$order->status] ?? 'Avancar' }}
                                     </button>
                                 @endif
-                                @if (in_array($order->status, ['novo', 'em_preparo', 'pronto', 'entregue']) && !$order->isBillClosed())
+                                @if (!in_array($order->status, ['fechado', 'cancelado']) && !$order->isBillClosed())
                                     <button wire:click="updateOrderStatus({{ $order->id }}, 'cancelado')"
                                             class="px-3 py-2 text-[11px] font-semibold rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all border border-red-500/20">
                                         Cancelar
@@ -841,6 +841,15 @@
                                 <p class="text-sm font-medium">{{ $viewingOrder['customer_phone'] }}</p>
                             </div>
                         @endif
+                        @if ($viewingOrder['customer_points'] > 0)
+                            <div>
+                                <p class="text-xs text-neutral-500 mb-1">Pontos do Cliente</p>
+                                <p class="text-sm font-medium text-emerald-400 flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    {{ number_format($viewingOrder['customer_points'], 0, ',', '.') }} pts
+                                </p>
+                            </div>
+                        @endif
                         @if ($viewingOrder['table_number'])
                             <div>
                                 <p class="text-xs text-neutral-500 mb-1">Mesa</p>
@@ -924,6 +933,15 @@
                         </div>
                     @endif
 
+                    @if ($viewingOrder['points_used'])
+                        <div class="flex items-center justify-between text-sm pt-2">
+                            <span class="text-emerald-400 flex items-center gap-1.5">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                Desconto por Pontos
+                            </span>
+                            <span class="text-emerald-400">-R$ {{ number_format($viewingOrder['points_discount'], 2, ',', '.') }} ({{ number_format($viewingOrder['points_spent'], 0, ',', '.') }} pts)</span>
+                        </div>
+                    @endif
                     <div class="flex items-center justify-between pt-3 border-t border-neutral-800">
                         <span class="text-sm font-medium text-neutral-400">Total</span>
                         <span class="text-lg font-bold text-amber-400">R$ {{ number_format($viewingOrder['total'], 2, ',', '.') }}</span>
@@ -944,7 +962,7 @@
                             {{ $viewingOrder['nextStatusLabel'] }}
                         </button>
                     @endif
-                    @if (!in_array($viewingOrder['status'], \App\Models\Order::STATUS_FINISHED) && !$viewingOrder['is_fechado'])
+                    @if (!in_array($viewingOrder['status'], ['fechado', 'cancelado']) && !$viewingOrder['is_fechado'])
                         <button wire:click="updateOrderStatus({{ $viewingOrder['id'] }}, 'cancelado')"
                                 class="px-4 py-2.5 text-sm font-semibold rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all duration-200">
                             Cancelar

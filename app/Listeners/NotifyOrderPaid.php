@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Listeners;
 
 use App\Events\OrderPaid;
-use App\Models\Order;
+use App\Services\PointsService;
 use Illuminate\Support\Facades\Log;
 
 class NotifyOrderPaid
@@ -14,16 +14,20 @@ class NotifyOrderPaid
     {
         $order = $event->order;
 
-        Log::info('Pedido pago - notificações disparadas', [
+        Log::info('Pedido pago - processando', [
             'order_id' => $order->id,
             'tenant_id' => $order->tenant_id,
             'amount' => $order->total,
         ]);
 
-        // Aqui você pode adicionar:
-        // - Notificação push para o garçom
-        // - Notificação por email para o cliente
-        // - WebSocket broadcast (já configurado no Evento)
-        // - SMS se configurado
+        try {
+            app(PointsService::class)->grantPointsForOrder($order);
+        } catch (\Throwable $e) {
+            Log::error('Erro ao conceder pontos por pagamento', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+        }
     }
 }

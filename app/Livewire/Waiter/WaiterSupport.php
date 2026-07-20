@@ -31,7 +31,7 @@ class WaiterSupport extends Component
     #[Computed]
     public function tickets()
     {
-        return SupportTicket::with(['user', 'lastMessage', 'assignedTo'])
+        return SupportTicket::where('tenant_id', auth()->user()->tenant_id)->with(['user', 'lastMessage', 'assignedTo'])
             ->when($this->statusFilter !== 'all', fn($q) => $q->where('status', $this->statusFilter))
             ->when($this->categoryFilter !== 'all', fn($q) => $q->where('category', $this->categoryFilter))
             ->when($this->search, fn($q) => $q->where('subject', 'like', "%{$this->search}%"))
@@ -42,7 +42,7 @@ class WaiterSupport extends Component
 
     public function viewTicket(int $ticketId): void
     {
-        $ticket = SupportTicket::with(['messages' => fn($q) => $q->oldest(), 'user', 'assignedTo'])
+        $ticket = SupportTicket::where('tenant_id', auth()->user()->tenant_id)->with(['messages' => fn($q) => $q->oldest(), 'user', 'assignedTo'])
             ->findOrFail($ticketId);
 
         $this->viewingTicketId = $ticketId;
@@ -81,7 +81,7 @@ class WaiterSupport extends Component
     {
         $this->validate(['replyBody' => 'required|string|min:1|max:2000']);
 
-        $ticket = SupportTicket::findOrFail($this->viewingTicketId);
+        $ticket = SupportTicket::where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->viewingTicketId);
         $user = Auth::user();
         $authorRole = $user->isAdmin() ? 'admin' : 'atendente';
 
@@ -108,7 +108,7 @@ class WaiterSupport extends Component
 
     public function updateStatus(int $ticketId, string $status): void
     {
-        SupportTicket::findOrFail($ticketId)->update(['status' => $status]);
+        SupportTicket::where('tenant_id', auth()->user()->tenant_id)->findOrFail($ticketId)->update(['status' => $status]);
 
         if ($this->viewingTicketId === $ticketId) {
             $this->viewTicket($ticketId);
@@ -118,7 +118,7 @@ class WaiterSupport extends Component
 
     public function assignToMe(int $ticketId): void
     {
-        SupportTicket::findOrFail($ticketId)->update(['assigned_to' => Auth::id()]);
+        SupportTicket::where('tenant_id', auth()->user()->tenant_id)->findOrFail($ticketId)->update(['assigned_to' => Auth::id()]);
 
         if ($this->viewingTicketId === $ticketId) {
             $this->viewTicket($ticketId);
@@ -128,7 +128,7 @@ class WaiterSupport extends Component
 
     public function unassign(int $ticketId): void
     {
-        SupportTicket::findOrFail($ticketId)->update(['assigned_to' => null]);
+        SupportTicket::where('tenant_id', auth()->user()->tenant_id)->findOrFail($ticketId)->update(['assigned_to' => null]);
 
         if ($this->viewingTicketId === $ticketId) {
             $this->viewTicket($ticketId);
