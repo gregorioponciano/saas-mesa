@@ -26,6 +26,8 @@ class ClientDashboard extends Component
 
     public string $passwordConfirmation = '';
 
+    public string $phone = '';
+
     public string $historyPeriod = 'all';
 
     public bool $showAddressModal = false;
@@ -64,11 +66,18 @@ class ClientDashboard extends Component
         $user = Auth::user();
         $this->name = $user->name;
         $this->email = $user->email;
+        $this->phone = $user->phone ?? '';
     }
 
     public function switchTab(string $tab): void
     {
         $this->tab = $tab;
+        if ($tab === 'profile' && Auth::check()) {
+            $user = Auth::user()->fresh();
+            $this->name = $user->name;
+            $this->email = $user->email;
+            $this->phone = $user->phone ?? '';
+        }
     }
 
     public function saveProfile(): void
@@ -76,12 +85,13 @@ class ClientDashboard extends Component
         $this->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255',
+            'phone' => 'nullable|string|max:20',
             'password' => 'nullable|string|min:6',
             'passwordConfirmation' => 'nullable|same:password',
         ]);
 
         $user = Auth::user();
-        $data = ['name' => $this->name, 'email' => $this->email];
+        $data = ['name' => $this->name, 'email' => $this->email, 'phone' => $this->phone];
 
         if ($this->password) {
             $data['password'] = $this->password;

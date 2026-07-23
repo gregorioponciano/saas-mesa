@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'tenant_id', 'role', 'is_staff', 'passkey_credentials'])]
+#[Fillable(['name', 'email', 'phone', 'password', 'tenant_id', 'role', 'is_staff', 'passkey_credentials'])]
 #[Hidden(['password', 'remember_token', 'passkey_credentials'])]
 class User extends Authenticatable
 {
@@ -65,6 +65,17 @@ class User extends Authenticatable
     public function defaultAddress()
     {
         return $this->hasOne(UserAddress::class)->where('is_default', true);
+    }
+
+    public function favoriteProducts()
+    {
+        return $this->belongsToMany(Product::class, 'user_favorites')
+            ->withTimestamps();
+    }
+
+    public function favorites()
+    {
+        return $this->hasMany(UserFavorite::class);
     }
 
     public function isSuperAdmin(): bool

@@ -136,5 +136,7 @@ class ProductSeeder extends Seeder
                 $data
             );
         }
+
+        Product::where('tenant_id', $tenant->id)->update(['stock' => 10]);
     }
 }

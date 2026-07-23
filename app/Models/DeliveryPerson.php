@@ -4,23 +4,49 @@ namespace App\Models;
 
 use App\Scopes\TenantScope;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Support\Str;
+use Laravel\Sanctum\HasApiTokens;
 
 #[ScopedBy([TenantScope::class])]
-class DeliveryPerson extends Model
+class DeliveryPerson extends Authenticatable
 {
+    use HasApiTokens;
+
+    protected string $guard_name = 'delivery';
+
     protected $fillable = [
         'tenant_id',
         'name',
+        'email',
         'phone',
         'status',
         'api_token',
+        'password',
+        'cpf',
+        'cnh',
+        'vehicle_plate',
+        'vehicle_model',
+        'avatar_path',
+        'invite_token',
+        'invite_expires_at',
+        'invited_at',
+        'activated_at',
+    ];
+
+    protected $hidden = [
+        'password',
+        'api_token',
+        'invite_token',
     ];
 
     protected function casts(): array
     {
         return [
             'api_token' => 'string',
+            'invite_expires_at' => 'datetime',
+            'invited_at' => 'datetime',
+            'activated_at' => 'datetime',
         ];
     }
 
@@ -42,5 +68,27 @@ class DeliveryPerson extends Model
     public function scopeActive($query)
     {
         return $query->where('status', 'active');
+    }
+
+    public function isActivated(): bool
+    {
+        return $this->activated_at !== null;
+    }
+
+    public function hasPassword(): bool
+    {
+        return $this->password !== null;
+    }
+
+    public function hasValidInvite(): bool
+    {
+        return $this->invite_token !== null
+            && $this->invite_expires_at !== null
+            && $this->invite_expires_at->isFuture();
+    }
+
+    public static function generateInviteToken(): string
+    {
+        return Str::random(60);
     }
 }

@@ -222,15 +222,69 @@
                             </div>
                         </div>
                     </div>
-                  @elseif ($orderType === 'entrega')
-                      {{-- Delivery Address --}}
-                      <div class="mb-4 space-y-3 p-4 rounded-xl bg-neutral-800/50 border border-neutral-700">
-                          <div class="flex items-center gap-2">
-                              <svg class="w-5 h-5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                              </svg>
-                              <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider">Endereco de Entrega</span>
-                          </div>
+                   @elseif ($orderType === 'entrega')
+                       {{-- Delivery Address --}}
+                        <div class="mb-4 space-y-3 p-4 rounded-xl bg-neutral-800/50 border border-neutral-700"
+                             x-data="{
+                                 phoneDisplay: '',
+                                 init() {
+                                     this.$nextTick(() => {
+                                         this.phoneDisplay = this.maskPhone($wire.customerPhone || '');
+                                     });
+                                 },
+                                 maskPhone(v) {
+                                     let r = (v||'').replace(/\D/g,'').substring(0,11);
+                                     return r.length <= 2 ? (r.length ? '('+r : '') :
+                                            r.length <= 6 ? '('+r.substring(0,2)+') '+r.substring(2) :
+                                            r.length <= 7 ? '('+r.substring(0,2)+') '+r.substring(2,7) :
+                                            '('+r.substring(0,2)+') '+r.substring(2,7)+'-'+r.substring(7);
+                                 },
+                                 updatePhone(v) {
+                                     const raw = (v||'').replace(/\D/g,'').substring(0,11);
+                                     this.phoneDisplay = this.maskPhone(raw);
+                                     $wire.set('customerPhone', raw);
+                                 }
+                             }">
+                           <div class="flex items-center gap-2">
+                               <svg class="w-5 h-5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                               </svg>
+                               <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider">Endereco de Entrega</span>
+                           </div>
+
+                           @if (!Auth::check())
+                               <div class="space-y-3">
+                                   <div>
+                                       <label class="block text-xs font-medium text-neutral-400 mb-1">Seu Nome</label>
+                                       <input wire:model="customerName" type="text" placeholder="Seu nome"
+                                              class="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                                   </div>
+                                   <div>
+                                       <label class="block text-xs font-medium text-neutral-400 mb-1">Telefone para Contato</label>
+                                       <input x-model="phoneDisplay" @input="updatePhone(phoneDisplay)" type="tel" inputmode="numeric" maxlength="15" placeholder="(11) 99999-9999"
+                                              class="w-full px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                                   </div>
+                               </div>
+                           @else
+                               <div>
+                                   <label class="block text-xs font-medium text-neutral-400 mb-1">Telefone para Contato</label>
+                                   <div class="flex items-center gap-2">
+                                       <input x-model="phoneDisplay" @input="updatePhone(phoneDisplay)" type="tel" inputmode="numeric" maxlength="15" placeholder="(11) 99999-9999"
+                                              class="flex-1 px-3.5 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                                       @if (Auth::user()->phone)
+                                           <button @click="
+                                               const raw = '{{ Auth::user()->phone }}'.replace(/\D/g,'').substring(0,11);
+                                               phoneDisplay = maskPhone(raw);
+                                               $wire.set('customerPhone', raw);
+                                           " type="button"
+                                                   class="shrink-0 px-3 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-neutral-400 hover:text-white text-xs transition-colors">
+                                               Resetar
+                                           </button>
+                                       @endif
+                                   </div>
+                                   <p class="text-[10px] text-neutral-600 mt-1">Salvo automaticamente no seu perfil.</p>
+                               </div>
+                           @endif
 
                           @if (Auth::check() && !empty($userAddresses))
                               <div class="space-y-2">
@@ -656,6 +710,17 @@
                 </button>
             </div>
             <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 sm:space-y-4">
+                <div class="relative">
+                    <label class="block text-xs font-medium text-neutral-400 mb-1">CEP *</label>
+                    <input wire:model="newAddressZipcode" type="text" placeholder="00000-000" maxlength="9"
+                           x-on:blur="searchCep"
+                           x-on:input="if ($event.target.value.replace(/\D/g, '').length === 8) searchCep($event)"
+                           class="w-full px-3.5 sm:px-4 py-2.5 rounded-xl bg-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('newAddressZipcode') border-red-500 bg-red-500/10 @else border-neutral-700 @enderror">
+                    <div x-show="viaCepLoading" class="absolute right-3 top-7 sm:top-8">
+                        <svg class="w-4 h-4 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    </div>
+                    @error('newAddressZipcode') <p class="mt-1 text-xs text-red-400 flex items-center gap-1"><svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>{{ $message }}</p> @enderror
+                </div>
                 <div>
                     <label class="block text-xs font-medium text-neutral-400 mb-1">Nome / Identificacao *</label>
                     <input wire:model.blur="newAddressLabel" type="text" placeholder="Casa, Trabalho, etc"
@@ -700,17 +765,6 @@
                                class="w-full px-3.5 sm:px-4 py-2.5 rounded-xl bg-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all uppercase @error('newAddressState') border-red-500 bg-red-500/10 @else border-neutral-700 @enderror">
                         @error('newAddressState') <p class="mt-1 text-xs text-red-400 flex items-center gap-1"><svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>{{ $message }}</p> @enderror
                     </div>
-                </div>
-                <div class="relative">
-                    <label class="block text-xs font-medium text-neutral-400 mb-1">CEP</label>
-                    <input wire:model="newAddressZipcode" type="text" placeholder="00000-000" maxlength="9"
-                           x-on:blur="searchCep"
-                           x-on:input="if ($event.target.value.replace(/\D/g, '').length === 8) searchCep($event)"
-                           class="w-full px-3.5 sm:px-4 py-2.5 rounded-xl bg-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('newAddressZipcode') border-red-500 bg-red-500/10 @else border-neutral-700 @enderror">
-                    <div x-show="viaCepLoading" class="absolute right-3 top-7 sm:top-8">
-                        <svg class="w-4 h-4 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                    </div>
-                    @error('newAddressZipcode') <p class="mt-1 text-xs text-red-400 flex items-center gap-1"><svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>{{ $message }}</p> @enderror
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-neutral-400 mb-1">Referencia</label>

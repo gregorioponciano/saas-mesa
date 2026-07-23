@@ -98,6 +98,19 @@
                 </button>
                 @endif
 
+                @auth
+                <button wire:click="switchClientTab('favoritos'); sidebarOpen = false"
+                        class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ $clientTab === 'favoritos' ? 'bg-red-500/10 text-red-400' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50' }}">
+                    <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                    </svg>
+                    <span class="flex-1 text-left">Favoritos</span>
+                    @if (count($favoriteProductIds) > 0)
+                        <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-500/20 text-red-400 border border-red-500/30">{{ count($favoriteProductIds) }}</span>
+                    @endif
+                </button>
+                @endauth
+
                 <button wire:click="switchClientTab('settings'); sidebarOpen = false"
                         class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ $clientTab === 'settings' ? 'bg-amber-500/10 text-amber-400' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50' }}">
                     <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -162,6 +175,7 @@
                  activeCategory: null,
                  showMobileSearch: false,
                  hasResults: true,
+                 favoriteIds: @js($favoriteProductIds ?? []),
                   init() {
                       this.activeCategory = this.$el.querySelector('[data-category]')?.dataset.category || null;
                       this.$watch('search', () => {
@@ -240,20 +254,17 @@
                             </div>
                         @endif
                 <div class="flex-1 min-w-0">
-                    <h1 class="font-bold truncate" :class="scrolled ? 'text-xs sm:text-sm' : 'text-sm sm:text-lg'" x-text="'{{ $tenant->name }}'"></h1>
+                    <button wire:click="switchClientTab('menu')"
+                            class="text-left">
+                        <h1 class="font-bold truncate" :class="scrolled ? 'text-xs sm:text-sm' : 'text-sm sm:text-lg'">{{ $tenant->name }}</h1>
+                    </button>
                     <div class="flex items-center gap-1 sm:gap-2 mt-0.5 sm:mt-1 flex-wrap">
-
-                         <span class="text-[10px] sm:text-xs font-medium">
-                             {{ $tenant->opening_time ? (is_string($tenant->opening_time) ? $tenant->opening_time : date('H:i', strtotime($tenant->opening_time))) : '--:--' }} -
-                             {{ $tenant->closing_time ? (is_string($tenant->closing_time) ? $tenant->closing_time : date('H:i', strtotime($tenant->closing_time))) : '--:--' }}
-                         </span>
                         @if ($tenant->isOpen())
                             <span class="px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs bg-green-500/20 text-green-400 shrink-0">Aberto</span>
                         @else
                             <span class="px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs bg-red-500/20 text-red-400 shrink-0">Fechado</span>
                         @endif
                     </div>
-                    <p class="text-[10px] sm:text-xs text-neutral-500 truncate hidden sm:block">Cardapio Digital</p>
                 </div>
                         <div class="flex items-center gap-0.5 sm:gap-1 shrink-0">
                             <button @click="showMobileSearch = !showMobileSearch"
@@ -263,34 +274,122 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                                 </svg>
                             </button>
-                            <button @click="$dispatch('open-cart')"
-                                    x-data="{ badgeCount: {{ $cartItemsCount ?? 0 }} }"
-                                    @cart-badge-update.window="badgeCount = $event.detail.count"
-                                    class="relative p-1.5 sm:p-2 rounded-xl hover:bg-neutral-800 text-neutral-400 hover:text-white transition-all">
-                                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
-                                </svg>
-                                <template x-if="badgeCount > 0">
-                                    <span class="absolute -top-1 -right-1 w-4 h-4 sm:w-4.5 sm:h-4.5 rounded-full bg-amber-500 text-neutral-950 text-[9px] font-bold flex items-center justify-center shadow-lg shadow-amber-500/30"
-                                          x-text="badgeCount">
-                                    </span>
-                                </template>
-                            </button>
                             @auth
-                                @if (Auth::user()->isAdmin())
-                                    <a href="{{ route('dashboard') }}"
-                                       class="p-1.5 sm:p-2 rounded-xl hover:bg-neutral-800 text-neutral-400 hover:text-amber-400 transition-all">
-                                        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-                                    </a>
-                                @elseif (Auth::user()->isStaff())
-                                    <a href="{{ route('waiter.panel', $tenant->slug) }}"
-                                       class="p-1.5 sm:p-2 rounded-xl hover:bg-neutral-800 text-neutral-400 hover:text-amber-400 transition-all">
-                                        <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                                    </a>
-                                @endif
+                            <div x-data="{ openMenu: false }" class="relative"
+                                 @click.outside="openMenu = false">
+                                <button @click="openMenu = !openMenu"
+                                        class="flex items-center gap-1.5 p-1 pr-2 sm:pr-3 rounded-xl hover:bg-neutral-800 transition-all"
+                                        :class="{ 'bg-neutral-800': openMenu }">
+                                    <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 font-bold text-xs shrink-0">
+                                        {{ substr(Auth::user()->name, 0, 2) }}
+                                    </div>
+                                    @if (count($myActiveOrders) > 0)
+                                        <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
+                                    @endif
+                                    <svg class="w-3.5 h-3.5 text-neutral-500 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                    </svg>
+                                </button>
+                                <div x-show="openMenu" x-cloak
+                                     x-transition:enter="transition ease-out duration-200"
+                                     x-transition:enter-start="opacity-0 -translate-y-2"
+                                     x-transition:enter-end="opacity-100 translate-y-0"
+                                     x-transition:leave="transition ease-in duration-150"
+                                     x-transition:leave-start="opacity-100 translate-y-0"
+                                     x-transition:leave-end="opacity-0 -translate-y-2"
+                                     class="absolute right-0 mt-2 w-80 max-w-[95vw] bg-neutral-900 border border-neutral-700 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden z-50">
+                                    {{-- User Info --}}
+                                    <div class="p-4 border-b border-neutral-800">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 font-bold text-sm shrink-0">
+                                                {{ substr(Auth::user()->name, 0, 2) }}
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold truncate">{{ Auth::user()->name }}</p>
+                                                <p class="text-[10px] text-neutral-400 truncate">{{ Auth::user()->email }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {{-- Notifications --}}
+                                    <div class="border-b border-neutral-800">
+                                        <div class="px-4 py-2 flex items-center justify-between">
+                                            <p class="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Notificacoes</p>
+                                            @if (count($myActiveOrders) > 0)
+                                                <span class="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">{{ count($myActiveOrders) }} ativas</span>
+                                            @endif
+                                        </div>
+                                        <div class="max-h-48 overflow-y-auto">
+                                            @forelse ($myActiveOrders as $order)
+                                                <button wire:click="switchClientTab('orders'); openMenu = false"
+                                                        class="w-full flex items-start gap-3 px-4 py-2.5 hover:bg-neutral-800/50 transition-colors text-left">
+                                                    <div class="w-6 h-6 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                                                        <svg class="w-3 h-3 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                                                    </div>
+                                                    <div class="min-w-0 flex-1">
+                                                        <p class="text-xs font-medium truncate">Pedido #{{ $order->id }}</p>
+                                                        <p class="text-[10px] text-neutral-500">Status: <span class="text-amber-400">{{ $order->statusLabel() }}</span></p>
+                                                    </div>
+                                                    <span class="text-[9px] text-neutral-600 shrink-0">{{ $order->updated_at->diffForHumans() }}</span>
+                                                </button>
+                                            @empty
+                                                <div class="px-4 py-4 text-center text-[11px] text-neutral-500">
+                                                    <p>Nenhuma notificacao</p>
+                                                </div>
+                                            @endforelse
+                                        </div>
+                                    </div>
+                                    {{-- Menu Links --}}
+                                    <div class="p-2 space-y-0.5">
+                                        <button @click="$dispatch('open-cart'); openMenu = false"
+                                                x-data="{ badgeCount: {{ $cartItemsCount ?? 0 }} }"
+                                                @cart-badge-update.window="badgeCount = $event.detail.count"
+                                                class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-neutral-300 hover:text-white hover:bg-neutral-800/50 transition-all">
+                                            <svg class="w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+                                            Carrinho
+                                            <template x-if="badgeCount > 0">
+                                                <span class="ml-auto px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30" x-text="badgeCount"></span>
+                                            </template>
+                                        </button>
+                                        <button wire:click="switchClientTab('favoritos'); openMenu = false"
+                                                class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-neutral-300 hover:text-white hover:bg-neutral-800/50 transition-all">
+                                            <svg class="w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                                            Favoritos
+                                        </button>
+                                        <button wire:click="switchClientTab('orders'); openMenu = false"
+                                                class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-neutral-300 hover:text-white hover:bg-neutral-800/50 transition-all">
+                                            <svg class="w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                                            Meus Pedidos
+                                            @if (count($myActiveOrders) > 0)
+                                                <span class="ml-auto px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-amber-500/20 text-amber-400">{{ count($myActiveOrders) }}</span>
+                                            @endif
+                                        </button>
+                                        <button wire:click="switchClientTab('settings'); openMenu = false"
+                                                class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-neutral-300 hover:text-white hover:bg-neutral-800/50 transition-all">
+                                            <svg class="w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                            Configuracoes
+                                        </button>
+                                        <button wire:click="switchClientTab('support'); openMenu = false"
+                                                class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-neutral-300 hover:text-white hover:bg-neutral-800/50 transition-all">
+                                            <svg class="w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3v-3z"/></svg>
+                                            Suporte
+                                        </button>
+                                    </div>
+                                    {{-- Logout --}}
+                                    <div class="border-t border-neutral-800 p-2">
+                                        <form method="POST" action="{{ route('logout') }}">
+                                            @csrf
+                                            <button type="submit"
+                                                    class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-neutral-400 hover:text-red-400 hover:bg-red-500/5 transition-all">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                                                Sair
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
                             @else
                                 <a href="{{ route('waiter.register.form', $tenant->slug) }}"
-                                   class="hidden sm:inline text-xs text-neutral-500 hover:text-amber-400 transition-colors px-2">Acesso</a>
+                                   class="text-xs text-neutral-500 hover:text-amber-400 transition-colors px-2">Acesso</a>
                             @endauth
                         </div>
                     </div>
@@ -393,6 +492,12 @@
                     </div>
                 </div>
                 @endif
+
+            {{-- Section Title --}}
+            <div class="px-4 pt-6 pb-2">
+                <h2 class="text-2xl sm:text-3xl font-black text-white">Cardapio Digital</h2>
+                <p class="text-sm text-neutral-500 mt-1">Selecione seus produtos favoritos</p>
+            </div>
             </header>
 
             {{-- TAB: Menu Products --}}
@@ -423,8 +528,17 @@
                                                 x-show="matchProduct($el)"
                                                 data-product-card
                                                 @cart-cleared.window="added = false"
-                                                class="group relative w-full text-left p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800/80 hover:border-amber-500/30 hover:bg-neutral-900 transition-all duration-300 active:scale-[0.99] hover:shadow-lg hover:shadow-amber-500/5">
-                                            <div class="flex gap-4">
+                                                 class="group relative w-full text-left p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800/80 hover:border-amber-500/30 hover:bg-neutral-900 transition-all duration-300 active:scale-[0.99] hover:shadow-lg hover:shadow-amber-500/5">
+                                             <span wire:click="toggleFavorite({{ $product->id }})"
+                                                   class="absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 z-10 cursor-pointer"
+                                                   :class="favoriteIds.includes({{ $product->id }}) ? 'bg-red-500/20 text-red-400' : 'bg-neutral-800 text-neutral-500 hover:text-red-400 hover:bg-red-500/20'">
+                                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                                      :fill="favoriteIds.includes({{ $product->id }}) ? 'currentColor' : 'none'"
+                                                      stroke-width="2">
+                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                                                 </svg>
+                                             </span>
+                                             <div class="flex gap-4">
                                                 <div class="w-24 h-24 rounded-xl overflow-hidden shrink-0 bg-neutral-800/50 relative">
                                                     <img src="{{ $product->imageUrl() }}"
                                                          alt="{{ $product->name }}"
@@ -449,7 +563,7 @@
                                                         @endif
                                                     </div>
                                                     <div class="flex items-center justify-between mt-2">
-                                                        <p class="text-lg font-bold text-amber-400 group-hover:scale-105 transition-transform origin-left">R$ {{ number_format($product->price, 2, ',', '.') }}</p>
+                                                            <p class="text-lg font-bold text-amber-400 group-hover:scale-105 transition-transform origin-left">R$ {{ number_format($product->price, 2, ',', '.') }}</p>
                                                         @if ($product->isOutOfStock())
                                                             <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-neutral-800 text-neutral-500 cursor-not-allowed">
                                                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
@@ -830,13 +944,40 @@
                                     @error('profileName') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium text-neutral-400 mb-1">Email</label>
-                                    <input wire:model="profileEmail" type="email"
-                                           class="w-full px-3.5 py-2 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('profileEmail') border-red-500 @enderror">
-                                    @error('profileEmail') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-neutral-400 mb-1">Nova Senha (opcional)</label>
+                                <label class="block text-xs font-medium text-neutral-400 mb-1">Email</label>
+                                <input wire:model="profileEmail" type="email"
+                                       class="w-full px-3.5 py-2 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('profileEmail') border-red-500 @enderror">
+                                @error('profileEmail') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                            </div>
+                            <div
+                                 x-data="{
+                                     phoneDisplay: '',
+                                     init() {
+                                         this.$nextTick(() => {
+                                             const raw = ($wire.profilePhone || '').replace(/\D/g,'').substring(0,11);
+                                             this.phoneDisplay = raw ? this.maskPhone(raw) : '';
+                                         });
+                                     },
+                                     maskPhone(v) {
+                                         let r = (v||'').replace(/\D/g,'').substring(0,11);
+                                         return r.length <= 2 ? (r.length ? '('+r : '') :
+                                                r.length <= 6 ? '('+r.substring(0,2)+') '+r.substring(2) :
+                                                r.length <= 7 ? '('+r.substring(0,2)+') '+r.substring(2,7) :
+                                                '('+r.substring(0,2)+') '+r.substring(2,7)+'-'+r.substring(7);
+                                     },
+                                     updatePhone(v) {
+                                         const raw = (v||'').replace(/\D/g,'').substring(0,11);
+                                         this.phoneDisplay = this.maskPhone(raw);
+                                         $wire.set('profilePhone', raw);
+                                     }
+                                 }">
+                                 <label class="block text-xs font-medium text-neutral-400 mb-1">Telefone</label>
+                                 <input x-model="phoneDisplay" @input="updatePhone(phoneDisplay)" type="tel" inputmode="numeric" maxlength="15" placeholder="(11) 99999-9999"
+                                        class="w-full px-3.5 py-2 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('profilePhone') border-red-500 @enderror">
+                                 @error('profilePhone') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                             </div>
+                                 <div>
+                                     <label class="block text-xs font-medium text-neutral-400 mb-1">Nova Senha (opcional)</label>
                                     <input wire:model="profilePassword" type="password" placeholder="Minimo 6 caracteres"
                                            class="w-full px-3.5 py-2 rounded-xl bg-neutral-800 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('profilePassword') border-red-500 @enderror">
                                     @error('profilePassword') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
@@ -964,6 +1105,14 @@
                         </div>
                         <form wire:submit="saveAddress" class="p-5 space-y-3">
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div class="col-span-3 relative">
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1">CEP</label>
+                                    <input wire:model="addrZipcode" type="text" placeholder="00000-000" maxlength="9"
+                                           x-on:blur="searchCep"
+                                           x-on:input="if ($event.target.value.replace(/\D/g, '').length === 8) searchCep($event)"
+                                           class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                                    <div x-show="viaCepLoading" class="absolute right-2.5 top-7"><svg class="w-4 h-4 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></div>
+                                </div>
                                 <div class="col-span-3">
                                     <label class="block text-xs font-medium text-neutral-400 mb-1">Identificacao</label>
                                     <select wire:model="addrLabel" class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
@@ -982,20 +1131,12 @@
                                     <input wire:model="addrNumber" type="text" placeholder="N°" class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium text-neutral-400 mb-1">Bairro</label>
-                                    <input wire:model="addrNeighborhood" type="text" placeholder="Bairro" class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                                </div>
-                                <div>
                                     <label class="block text-xs font-medium text-neutral-400 mb-1">Complemento</label>
                                     <input wire:model="addrComplement" type="text" placeholder="Apto, Bloco..." class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
                                 </div>
-                                <div class="relative">
-                                    <label class="block text-xs font-medium text-neutral-400 mb-1">CEP</label>
-                                    <input wire:model="addrZipcode" type="text" placeholder="00000-000" maxlength="9"
-                                           x-on:blur="searchCep"
-                                           x-on:input="if ($event.target.value.replace(/\D/g, '').length === 8) searchCep($event)"
-                                           class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
-                                    <div x-show="viaCepLoading" class="absolute right-2.5 top-7"><svg class="w-4 h-4 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></div>
+                                <div>
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1">Bairro</label>
+                                    <input wire:model="addrNeighborhood" type="text" placeholder="Bairro" class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-medium text-neutral-400 mb-1">Cidade</label>
@@ -1353,7 +1494,117 @@
                         </div>
                     @endif
                 </div>
+            @elseif ($clientTab === 'favoritos' && Auth::check())
+                <div class="px-4 mt-4 max-w-4xl mx-auto pb-8"
+                     x-init="$nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }))">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold">Meus Favoritos</h2>
+                        <button wire:click="switchClientTab('menu')"
+                                class="text-xs text-red-400 hover:text-red-300 transition-colors flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                            Voltar ao Cardapio
+                        </button>
+                    </div>
+
+                    @if ($favoriteProducts->count() === 0)
+                        <div class="text-center py-16 text-neutral-600 rounded-2xl bg-neutral-900/30 border border-dashed border-neutral-800">
+                            <svg class="w-14 h-14 mx-auto mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                            </svg>
+                            <p class="text-sm font-medium">Nenhum favorito ainda</p>
+                            <p class="text-xs text-neutral-600 mt-1">Toque no <svg class="w-3.5 h-3.5 inline-block text-red-400" fill="currentColor" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg> nos produtos que voce mais gosta</p>
+                        </div>
+                    @else
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            @foreach ($favoriteProducts as $product)
+                                <div wire:key="fav-{{ $product->id }}"
+                                     class="p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800/80 hover:border-red-500/30 transition-all duration-300 group">
+                                    <div class="flex gap-4">
+                                        <button wire:click="showProduct({{ $product->id }})" class="w-20 h-20 rounded-xl overflow-hidden shrink-0 bg-neutral-800/50 relative">
+                                            <img src="{{ $product->imageUrl() }}" alt="{{ $product->name }}" class="w-full h-full object-cover" loading="lazy">
+                                            @if ($product->isOutOfStock())
+                                                <div class="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                                    <span class="text-[9px] font-bold text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded-md">SEM ESTOQUE</span>
+                                                </div>
+                                            @endif
+                                        </button>
+                                        <div class="flex-1 min-w-0">
+                                            <button wire:click="showProduct({{ $product->id }})" class="text-left w-full">
+                                                <h4 class="font-semibold text-sm group-hover:text-red-400 transition-colors">{{ $product->name }}</h4>
+                                                @if ($product->description)
+                                                    <p class="text-xs text-neutral-400 mt-1 line-clamp-1">{{ $product->description }}</p>
+                                                @endif
+                                            </button>
+                                            <div class="flex items-center justify-between mt-2">
+                                                <p class="text-sm font-bold text-amber-400">R$ {{ number_format($product->price, 2, ',', '.') }}</p>
+                                                @if ($product->isOutOfStock())
+                                                    <span class="text-[10px] text-neutral-500">Indisponivel</span>
+                                                @elseif (!$product->attributes->count())
+                                                    <button @click.stop
+                                                            @click="$wire.$dispatchTo('public.cart', 'addToCart', {productId: {{ $product->id }}, productName: @js($product->name), price: {{ $product->price }}, selectedOptions: [], quantity: 1})"
+                                                            class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-neutral-950 transition-all">
+                                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                                        Adicionar
+                                                    </button>
+                                                @else
+                                                    <button wire:click="showProduct({{ $product->id }})" class="text-[10px] text-neutral-500 flex items-center gap-1 hover:text-amber-400 transition-colors">
+                                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                        Personalizar
+                                                    </button>
+                                                @endif
+                                            </div>
+                                        </div>
+                                        <button wire:click="toggleFavorite({{ $product->id }})"
+                                                class="self-start w-7 h-7 rounded-full flex items-center justify-center bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all shrink-0">
+                                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
             @endif
+
+            {{-- CDC Policy Footer --}}
+            @if ($clientTab === 'menu')
+            <div class="px-4 mt-8 mb-4 max-w-4xl mx-auto"
+                 x-data="{ cdcOpen: false }">
+                <button @click="cdcOpen = !cdcOpen"
+                        class="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl bg-neutral-900/50 border border-neutral-800 hover:border-amber-500/30 transition-all text-left">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                        <span class="text-xs font-medium text-neutral-300">Codigo de Defesa do Consumidor (CDC)</span>
+                    </div>
+                    <svg class="w-4 h-4 text-neutral-500 transition-transform duration-200" :class="cdcOpen && 'rotate-180'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div x-show="cdcOpen" x-collapse.duration.200ms
+                     class="mt-2 p-4 rounded-xl bg-neutral-900/30 border border-neutral-800/50 text-xs text-neutral-400 leading-relaxed space-y-3">
+                    <p><strong class="text-neutral-300">Antes do preparo:</strong> E possivel cancelar facilmente pelo aplicativo.</p>
+                    <p><strong class="text-neutral-300">Durante o preparo ou a caminho:</strong> O cancelamento pode ficar sujeito a aprovacao do restaurante, pois o alimento e perecivel.</p>
+                    <p><strong class="text-neutral-300">Atrasos ou problemas:</strong> Se o prazo estipulado for ultrapassado ou o lanche chegar errado/danificado, o cliente pode cancelar sem custos.</p>
+                </div>
+            </div>
+            @endif
+
+            {{-- Floating Support Button --}}
+            @auth
+            <div class="fixed bottom-6 right-4 z-30">
+                <button wire:click="switchClientTab('support')"
+                        class="flex items-center gap-2 px-4 py-3 rounded-full bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold text-sm shadow-xl shadow-amber-500/30 hover:scale-105 active:scale-95 transition-all duration-200">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3v-3z"/>
+                    </svg>
+                    <span class="hidden sm:inline">Ajuda</span>
+                </button>
+            </div>
+            @endauth
 
             {{-- PIX Payment Modal --}}
             <div x-data="{ open: @entangle('showPixModal') }"
@@ -1643,30 +1894,41 @@
                      @if ($selectedProduct)
                         <div>
                             {{-- Image Hero --}}
-                            @if ($selectedProduct->image_url)
-                                <div class="relative w-full h-52 overflow-hidden">
-                                    <img src="{{ $selectedProduct->imageUrl() }}"
-                                         alt="{{ $selectedProduct->name }}"
-                                         class="w-full h-full object-cover">
-                                    <div class="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/20 to-transparent"></div>
-                                </div>
-                            @endif
+                             @if ($selectedProduct->image_url)
+                                 <div class="relative w-full h-52 overflow-hidden">
+                                     <img src="{{ $selectedProduct->imageUrl() }}"
+                                          alt="{{ $selectedProduct->name }}"
+                                          class="w-full h-full object-cover">
+                                     <div class="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/20 to-transparent"></div>
+                                 </div>
+                             @endif
 
-                            <div class="p-6 pt-4">
-                                <div class="flex items-start justify-between mb-3">
-                                    <div class="flex-1 min-w-0">
-                                        <h3 class="text-xl font-bold">{{ $selectedProduct->name }}</h3>
-                                        @if ($selectedProduct->description)
-                                            <p class="text-sm text-neutral-400 mt-1.5 leading-relaxed">{{ $selectedProduct->description }}</p>
-                                        @endif
-                                    </div>
-                                    <button @click="closeModal()"
-                                            class="ml-4 p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 transition-colors shrink-0">
-                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                        </svg>
-                                    </button>
-                                </div>
+                             <div class="p-6 pt-4">
+                                 <div class="flex items-start justify-between mb-3">
+                                     <div class="flex-1 min-w-0">
+                                         <h3 class="text-xl font-bold">{{ $selectedProduct->name }}</h3>
+                                         @if ($selectedProduct->description)
+                                             <p class="text-sm text-neutral-400 mt-1.5 leading-relaxed">{{ $selectedProduct->description }}</p>
+                                         @endif
+                                     </div>
+                                     <div class="flex items-center gap-2 ml-4">
+                                         <span wire:click="toggleFavorite({{ $selectedProduct->id }})"
+                                               class="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer"
+                                               :class="favoriteIds.includes({{ $selectedProduct->id }}) ? 'bg-red-500/20 text-red-400' : 'bg-neutral-800 text-neutral-400 hover:text-red-400 hover:bg-red-500/20'">
+                                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                                                  :fill="favoriteIds.includes({{ $selectedProduct->id }}) ? 'currentColor' : 'none'"
+                                                  stroke-width="2">
+                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                                             </svg>
+                                         </span>
+                                         <button @click="closeModal()"
+                                                 class="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 transition-colors shrink-0">
+                                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                             </svg>
+                                         </button>
+                                     </div>
+                                 </div>
 
                                 <div class="flex items-center justify-between mb-6">
                                     <p class="text-2xl font-bold text-amber-400">R$ {{ number_format($selectedProduct->price, 2, ',', '.') }}</p>

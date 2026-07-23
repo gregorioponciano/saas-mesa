@@ -8,6 +8,7 @@ use App\Models\SaasSubscription;
 use App\Models\Tenant;
 use App\Observers\SaasSubscriptionObserver;
 use App\Observers\TenantObserver;
+use App\Services\DeliveryService;
 use App\Services\EfiBank\SaasEfiBankService;
 use App\Services\EfiBank\TenantEfiBankService;
 use App\Services\EfiBank\WebhookValidatorService;
@@ -30,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(WebhookValidatorService::class);
         $this->app->singleton(SaasEfiBankService::class);
         $this->app->singleton(TenantEfiBankService::class);
+        $this->app->singleton(DeliveryService::class);
 
         $this->app->singleton(SubscriptionService::class, function ($app) {
             return new SubscriptionService(

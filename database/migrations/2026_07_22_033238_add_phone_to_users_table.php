@@ -8,15 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('tenants', function (Blueprint $table) {
-            $table->boolean('coupons_enabled')->default(true)->after('status');
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('phone', 20)->nullable()->after('email');
         });
     }
 
     public function down(): void
     {
-        Schema::table('tenants', function (Blueprint $table) {
-            $table->dropColumn('coupons_enabled');
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn('phone');
         });
     }
 };

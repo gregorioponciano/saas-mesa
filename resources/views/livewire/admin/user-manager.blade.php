@@ -36,6 +36,12 @@
                 @error('email') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
             </div>
             <div>
+                <label class="block text-sm font-medium text-neutral-300 mb-2">Telefone</label>
+                <input wire:model="phone" type="text" maxlength="20" placeholder="(11) 99999-9999"
+                       class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('phone') border-red-500 @enderror">
+                @error('phone') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+            </div>
+            <div>
                 <label class="block text-sm font-medium text-neutral-300 mb-2">{{ $editingUserId ? 'Nova senha (opcional)' : 'Senha *' }}</label>
                 <input wire:model="password" type="password" placeholder="Mínimo 6 caracteres"
                        class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('password') border-red-500 @enderror">
@@ -58,7 +64,7 @@
                 @error('role') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
             </div>
             <div class="md:col-span-2 flex items-center gap-3 pt-2">
-                <x-admin.button variant="primary" type="submit" loading wire:loading.attr="disabled">
+                <x-admin.button variant="primary" type="submit" wire:loading.attr="disabled">
                     <span wire:loading.remove>{{ $editingUserId ? 'Atualizar' : 'Criar' }} Usuário</span>
                     <span wire:loading>
                         <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -84,6 +90,9 @@
                 <div class="flex-1 min-w-0">
                     <p class="font-medium">{{ $user->name }}</p>
                     <p class="text-sm text-neutral-400">{{ $user->email }}</p>
+                    @if ($user->phone)
+                        <p class="text-xs text-neutral-500 mt-0.5">{{ $user->phone }}</p>
+                    @endif
                 </div>
                 <div class="flex items-center gap-2">
                     <x-admin.badge>{{ $user->roleLabel() }}</x-admin.badge>

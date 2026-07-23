@@ -229,8 +229,35 @@
                                        class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('email') border-red-500 @enderror">
                                 @error('email') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                             </div>
-                            <div>
-                                <label class="block text-xs font-medium text-neutral-400 mb-1">Nova Senha (opcional)</label>
+                            <div
+                                 x-data="{
+                                     phoneDisplay: '',
+                                     init() {
+                                         this.$nextTick(() => {
+                                             const raw = ($wire.phone || '').replace(/\D/g,'').substring(0,11);
+                                             this.phoneDisplay = raw ? this.maskPhone(raw) : '';
+                                         });
+                                     },
+                                     maskPhone(v) {
+                                         let r = (v||'').replace(/\D/g,'').substring(0,11);
+                                         return r.length <= 2 ? (r.length ? '('+r : '') :
+                                                r.length <= 6 ? '('+r.substring(0,2)+') '+r.substring(2) :
+                                                r.length <= 7 ? '('+r.substring(0,2)+') '+r.substring(2,7) :
+                                                '('+r.substring(0,2)+') '+r.substring(2,7)+'-'+r.substring(7);
+                                     },
+                                     updatePhone(v) {
+                                         const raw = (v||'').replace(/\D/g,'').substring(0,11);
+                                         this.phoneDisplay = this.maskPhone(raw);
+                                         $wire.set('phone', raw);
+                                     }
+                                 }">
+                                 <label class="block text-xs font-medium text-neutral-400 mb-1">Telefone</label>
+                                 <input x-model="phoneDisplay" @input="updatePhone(phoneDisplay)" type="tel" inputmode="numeric" maxlength="15" placeholder="(11) 99999-9999"
+                                        class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('phone') border-red-500 @enderror">
+                                 @error('phone') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                             </div>
+                             <div>
+                                 <label class="block text-xs font-medium text-neutral-400 mb-1">Nova Senha (opcional)</label>
                                 <input wire:model="password" type="password" placeholder="Minimo 6 caracteres"
                                        class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('password') border-red-500 @enderror">
                                 @error('password') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
@@ -606,6 +633,21 @@
 
             <form wire:submit="saveAddress" class="p-5 space-y-3">
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="col-span-3 relative">
+                        <label class="block text-xs font-medium text-neutral-400 mb-1">CEP</label>
+                        <input wire:model="addressZipcode" type="text" placeholder="00000-000" maxlength="9"
+                               x-on:blur="searchCep"
+                               x-on:input="if ($event.target.value.replace(/\D/g, '').length === 8) searchCep()"
+                               class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('addressZipcode') border-red-500 @enderror">
+                        <div x-show="viaCepLoading"
+                             class="absolute right-2.5 top-7">
+                            <svg class="w-4 h-4 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                            </svg>
+                        </div>
+                        @error('addressZipcode') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                    </div>
                     <div class="col-span-3">
                         <label class="block text-xs font-medium text-neutral-400 mb-1">Identificacao</label>
                         <select wire:model="addressLabel"
@@ -629,34 +671,17 @@
                         @error('addressNumber') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-neutral-400 mb-1">Bairro</label>
-                        <input wire:model="addressNeighborhood" type="text" placeholder="Bairro"
-                               class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
-                        @error('addressNeighborhood') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
-                    </div>
-                    <div>
                         <label class="block text-xs font-medium text-neutral-400 mb-1">Complemento</label>
                         <input wire:model="addressComplement" type="text" placeholder="Apto, Bloco..."
                                class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
                         @error('addressComplement') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                     </div>
-
-                    {{-- CEP with ViaCEP --}}
-                    <div class="relative">
-                        <label class="block text-xs font-medium text-neutral-400 mb-1">CEP</label>
-                        <input wire:model="addressZipcode" type="text" placeholder="00000-000" maxlength="9"
-                               x-on:blur="searchCep"
-                               class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('addressZipcode') border-red-500 @enderror">
-                        <div x-show="viaCepLoading"
-                             class="absolute right-2.5 top-7">
-                            <svg class="w-4 h-4 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                            </svg>
-                        </div>
-                        @error('addressZipcode') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+                    <div>
+                        <label class="block text-xs font-medium text-neutral-400 mb-1">Bairro</label>
+                        <input wire:model="addressNeighborhood" type="text" placeholder="Bairro"
+                               class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                        @error('addressNeighborhood') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                     </div>
-
                     <div>
                         <label class="block text-xs font-medium text-neutral-400 mb-1">Cidade</label>
                         <input wire:model="addressCity" type="text" placeholder="Cidade"

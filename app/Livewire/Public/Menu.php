@@ -32,6 +32,8 @@ class Menu extends Component
     public string $profileEmail = '';
     public string $profilePassword = '';
     public string $profilePasswordConfirmation = '';
+    public string $profilePhone = '';
+    public array $favoriteProductIds = [];
 
     // Support
     public string $supportTab = 'my_tickets';
@@ -69,7 +71,11 @@ class Menu extends Component
         $this->tenant = $tenant;
 
         if (Auth::check()) {
-            $this->profileName = Auth::user()->name;
+            $user = Auth::user();
+            $this->profileName = $user->name;
+            $this->profileEmail = $user->email;
+            $this->profilePhone = $user->phone ?? '';
+            $this->loadFavorites();
         }
 
         $this->restoreTableFromSession();
@@ -172,6 +178,48 @@ class Menu extends Component
     public function switchClientTab(string $tab): void
     {
         $this->clientTab = $tab;
+        if ($tab === 'settings' && Auth::check()) {
+            $user = Auth::user()->fresh();
+            $this->profileName = $user->name;
+            $this->profileEmail = $user->email;
+            $this->profilePhone = $user->phone ?? '';
+        }
+        if ($tab === 'favoritos' && Auth::check()) {
+            $this->loadFavorites();
+        }
+    }
+
+    public function loadFavorites(): void
+    {
+        if (!Auth::check()) {
+            $this->favoriteProductIds = [];
+            return;
+        }
+        $this->favoriteProductIds = Auth::user()->favoriteProducts()->pluck('product_id')->map(fn($id) => (int) $id)->toArray();
+    }
+
+    public function toggleFavorite(int $productId): void
+    {
+        if (!Auth::check()) {
+            $this->redirect(route('waiter.login.form', $this->tenant->slug) . '?redirect=' . urlencode(route('menu.show', $this->tenant->slug)));
+            return;
+        }
+
+        $product = Product::where('tenant_id', $this->tenant->id)->find($productId);
+        if (!$product) return;
+
+        $user = Auth::user();
+        $existing = UserFavorite::where('user_id', $user->id)->where('product_id', $productId)->first();
+
+        if ($existing) {
+            $existing->delete();
+            $this->favoriteProductIds = array_values(array_filter($this->favoriteProductIds, fn($id) => $id !== $productId));
+            $this->dispatch('notify', message: 'Produto removido dos favoritos.');
+        } else {
+            UserFavorite::create(['user_id' => $user->id, 'product_id' => $productId]);
+            $this->favoriteProductIds[] = $productId;
+            $this->dispatch('notify', message: 'Produto adicionado aos favoritos!');
+        }
     }
 
     public function saveProfile(): void
@@ -183,12 +231,13 @@ class Menu extends Component
         $this->validate([
             'profileName' => 'required|string|max:255',
             'profileEmail' => 'required|email|max:255',
+            'profilePhone' => 'nullable|string|max:20',
             'profilePassword' => 'nullable|string|min:6',
             'profilePasswordConfirmation' => 'nullable|same:profilePassword',
         ]);
 
         $user = Auth::user();
-        $data = ['name' => $this->profileName, 'email' => $this->profileEmail];
+        $data = ['name' => $this->profileName, 'email' => $this->profileEmail, 'phone' => $this->profilePhone];
         if ($this->profilePassword) {
             $data['password'] = $this->profilePassword;
         }
@@ -855,6 +904,19 @@ class Menu extends Component
             ->get();
     }
 
+    #[Computed]
+    public function favoriteProducts()
+    {
+        if (!Auth::check() || empty($this->favoriteProductIds)) {
+            return collect();
+        }
+        return Product::where('tenant_id', $this->tenant->id)
+            ->whereIn('id', $this->favoriteProductIds)
+            ->active()
+            ->with('attributes.options.ingredient')
+            ->get();
+    }
+
     public function redeemProductWithPoints(int $productId): void
     {
         if (!Auth::check()) {
@@ -1032,6 +1094,8 @@ class Menu extends Component
             'pointsVisible' => $this->pointsVisible,
             'pointsPercentageData' => $this->pointsPercentageData(),
             'pointsProducts' => $this->pointsProducts,
+            'favoriteProductIds' => $this->favoriteProductIds,
+            'favoriteProducts' => $this->favoriteProducts,
         ]);
     }
 }

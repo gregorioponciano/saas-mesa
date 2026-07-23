@@ -11,6 +11,7 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Table;
 use App\Models\UserAddress;
+use App\Services\DeliveryNotificationService;
 use App\Services\EfiBank\TenantEfiBankService;
 use App\Services\PointsService;
 use App\Services\StockService;
@@ -109,6 +110,7 @@ class Cart extends Component
 
         if (Auth::check()) {
             $this->customerName = Auth::user()->name;
+            $this->customerPhone = Auth::user()->phone ?? '';
             $this->deliveryAddress = Auth::user()->delivery_address ?? '';
             $this->deliveryReference = Auth::user()->delivery_reference ?? '';
             $this->loadUserAddresses();
@@ -505,6 +507,7 @@ class Cart extends Component
         }
 
         if ($this->orderType === 'entrega') {
+            $rules['customerPhone'] = 'required|string|max:20';
             $rules['deliveryAddress'] = 'required|string';
             $rules['paymentMethod'] = 'required|in:pix,credit_card,cash';
             if ($this->paymentMethod === 'cash') {
@@ -658,6 +661,14 @@ class Cart extends Component
         $order = Order::find($orderId);
         $this->previousOrderStatus = $order ? $order->status : null;
 
+        // Save phone to user profile before clearing it
+        if ($this->orderType === 'entrega') {
+            $this->autoSaveDeliveryAddress();
+        }
+        if (Auth::check() && $this->customerPhone && Auth::user()->phone !== $this->customerPhone) {
+            Auth::user()->update(['phone' => $this->customerPhone]);
+        }
+
         $this->loadOrderTracking();
         $this->customerName = Auth::check() ? Auth::user()->name : '';
         $this->customerPhone = '';
@@ -668,6 +679,10 @@ class Cart extends Component
 
         if (!$willGeneratePix) {
             $this->dispatch('goToMyOrders')->to('public.menu');
+        }
+
+        if ($this->orderType === 'entrega' && $order) {
+            app(DeliveryNotificationService::class)->newOrderAvailable($order);
         }
 
         if ($willGeneratePix) {

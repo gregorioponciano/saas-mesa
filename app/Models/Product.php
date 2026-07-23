@@ -61,6 +61,12 @@ class Product extends Model
         return $this->image_url;
     }
 
+    public function favoritedByUsers()
+    {
+        return $this->belongsToMany(User::class, 'user_favorites')
+            ->withTimestamps();
+    }
+
     public function stockMovements()
     {
         return $this->hasMany(StockMovement::class);

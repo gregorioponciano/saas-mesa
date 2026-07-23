@@ -18,6 +18,7 @@ class ResetPasswordMail extends Mailable
         public string $token,
         public string $email,
         public bool $isAdmin = false,
+        public bool $isDelivery = false,
     ) {}
 
     public function envelope(): Envelope
@@ -30,12 +31,14 @@ class ResetPasswordMail extends Mailable
 
     public function content(): Content
     {
-        $url = $this->isAdmin
-            ? route('admin.reset.form', ['token' => $this->token])
-            : route('waiter.reset.form', [
+        $url = match (true) {
+            $this->isAdmin => route('admin.reset.form', ['token' => $this->token]),
+            $this->isDelivery => route('delivery.reset.form', ['token' => $this->token]),
+            default => route('waiter.reset.form', [
                 'slug' => $this->tenant->slug,
                 'token' => $this->token,
-              ]);
+            ]),
+        };
 
         return new Content(
             html: 'emails.reset-password',

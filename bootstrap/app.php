@@ -25,6 +25,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->redirectGuestsTo(function ($request) {
+            if ($request->expectsJson()) return null;
+            if ($request->is('entregador/*')) return route('delivery.login');
+            return route('login');
+        });
+
         $middleware->alias([
             'tenant.scope' => TenantScopeMiddleware::class,
             'check.subscription' => CheckSubscription::class,

@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
+use App\Services\DeliveryNotificationService;
 use App\Services\EfiBank\TenantEfiBankService;
 use App\Services\PointsService;
 use App\Services\StockService;
@@ -65,13 +66,20 @@ class TableGrid extends Component
     public string $orderPaymentMethod = '';
     public ?float $cashAmount = null;
     public string $orderType = 'mesa';
+    public string $deliveryCep = '';
     public string $deliveryAddress = '';
     public string $deliveryReference = '';
     public string $notes = '';
     public string $addressSearch = '';
     public array $foundAddresses = [];
 
-    protected $listeners = ['orderUpdated' => '$refresh', 'notifyNewOrder'];
+    protected $listeners = [
+        'orderUpdated' => '$refresh',
+        'notifyNewOrder',
+        'delivery-order-accepted' => 'notifyDeliveryAccepted',
+        'delivery-order-picked-up' => 'notifyDeliveryPickedUp',
+        'delivery-order-delivered' => 'notifyDeliveryDelivered',
+    ];
 
     public function mount(): void
     {
@@ -82,6 +90,24 @@ class TableGrid extends Component
     public function notifyNewOrder(): void
     {
         $this->dispatch('notify', message: 'Novo pedido recebido!');
+    }
+
+    public function notifyDeliveryAccepted(array $params): void
+    {
+        $name = $params['deliveryName'] ?? '';
+        $this->dispatch('notify', message: "Pedido #{$params['orderId']} aceito por {$name}");
+    }
+
+    public function notifyDeliveryPickedUp(array $params): void
+    {
+        $name = $params['deliveryName'] ?? '';
+        $this->dispatch('notify', message: "{$name} saiu para entrega do pedido #{$params['orderId']}");
+    }
+
+    public function notifyDeliveryDelivered(array $params): void
+    {
+        $name = $params['deliveryName'] ?? '';
+        $this->dispatch('notify', message: "Pedido #{$params['orderId']} entregue por {$name}");
     }
 
     public function selectTable(int $tableId): void
@@ -581,6 +607,7 @@ class TableGrid extends Component
         $this->orderingTableId = $tableId;
         $this->orderingTableNumber = $tableNumber;
         $this->orderType = 'mesa';
+        $this->deliveryCep = '';
         $this->deliveryAddress = '';
         $this->deliveryReference = '';
         $this->resetCart();
@@ -595,6 +622,7 @@ class TableGrid extends Component
         $this->orderingTableId = null;
         $this->orderingTableNumber = null;
         $this->orderType = 'entrega';
+        $this->deliveryCep = '';
         $this->deliveryAddress = '';
         $this->deliveryReference = '';
         $this->resetCart();
@@ -609,6 +637,7 @@ class TableGrid extends Component
         $this->orderingTableId = null;
         $this->orderingTableNumber = null;
         $this->orderType = 'retirada';
+        $this->deliveryCep = '';
         $this->deliveryAddress = '';
         $this->deliveryReference = '';
         $this->resetCart();
@@ -623,6 +652,7 @@ class TableGrid extends Component
         $this->orderingTableId = null;
         $this->orderingTableNumber = null;
         $this->orderType = '';
+        $this->deliveryCep = '';
         $this->deliveryAddress = '';
         $this->deliveryReference = '';
         $this->resetCart();
@@ -754,6 +784,7 @@ class TableGrid extends Component
             $addressData = null;
             if ($this->orderType === 'entrega' && $this->deliveryAddress) {
                 $addressData = [
+                    'zipcode' => $this->deliveryCep,
                     'address' => $this->deliveryAddress,
                     'reference' => $this->deliveryReference,
                 ];
@@ -794,6 +825,10 @@ class TableGrid extends Component
         $this->dispatch('orderUpdated');
         $this->dispatch('notifyNewOrder');
         $this->dispatch('notify', message: "Pedido #{$orderId} criado com sucesso!");
+
+        if ($this->orderType === 'entrega') {
+            app(DeliveryNotificationService::class)->newOrderAvailable($order);
+        }
     }
 
     public function updatedAddressSearch(): void

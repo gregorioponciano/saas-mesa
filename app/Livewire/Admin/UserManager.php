@@ -15,6 +15,7 @@ class UserManager extends Component
     public string $password = '';
     public string $passwordConfirmation = '';
     public string $role = 'atendente';
+    public string $phone = '';
 
     public ?int $confirmDeleteUserId = null;
 
@@ -23,6 +24,7 @@ class UserManager extends Component
         $rules = [
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255',
+            'phone' => 'nullable|string|max:20',
             'role' => 'required|in:admin,atendente,cliente',
         ];
 
@@ -49,7 +51,7 @@ class UserManager extends Component
     public function resetForm(): void
     {
         $this->reset([
-            'showForm', 'editingUserId', 'name', 'email', 'password',
+            'showForm', 'editingUserId', 'name', 'email', 'phone', 'password',
             'passwordConfirmation', 'role', 'confirmDeleteUserId',
         ]);
         $this->resetValidation();
@@ -67,6 +69,7 @@ class UserManager extends Component
         $this->editingUserId = $user->id;
         $this->name = $user->name;
         $this->email = $user->email;
+        $this->phone = $user->phone ?? '';
         $this->role = $user->role;
         $this->password = '';
         $this->passwordConfirmation = '';
@@ -92,6 +95,7 @@ class UserManager extends Component
         $data = [
             'name' => $this->name,
             'email' => $this->email,
+            'phone' => $this->phone,
             'role' => $this->role,
             'is_staff' => in_array($this->role, ['admin', 'atendente']),
         ];

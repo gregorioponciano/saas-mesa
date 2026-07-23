@@ -520,7 +520,7 @@
                             <div class="mt-3 space-y-3 p-4 rounded-xl bg-neutral-800/30 border border-neutral-700/50" x-data="{
                                 viaCepLoading: false,
                                 async searchCep() {
-                                    let cep = $wire.deliveryAddress.replace(/\D/g, '').slice(0, 8);
+                                    let cep = ($wire.deliveryCep || '').replace(/\D/g, '').slice(0, 8);
                                     if (cep.length !== 8) return;
                                     this.viaCepLoading = true;
                                     try {
@@ -536,6 +536,14 @@
                                     this.viaCepLoading = false;
                                 }
                             }">
+                                <div class="relative">
+                                    <label class="block text-xs font-medium text-neutral-400 mb-1.5">CEP</label>
+                                    <input wire:model="deliveryCep" type="text" placeholder="00000-000" maxlength="9"
+                                           x-on:blur="searchCep"
+                                           x-on:input="if ($event.target.value.replace(/\D/g, '').length === 8) searchCep()"
+                                           class="w-full px-3.5 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
+                                    <div x-show="viaCepLoading" class="absolute right-2.5 top-8"><svg class="w-4 h-4 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></div>
+                                </div>
                                 <div class="relative">
                                     <label class="block text-xs font-medium text-neutral-400 mb-1.5">Buscar Endereco de Cliente</label>
                                     <div class="relative">
@@ -557,9 +565,7 @@
                                 <div class="relative">
                                     <label class="block text-xs font-medium text-neutral-400 mb-1.5">Endereco de Entrega *</label>
                                     <input wire:model="deliveryAddress" type="text" placeholder="Rua, numero, bairro, cidade"
-                                           x-on:blur="searchCep"
                                            class="w-full px-3.5 py-2 rounded-xl bg-neutral-900 border border-neutral-700 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all">
-                                    <div x-show="viaCepLoading" class="absolute right-2.5 top-8"><svg class="w-4 h-4 animate-spin text-amber-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></div>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-medium text-neutral-400 mb-1.5">Ponto de Referencia</label>
