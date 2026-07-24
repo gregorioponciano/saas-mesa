@@ -166,81 +166,93 @@
 
                     @if ($orderDetail)
                         @foreach ((array) $orderDetail as $group)
-                            <div class="p-5 rounded-2xl bg-neutral-900/50 border border-neutral-800 mb-4 {{ count((array) $orderDetail) > 1 ? 'border-l-4 border-l-amber-500/50' : '' }}">
-                                <p class="font-semibold text-lg mb-4">{{ $group['customer_name'] ?? 'Cliente' }}</p>
-
-                                @foreach ($group['orders'] as $detail)
-                                    <div class="{{ !$loop->first ? 'mt-4 pt-4 border-t border-neutral-800' : '' }}">
-                                        <div class="flex items-center justify-between mb-3">
-                                            <p class="text-xs text-neutral-500">Pedido #{{ $detail['id'] }}</p>
-                                            <span class="px-3 py-1.5 text-xs font-semibold rounded-full border {{ $detail['statusColor'] }}">
-                                                {{ $detail['statusLabel'] }}
-                                            </span>
+                            @foreach ($group['orders'] as $detail)
+                                @php
+                                    $nextStatus = $detail['nextStatus'] ?? null;
+                                    $nextStatusLabel = $detail['nextStatusLabel'] ?? 'Avancar';
+                                    $isFechado = in_array($detail['status'], ['fechado', 'cancelado']);
+                                @endphp
+                                <div class="p-5 rounded-2xl bg-neutral-900/50 border border-neutral-800 mb-4 {{ count((array) $orderDetail) > 1 ? 'border-l-4 border-l-amber-500/50' : '' }}">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <div>
+                                            <p class="font-semibold text-lg">{{ $detail['customer_name'] ?? 'Cliente' }}</p>
+                                            <div class="flex items-center gap-2 mt-1">
+                                                <span class="text-xs text-neutral-500">Pedido #{{ $detail['id'] }}</span>
+                                                <span class="text-xs text-neutral-500">&middot;</span>
+                                                <span class="text-xs text-neutral-500">{{ $detail['created_at'] }}</span>
+                                                <span class="text-xs text-neutral-500">&middot;</span>
+                                                <span class="text-xs font-semibold px-1.5 py-0.5 rounded-full {{ $detail['type'] === 'mesa' ? 'bg-blue-500/20 text-blue-400' : ($detail['type'] === 'entrega' ? 'bg-green-500/20 text-green-400' : 'bg-purple-500/20 text-purple-400') }}">
+                                                    {{ $detail['type'] === 'mesa' ? 'Mesa' : ($detail['type'] === 'entrega' ? 'Entrega' : 'Retirada') }}
+                                                </span>
+                                            </div>
                                         </div>
-
-                                        <div class="space-y-2 mb-3">
-                                            @foreach ($detail['items'] as $item)
-                                                <div class="flex items-center justify-between p-3 rounded-xl bg-neutral-800/50">
-                                                    <div class="flex items-center gap-3">
-                                                        <span class="w-6 h-6 rounded-lg bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-300">
-                                                            {{ $item['quantity'] }}
-                                                        </span>
-                                                        <span class="text-sm">{{ $item['product_name'] }}</span>
-                                                    </div>
-                                                    <span class="text-sm text-neutral-300 font-medium">
-                                                        R$ {{ number_format($item['price'] * $item['quantity'], 2, ',', '.') }}
-                                                    </span>
-                                                </div>
-                                            @endforeach
-                                        </div>
-
-                                        @php
-                                            $nextStatus = $detail['nextStatus'] ?? null;
-                                            $nextStatusLabel = $detail['nextStatusLabel'] ?? 'Avancar';
-                                            $isFechado = in_array($detail['status'], ['fechado', 'cancelado']);
-                                        @endphp
-                                        <div class="flex flex-wrap gap-2 mt-3">
-                                            @if ($nextStatus && !$isFechado)
-                                                <button wire:click="advanceOrder({{ $detail['id'] }})"
-                                                        class="flex-1 min-w-[120px] py-3 px-4 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]">
-                                                    {{ $nextStatusLabel }}
-                                                </button>
-                                            @endif
-                                            @if (!in_array($detail['status'], ['fechado', 'cancelado']) && !$isFechado)
-                                                <button wire:click="updateOrderStatus({{ $detail['id'] }}, 'cancelado')"
-                                                        class="flex-1 min-w-[120px] py-3 px-4 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 font-semibold rounded-xl transition-all duration-200">
-                                                    Cancelar Pedido
-                                                </button>
-                                            @endif
-                                            @if (!$isFechado && in_array($detail['status'], ['entregue']) && ($detail['pending_payment'] ?? 0) > 0)
-                                                <button wire:click="openPaymentModal({{ $detail['id'] }})"
-                                                        class="flex-1 min-w-[120px] py-3 px-4 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold rounded-xl transition-all duration-200">
-                                                    Registrar Pagamento
-                                                </button>
-                                            @endif
-                                            @if (!$isFechado)
-                                                <button wire:click="openAddItem({{ $detail['id'] }})"
-                                                        class="flex-1 min-w-[120px] py-3 px-4 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 font-semibold rounded-xl transition-all duration-200">
-                                                    + Adicionar Item
-                                                </button>
-                                            @endif
-                                        </div>
+                                        <span class="px-3 py-1.5 text-xs font-semibold rounded-full border {{ $detail['statusColor'] }}">{{ $detail['statusLabel'] }}</span>
                                     </div>
-                                @endforeach
-
-                                <div class="flex items-center justify-between pt-4 mt-4 border-t border-neutral-800">
-                                    <span class="text-lg font-bold">Total</span>
-                                    <span class="text-xl font-bold text-amber-400">R$ {{ number_format($group['total'], 2, ',', '.') }}</span>
+                                    @if ($detail['customer_phone'])
+                                        <div class="flex items-center gap-2 text-xs text-neutral-400 mb-4">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                            <span>{{ $detail['customer_phone'] }}</span>
+                                        </div>
+                                    @endif
+                                    <div class="space-y-2 mb-4">
+                                        @foreach ($detail['items'] as $item)
+                                            <div class="flex items-center justify-between p-3 rounded-xl bg-neutral-800/50 {{ $item['is_cancelled'] ?? false ? 'opacity-50 line-through' : '' }}">
+                                                <div class="flex items-center gap-3">
+                                                    <span class="w-6 h-6 rounded-lg bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-300">{{ $item['quantity'] }}</span>
+                                                    <span class="text-sm">{{ $item['product_name'] }}</span>
+                                                    @if ($item['is_points_item'] ?? false)
+                                                        <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400">Pontos</span>
+                                                    @endif
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-sm text-neutral-300 font-medium">R$ {{ number_format($item['subtotal'], 2, ',', '.') }}</span>
+                                                    @if (!$isFechado && !($item['is_cancelled'] ?? false))
+                                                        <button wire:click="cancelItem({{ $item['id'] }})" wire:loading.attr="disabled"
+                                                                class="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-50"
+                                                                title="Remover item">
+                                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                        </button>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    @php
+                                        $nextStatus = $detail['nextStatus'] ?? null;
+                                        $nextStatusLabel = $detail['nextStatusLabel'] ?? 'Avancar';
+                                        $isFechado = in_array($detail['status'], ['fechado', 'cancelado']);
+                                    @endphp
+                                    <div class="flex items-center justify-between pt-4 border-t border-neutral-800 mb-4">
+                                        <span class="text-lg font-bold">Total</span>
+                                        <span class="text-xl font-bold text-amber-400">R$ {{ number_format($detail['total'], 2, ',', '.') }}</span>
+                                    </div>
+                                    @if ($detail['has_payment'] ?? false)
+                                        <div class="mb-4 text-xs text-emerald-400 font-medium">Pagamento registrado</div>
+                                    @endif
+                                    <div class="flex flex-wrap gap-2">
+                                        @if ($nextStatus && !$isFechado)
+                                            <button wire:click="advanceOrder({{ $detail['id'] }})"
+                                                    class="flex-1 min-w-[120px] py-3 px-4 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all hover:scale-[1.01] active:scale-[0.99]">{{ $nextStatusLabel }}</button>
+                                        @endif
+                                        @if (!in_array($detail['status'], ['fechado', 'cancelado']) && !$isFechado)
+                                            <button wire:click="updateOrderStatus({{ $detail['id'] }}, 'cancelado')"
+                                                    class="flex-1 min-w-[120px] py-3 px-4 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 font-semibold rounded-xl transition-all">Cancelar Pedido</button>
+                                        @endif
+                                        @if (!$isFechado && in_array($detail['status'], ['entregue']) && ($detail['pending_payment'] ?? 0) > 0)
+                                            <button wire:click="openPaymentModal({{ $detail['id'] }})"
+                                                    class="flex-1 min-w-[120px] py-3 px-4 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold rounded-xl transition-all">Registrar Pagamento</button>
+                                        @endif
+                                        @if (!$isFechado)
+                                            <button wire:click="openAddItem({{ $detail['id'] }})"
+                                                    class="flex-1 min-w-[120px] py-3 px-4 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 font-semibold rounded-xl transition-all">+ Adicionar Item</button>
+                                        @endif
+                                    </div>
                                 </div>
-
-                                @if ($group['has_payment'])
-                                    <div class="mt-2 text-xs text-emerald-400 font-medium">Pagamento registrado</div>
-                                @endif
-                            </div>
+                            @endforeach
                         @endforeach
 
                         @if ($selectedTable && $selectedTable->status === 'occupied')
-                            @php $tableTotal = $orderDetail ? array_sum(array_column($orderDetail, 'total')) : 0; @endphp
+                            @php $tableTotal = $orderDetail ? array_sum(array_map(fn($g) => array_sum(array_column($g['orders'], 'total')), $orderDetail)) : 0; @endphp
                             <button wire:click="openCloseTableModal({{ $selectedTable->id }})" wire:loading.attr="disabled"
                                     class="w-full py-3.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold rounded-xl transition-all disabled:opacity-50 mb-3">
                                 Fechar Conta da Mesa {{ $selectedTable->number }} (R$ {{ number_format($tableTotal, 2, ',', '.') }})

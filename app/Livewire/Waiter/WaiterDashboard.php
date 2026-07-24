@@ -450,18 +450,16 @@ class WaiterDashboard extends Component
         $this->showAddItemModal = false;
         $this->addItemProductId = null;
         $this->addItemQuantity = 1;
-        $this->viewOrder($order->id);
+        $this->loadOrderDetail();
+        if ($this->showOrderModal && $this->viewingOrderId === $order->id) {
+            $this->viewOrder($order->id);
+        }
         $this->dispatch('notify', message: "{$product->name} adicionado ao pedido #{$order->id}!");
         $this->dispatch('orderUpdated');
     }
 
     public function removeItemFromOrder(int $itemId): void
     {
-        if (!Auth::user()->isAdmin()) {
-            $this->dispatch('notify', message: 'Apenas administradores podem remover itens.');
-            return;
-        }
-
         $item = OrderItem::with('order')->findOrFail($itemId);
         $order = $item->order;
 
@@ -487,7 +485,15 @@ class WaiterDashboard extends Component
         $item->delete();
         $order->decrement('total', $subtotal);
 
-        $this->viewOrder($order->id);
+        $remainingActive = $order->items()->count();
+        if ($remainingActive === 0 && !$order->isBillClosed()) {
+            $order->update(['status' => 'cancelado']);
+        }
+
+        $this->loadOrderDetail();
+        if ($this->showOrderModal && $this->viewingOrderId === $order->id) {
+            $this->viewOrder($order->id);
+        }
         $this->dispatch('notify', message: 'Item removido do pedido!');
         $this->dispatch('orderUpdated');
     }

@@ -26,6 +26,12 @@
 
             @if ($orderDetail)
                 @foreach ((array) $orderDetail as $detail)
+                    @php
+                        $nextStatus = $detail['nextStatus'] ?? null;
+                        $nextStatusLabel = $detail['nextStatusLabel'] ?? 'Avancar';
+                        $isFechado = in_array($detail['status'], ['fechado', 'cancelado']);
+                        $hasPayment = $detail['has_payment'] ?? false;
+                    @endphp
                     <div class="p-5 rounded-2xl bg-neutral-900/50 border border-neutral-800 mb-4 {{ count((array) $orderDetail) > 1 ? 'border-l-4 border-l-amber-500/50' : '' }}">
                         <div class="flex items-center justify-between mb-4">
                             <div>
@@ -50,12 +56,24 @@
                         @endif
                         <div class="space-y-2 mb-4">
                             @foreach ($detail['items'] as $item)
-                                <div class="flex items-center justify-between p-3 rounded-xl bg-neutral-800/50">
+                                <div class="flex items-center justify-between p-3 rounded-xl bg-neutral-800/50 {{ $item['is_cancelled'] ?? false ? 'opacity-50 line-through' : '' }}">
                                     <div class="flex items-center gap-3">
                                         <span class="w-6 h-6 rounded-lg bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-300">{{ $item['quantity'] }}</span>
                                         <span class="text-sm">{{ $item['product_name'] }}</span>
+                                        @if ($item['is_points_item'] ?? false)
+                                            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400">Pontos</span>
+                                        @endif
                                     </div>
-                                    <span class="text-sm text-neutral-300 font-medium">R$ {{ number_format($item['subtotal'], 2, ',', '.') }}</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm text-neutral-300 font-medium">R$ {{ number_format($item['subtotal'], 2, ',', '.') }}</span>
+                                        @if (!$isFechado && !($item['is_cancelled'] ?? false))
+                                            <button wire:click="removeItemFromOrder({{ $item['id'] }})" wire:loading.attr="disabled"
+                                                    class="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-50"
+                                                    title="Remover item">
+                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        @endif
+                                    </div>
                                 </div>
                             @endforeach
                         </div>
@@ -63,12 +81,6 @@
                             <span class="text-lg font-bold">Total</span>
                             <span class="text-xl font-bold text-amber-400">R$ {{ number_format($detail['total'], 2, ',', '.') }}</span>
                         </div>
-                        @php
-                            $nextStatus = $detail['nextStatus'] ?? null;
-                            $nextStatusLabel = $detail['nextStatusLabel'] ?? 'Avancar';
-                            $isFechado = in_array($detail['status'], ['fechado', 'cancelado']);
-                            $hasPayment = $detail['has_payment'] ?? false;
-                        @endphp
                         <div class="flex flex-wrap gap-2 mt-4">
                             @if ($nextStatus && !$isFechado)
                                 <button wire:click="updateOrderStatus({{ $detail['id'] }}, '{{ $nextStatus }}')" wire:loading.attr="disabled"
@@ -81,6 +93,10 @@
                             @if (!$isFechado && in_array($detail['status'], ['entregue']) && ($detail['pending_payment'] ?? 0) > 0)
                                 <button wire:click="openPaymentModal({{ $detail['id'] }})" wire:loading.attr="disabled"
                                                                         class="flex-1 min-w-[120px] py-3 px-4 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold rounded-xl transition-all disabled:opacity-50">Registrar Pagamento</button>
+                            @endif
+                            @if (!$isFechado)
+                                <button wire:click="openAddItem({{ $detail['id'] }})" wire:loading.attr="disabled"
+                                                                        class="flex-1 min-w-[120px] py-3 px-4 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/20 font-semibold rounded-xl transition-all">+ Adicionar Item</button>
                             @endif
                         </div>
                         @if ($detail['has_payment'] ?? false)
