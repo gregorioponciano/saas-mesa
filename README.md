@@ -4,9 +4,9 @@
 
 # SaaS Mesa
 
-Sistema multi-tenant de gestão de mesas e pedidos para restaurantes, com cardápio digital, painel de garçom, painel web e API mobile de entregador, notificações, favoritos do cliente, fidelidade/cupons e **3 camadas de pagamento via EfiBank**.
+Sistema multi-tenant de gestão de mesas e pedidos para restaurantes, com cardápio digital, painel de garçom, painel/API de entregador, fidelidade/cupons e **3 camadas de pagamento via EfiBank**.
 
-> ⚠️ **Status**: o backend (API, regras de negócio, multi-tenancy, pagamentos, delivery) está maduro. O **painel do dono da plataforma (superadmin)** existe apenas como API JSON — ainda não tem interface web. Veja [Pendências](#pendências--roadmap).
+> ⚠️ **Status**: o backend (API, regras de negócio, multi-tenancy, pagamentos, delivery) está maduro. O **painel do dono da plataforma (superadmin)** existe apenas como API JSON — ainda não tem interface web.
 
 ---
 
@@ -16,6 +16,7 @@ Sistema multi-tenant de gestão de mesas e pedidos para restaurantes, com cardá
 - [Stack](#stack)
 - [Arquitetura multi-tenant](#arquitetura-multi-tenant)
 - [Papéis de usuário](#papéis-de-usuário)
+- [Planos da plataforma](#planos-da-plataforma)
 - [Módulos e funcionalidades](#módulos-e-funcionalidades)
 - [3 camadas de pagamento](#3-camadas-de-pagamento)
 - [Segurança](#segurança)
@@ -36,15 +37,15 @@ Sistema multi-tenant de gestão de mesas e pedidos para restaurantes, com cardá
 
 O SaaS Mesa permite que restaurantes assinem a plataforma e, cada um em seu próprio subdomínio, operem:
 
-- Cardápio digital público, com carrinho, favoritos e pedido pelo cliente
+- Cardápio digital público, com carrinho e pedido pelo cliente
 - Painel administrativo do restaurante (mesas, cardápio, usuários, cupons, fidelidade, entregadores, financeiro, suporte)
-- Painel do garçom para atender mesas presencialmente
+- Painel do garçom para atender mesas presencialmente (plano Premium)
 - Área do cliente final para acompanhar pedidos e pontos de fidelidade
-- **Painel web + API mobile de entregadores**, com login próprio, notificações em tempo quase real e convite por token
-- Rastreio público de pedido (sem necessidade de login)
+- Painel web (`/entregador`) e API mobile (`/api/delivery`) de entregadores, com convite por token
+- Rastreio público de pedido, sem necessidade de login
 - Cobrança do cliente final via Pix/Boleto (EfiBank), e cobrança do próprio restaurante pela assinatura da plataforma
 
-Quem administra a plataforma como um todo (o dono do SaaS) gerencia planos, assinaturas dos tenants, financeiro consolidado e liga/desliga o programa de fidelidade por tenant — hoje só via API.
+Quem administra a plataforma como um todo (o dono do SaaS) gerencia planos, assinaturas dos tenants e financeiro consolidado — hoje só via API.
 
 ## Stack
 
@@ -53,9 +54,9 @@ Quem administra a plataforma como um todo (o dono do SaaS) gerencia planos, assi
 | Backend | Laravel 13 (PHP 8.3+) |
 | Frontend | Livewire 4, Alpine.js 3, Tailwind CSS 4 (Vite) |
 | Banco de dados | MySQL 8+ (SQLite em testes) |
-| Cache / Fila | Redis |
-| Autenticação de API | Laravel Sanctum (tokens de entregador e superadmin) |
-| Pagamentos | EfiBank (ex-Gerencianet) — Pix, Boleto, Cartão |
+| Cache / Fila / Sessão | Redis |
+| Autenticação de API | Laravel Sanctum (guard `delivery`) |
+| Pagamentos | EfiBank (ex-Gerencianet) — Pix, Boleto |
 | QR Code | endroid/qr-code |
 | Markdown (termos de uso) | league/commonmark |
 | Testes | Pest 4 |
@@ -70,17 +71,28 @@ Middleware:  ResolveTenant → CheckTenantSubscription / CheckSubscription → A
 Scope:       BelongsToTenant trait → WHERE tenant_id = ? em TODAS as queries do tenant
 ```
 
-Cada `Tenant` tem: `plan` (`free` | `paid`), `max_tables`, `status`, período de trial, além de configurações próprias (horário de funcionamento, WhatsApp, logo, SMTP, cupons habilitados, custo de entrega). O `TenantObserver` reage a mudanças de plano — por exemplo, desativa automaticamente o módulo de fidelidade quando o tenant sai do plano pago (via `PointsService::disableForTenant`).
+Cada `Tenant` tem: `plan` (`free` | `paid`), `max_tables`, `status`, período de trial, além de configurações próprias (horário de funcionamento, WhatsApp, logo, SMTP, cupons habilitados, custo de entrega). O `TenantObserver` reage a mudanças de plano: quando um tenant deixa de ser `paid`, desativa automaticamente o módulo de fidelidade (`PointsService::disableForTenant`).
 
 ## Papéis de usuário
 
 | Papel | Onde atua | Acesso |
 |---|---|---|
-| **superadmin** | Dono da plataforma (Gregório) | API `/api/superadmin/*` — gestão de planos, tenants e financeiro consolidado |
+| **superadmin** | Dono da plataforma | API `/api/superadmin/*` — gestão de planos, tenants e financeiro consolidado |
 | **admin** | Dono/gerente do restaurante (tenant) | `/dashboard/*` — painel completo do estabelecimento |
-| **atendente / garçom** | Staff do restaurante | `/painel/{slug}` — atendimento de mesas |
-| **entregador** | Delivery | `/entregador/*` (painel web) e `/api/delivery/*` (app mobile) — guards dedicados `delivery-web` (sessão) e `delivery` (Sanctum) |
+| **atendente / garçom** | Staff do restaurante | `/painel/{slug}` — atendimento de mesas (requer plano Premium) |
+| **entregador** | Delivery | `/entregador/*` (painel web, guard `delivery-web`) e `/api/delivery/*` (app mobile, guard `delivery` via Sanctum) |
 | **cliente** | Cliente final do restaurante | `/cardapio/{slug}` (público) e `/conta/{slug}` (logado) |
+
+## Planos da plataforma
+
+O sistema tem **apenas 2 planos** definidos hoje (constantes em `App\Models\Tenant` e seed em `SaasPlanSeeder`):
+
+| Plano | Preço | Mesas | Produtos | Usuários | Boleto | Relatórios | Delivery | Suporte prioritário |
+|---|---|---|---|---|---|---|---|---|
+| **Gratuito** (`free`) | R$ 0 | 2 | 20 | 2 | Não | Não | Não | Não |
+| **Premium** (`paid`) | R$ 97,90/mês | 50 | 999 | 20 | Sim | Sim | Sim | Sim |
+
+> Não há um plano "Enterprise" no código atual — se isso vier a existir, precisa ser criado em `SaasPlanSeeder` e nas constantes `Tenant::PLAN_*`.
 
 ## Módulos e funcionalidades
 
@@ -91,43 +103,42 @@ Cada `Tenant` tem: `plan` (`free` | `paid`), `max_tables`, `status`, período de
 - **Usuários** (`UserManager`) — equipe do restaurante
 - **Cupons** (`CouponManager`) — cupons de desconto
 - **Fidelidade** (`LoyaltyManager`) — pontos por compra, resgates (`CustomerPoint`, `PointsTransaction`, `LoyaltyConfig`)
-- **Entregadores** (`DeliveryPeopleManager`) — cadastro e convite de entregadores
+- **Entregadores** (`DeliveryPeopleManager`) — cadastro de entregadores
 - **Financeiro do tenant** (`Tenant\FinancialController`) — extrato de pagamentos recebidos, resumo
 - **Credenciais EfiBank** (`EfiCredentialsManager`) — chaves Pix/certificado do próprio restaurante, criptografadas
 - **Configuração de e-mail SMTP** (`SmtpSettings`) — envio de e-mails com servidor próprio do tenant
 - **Configurações gerais** (`Settings`) — dados da empresa, horários, logo
 - **Suporte** (`SupportManager`) — tickets de suporte (`SupportTicket`, `SupportTicketMessage`)
 - **Assinatura da plataforma** (`SubscriptionCheckout` + `SubscriptionController`) — contratar/cancelar plano do SaaS
-- **Contadores da sidebar** (`SidebarCounts`) — badges em tempo real (pedidos pendentes, tickets, etc.)
+- **Contadores da sidebar** (`SidebarCounts`) — atualizados por polling (`wire:poll` do Livewire, não websocket)
 
 ### Cardápio público e pedidos (`/cardapio/{slug}`)
 - Cardápio público (`Livewire\Public\Menu`) e carrinho (`Livewire\Public\Cart`, trait `HasCart`)
-- Favoritos do cliente (`UserFavorite`) — produtos marcados como favoritos no cardápio
 - Login/cadastro/recuperação de senha de garçom e cliente por tenant
 - Rastreio público de pedido, sem autenticação: `/pedido/{id}/rastreio` (web) e `/api/pedido/{id}/status` (API)
 
 ### Painel do garçom (`/painel/{slug}`, requer plano Premium)
-- `WaiterDashboard` — atendimento de mesas e pedidos em tempo real
-- `WaiterSidebarCounts` — contadores da sidebar
+- `WaiterDashboard` — atendimento de mesas e pedidos, com contadores via polling (`WaiterSidebarCounts`)
 - `WaiterSupport` — suporte
 
 ### Área do cliente final (`/conta/{slug}`)
-- `ClientDashboard` — histórico de pedidos, pontos de fidelidade
-- `ClientSidebarCounts` — contadores da sidebar
+- `ClientDashboard` — histórico de pedidos, pontos de fidelidade, contadores via polling (`ClientSidebarCounts`)
 - `SupportPage` — suporte
+- Favoritos de produto (model `UserFavorite`, relação `User` ↔ `Product`)
 
 ### Painel e API de entregadores
-- **Painel web** (`/entregador/*`, guard `delivery-web`): login, recuperação de senha, dashboard, aceitar/coletar/entregar pedido, alternar disponibilidade, configurações, notificações e logout — controller `Web\DeliveryWebController`
-- **Convite de entregador por token** (`/convidar/entregador/{token}`): fluxo de onboarding sem necessidade de cadastro manual pelo admin — `Web\DeliveryInviteController`
-- **API mobile** (`/api/delivery/*`, guard `delivery` via Sanctum, compatível com token legado): login, aceitar/recusar/coletar pedido, atualizar status, listar pedidos disponíveis e "meus pedidos", perfil — controller `Api\DeliveryController`
-- **Convite via API** (`Api\DeliveryInvitationController`) — variante do convite para app mobile
-- Notificações de entregador (`DeliveryNotificationService`, model `Notification` polimórfico) e políticas de acesso (`DeliveryPersonPolicy`)
+- **Painel web** (`/entregador/*`, guard `delivery-web`, sessão): login, recuperação de senha, dashboard (`Livewire\Delivery\DeliverySidebarCounts` para contadores), aceitar/coletar/entregar pedido, alternar disponibilidade, configurações, notificações e logout — controller `Web\DeliveryWebController`
+- **Convite de entregador por token**: `Web\DeliveryInviteController` (fluxo web) e `Api\DeliveryInvitationController` (fluxo mobile), permitindo que o entregador crie a própria conta a partir de um link enviado pelo restaurante
+- **API mobile** (`/api/delivery/*`, guard `delivery` via Sanctum, com compatibilidade explícita com token legado): login, aceitar/recusar/coletar pedido, atualizar status, listar pedidos disponíveis e "meus pedidos", perfil — controller `Api\DeliveryController`
+- **Regras de negócio de entrega** centralizadas em `App\Services\DeliveryService`
+- **Notificações de entregador** (`DeliveryNotificationService` + model `Notification`, relação polimórfica): notifica entregadores ativos quando surge um novo pedido de entrega disponível, e notifica o tenant quando o pedido é aceito/coletado/entregue. As notificações são consultadas via polling (`GET /entregador/notificacoes`), não por push/websocket.
+- **Regras de autorização** descritas em `App\Policies\DeliveryPersonPolicy` (quem pode ver/aceitar/recusar/atualizar um pedido de entrega, todas amarradas ao `tenant_id`)
 
 ### Painel do superadmin (dono do SaaS) — **somente API, sem UI**
-- Planos (`SaasPlan`): Free (R$ 0), Premium (R$ 97,90), Enterprise (R$ 199,90)
+- Planos (`SaasPlan`): CRUD via `apiResource` — hoje só existem os planos Gratuito e Premium (ver [Planos da plataforma](#planos-da-plataforma))
 - Gestão de tenants: listar, ver detalhes, suspender, reativar, trocar plano, forçar cobrança
-- Financeiro consolidado: MRR, tenants ativos/suspensos/trial, receita últimos 12 meses, extrato de pagamentos
-- Fidelidade: habilitar/desabilitar o módulo de pontos por tenant
+- Financeiro consolidado (`Superadmin\FinancialController::overview`): tenants ativos/suspensos/trial, MRR, total arrecadado, renovações pendentes nos próximos 7 dias, webhooks inválidos nas últimas 24h, receita mês a mês dos últimos 12 meses
+- Extrato de pagamentos com filtros por `status`, `tenant_id`, `date_from`, `date_to` e `method`
 
 ## 3 camadas de pagamento
 
@@ -135,11 +146,11 @@ Cada `Tenant` tem: `plan` (`free` | `paid`), `max_tables`, `status`, período de
 
 | Entidade | Descrição |
 |---|---|
-| `SaasPlan` | Planos (Free, Premium, Enterprise) |
+| `SaasPlan` | Planos da plataforma (Gratuito, Premium) |
 | `SaasSubscription` | Assinatura por tenant (`trial` → `active` → `past_due` → `suspended` → `cancelled`) |
 | `SaasPaymentHistory` | Histórico de pagamentos da assinatura |
 
-**Fluxo**: tenant se registra → `SaasSubscription` em trial (7 dias) → admin escolhe plano → `active` → vencimento sem pagamento → `past_due` → após `EFI_SUSPENSION_AFTER_DAYS` (padrão 5) → `suspended` (job automático) → webhook confirma pagamento → `active` novamente e tenant reativado.
+**Fluxo**: tenant se registra → `SaasSubscription` em trial → admin escolhe plano → `active` → vencimento sem pagamento → `past_due` → após `EFI_SUSPENSION_AFTER_DAYS` (padrão 5) → `suspended` (job automático) → webhook confirma pagamento → `active` novamente e tenant reativado.
 
 ### Camada 2 — Pagamentos internos (cliente paga a comanda)
 
@@ -149,7 +160,7 @@ Cada `Tenant` tem: `plan` (`free` | `paid`), `max_tables`, `status`, período de
 | `OrderPayment` | Pagamento do pedido (Pix/Boleto), com chave de idempotência |
 | `Order.payment_status` | `pending` \| `paid` |
 
-**Fluxo**: cliente solicita pagamento → `OrderPayment` criado (`processing`) → `EfiBankClient::forTenant()` gera cobrança Pix com as credenciais do tenant → webhook EfiBank → job `ProcessEfiBankWebhook` marca como `paid` → evento `OrderPaid` disparado (broadcast) → listener `NotifyOrderPaid` notifica os envolvidos.
+**Fluxo**: cliente solicita pagamento → `OrderPayment` criado → `EfiBankClient::forTenant()` gera cobrança Pix com as credenciais do tenant → webhook EfiBank → job `ProcessEfiBankWebhook` marca como `paid` → evento `App\Events\OrderPaid` é disparado. O evento implementa `ShouldBroadcast` no canal `tenant.{tenant_id}.orders` (evento `order.paid`) — **por padrão o `.env.example` traz `BROADCAST_CONNECTION=log`**, então esse broadcast só chega ao navegador se um driver real (Reverb/Pusher/Ably) for configurado em produção. O listener `NotifyOrderPaid` reage a esse evento concedendo os pontos de fidelidade do pedido via `PointsService::grantPointsForOrder`.
 
 ### Camada 3 — Billing interno da empresa
 
@@ -164,21 +175,19 @@ Cada `Tenant` tem: `plan` (`free` | `paid`), `max_tables`, `status`, período de
 |---|---|---|
 | 1 | Vazamento cross-tenant | `BelongsToTenant` trait + `TenantScope` global em todas as queries |
 | 2 | Credenciais em texto plano | AES-256-GCM (`EncryptedCredentialService`) |
-| 3 | Webhook sem validação | HMAC-SHA256 obrigatório (`ValidateWebhookSignature`) + fila + idempotência, com exceção explícita de CSRF apenas para `webhook/efi/*` |
-| 4 | Força bruta no login | `throttle:5,1` a `throttle:10,1` nas rotas de auth (web, entregador e API) |
-| 5 | Timeout EfiBank | Toda operação sensível via Job na fila, com retries |
+| 3 | Webhook sem validação | HMAC obrigatório (`ValidateWebhookSignature`) + fila + idempotência; CSRF é explicitamente desabilitado só para `webhook/efi/*` |
+| 4 | Força bruta no login | `throttle` (5 ou 10 requisições/minuto conforme a rota) nas rotas de auth web, entregador e API |
+| 5 | Timeout EfiBank | Operações sensíveis via Job na fila |
 | 6 | Cobrança duplicada | `idempotency_key` único na criação de pagamentos |
 | 7 | Tenant suspenso acessando o sistema | `CheckTenantSubscription` / `CheckSubscription` bloqueiam o acesso |
-| 8 | Acesso indevido entre papéis | Middlewares dedicados: `CheckAdminRole`, `CheckRole`, `CheckStaffRole`, `EnsureStaffAccess` + `DeliveryPersonPolicy` |
-| 9 | Headers HTTP | `SecurityHeaders` aplica CSP, HSTS, X-Frame-Options etc. em toda rota web e API |
+| 8 | Acesso indevido entre papéis | Middlewares dedicados: `CheckAdminRole`, `CheckRole`, `CheckStaffRole`, `EnsureStaffAccess` |
+| 9 | Headers HTTP | `SecurityHeaders` aplica em toda rota web e API: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Content-Security-Policy` (própria política, ver abaixo) e `Permissions-Policy: camera=(), microphone=(), geolocation=()`. `Strict-Transport-Security` só é enviado quando `APP_ENV=production` |
 | 10 | Garçom/cliente/entregador acessando dados de outro tenant | Verificação explícita `tenant_id` nas rotas de painel/conta, além do scope global |
-| 11 | Redirecionamento de convidados | `redirectGuestsTo` diferencia rotas de entregador (`entregador/*` → `delivery.login`) das demais (→ `login`) |
 
 ```
-Content-Security-Policy: default-src 'self'; ...
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.saasmesa.com.br; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.efipay.com.br https://*.saasmesa.com.br; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'
 X-Frame-Options: DENY
 X-Content-Type-Options: nosniff
-Strict-Transport-Security: max-age=31536000; includeSubDomains
 Referrer-Policy: strict-origin-when-cross-origin
 Permissions-Policy: camera=(), microphone=(), geolocation=()
 ```
@@ -215,9 +224,9 @@ composer install --no-interaction
 php artisan key:generate
 
 # 5. Gerar a chave de criptografia das credenciais dos tenants
-# (32 bytes em base64 — não há comando artisan dedicado no projeto atual)
+# Não existe comando artisan dedicado no código atual — gerar manualmente:
 php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"
-# Cole o resultado em TENANT_CREDENTIAL_ENCRYPTION_KEY no .env
+# Colar o resultado em TENANT_CREDENTIAL_ENCRYPTION_KEY no .env
 
 # 6. Criar o banco de dados
 mysql -u root -p -e "CREATE DATABASE saas_mesa CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
@@ -236,7 +245,6 @@ npm run build
 php artisan storage:link
 
 # 11. Configurar Supervisor (queue worker) — ver seção Deploy
-# sudo supervisorctl start saas-mesa-worker:*
 
 # 12. Configurar o crontab para o agendador
 # * * * * * cd /caminho/para/saas-mesa && php artisan schedule:run >> /dev/null 2>&1
@@ -248,20 +256,18 @@ php artisan saas:create-superadmin
 php artisan test
 ```
 
-> ⚠️ O `composer.json` também define um script `composer setup`, que encadeia `composer install`, cópia do `.env`, `key:generate`, `migrate --force` e build do frontend — útil para provisionamento rápido em ambiente de desenvolvimento/CI, mas **não substitui** o passo de gerar `TENANT_CREDENTIAL_ENCRYPTION_KEY` nem `saas:create-superadmin`, que continuam manuais.
+O `composer.json` também define um script `composer setup` (install → copiar `.env` → `key:generate` → `migrate --force` → `npm install --ignore-scripts` → `npm run build`), útil para provisionar rápido — mas ele **não** gera a `TENANT_CREDENTIAL_ENCRYPTION_KEY` nem cria o superadmin; esses dois passos continuam manuais.
 
 ## Ambiente de desenvolvimento
 
 ```bash
 composer run dev
-# Roda em paralelo:
+# Roda em paralelo (via concurrently):
 #   - php artisan serve
 #   - php artisan queue:listen --tries=1 --timeout=0
 #   - php artisan pail --timeout=0
 #   - npm run dev
 ```
-
-Ou manualmente, em terminais separados: `php artisan serve`, `php artisan queue:listen --tries=1 --timeout=0`, `php artisan pail`, `npm run dev`.
 
 ### Comandos úteis
 
@@ -276,7 +282,7 @@ php artisan migrate:status          # status das migrations
 
 ## Variáveis de ambiente
 
-O `.env.example` do projeto é extenso e comentado (sessão, broadcasting, fila, cache, e-mail, etc.). Os blocos específicos do domínio do SaaS Mesa são:
+O `.env.example` do projeto é extenso (sessão, broadcasting, fila, cache, e-mail etc., com a maioria comentada/opcional). Os blocos específicos do domínio do SaaS Mesa que precisam ser preenchidos são:
 
 ```env
 # App
@@ -305,7 +311,7 @@ TENANT_SUBDOMAIN_PATTERN=*.saasmesa.com.br
 # Admin (recebe alertas críticos do sistema)
 ADMIN_EMAIL=gregorio@saasmesa.com.br
 
-# Redis (obrigatório para fila, cache e sessão)
+# Redis (padrão para fila, cache e sessão)
 REDIS_HOST=127.0.0.1
 QUEUE_CONNECTION=redis
 CACHE_STORE=redis
@@ -371,10 +377,10 @@ GET  /conta/{slug}/suporte          → Suporte
 ### Painel web do entregador (`/entregador`, guard `delivery-web`)
 ```
 GET|POST /entregador/login                       → Login                    (throttle:10,1)
-GET|POST /entregador/recuperar-senha             → Recuperação de senha     (throttle:10,1)
-GET|POST /entregador/redefinir-senha/{token}     → Redefinição de senha     (throttle:10,1)
+GET|POST /entregador/recuperar-senha             → Recuperação de senha     (throttle:5,1)
+GET|POST /entregador/redefinir-senha/{token}     → Redefinição de senha     (throttle:5,1)
 GET  /entregador/painel                          → Dashboard
-GET  /entregador/notificacoes                    → Notificações (JSON, polling)
+GET  /entregador/notificacoes                    → Notificações (JSON, consultado por polling)
 POST /entregador/notificacoes/{notification}/ler → Marcar notificação como lida
 POST /entregador/pedidos/{order}/aceitar         → Aceitar pedido
 POST /entregador/pedidos/{order}/coletar         → Marcar como coletado
@@ -415,7 +421,7 @@ GET /api/pedido/{id}/status         → Status do pedido (sem autenticação)
 ```
 GET  /api/delivery/invitation/{token}       → Ver convite               (throttle:10,1)
 POST /api/delivery/invitation/{token}       → Aceitar convite            (throttle:10,1)
-GET  /api/delivery/login                    → Redireciona para o painel web se acessado via navegador
+GET  /api/delivery/login                    → Redireciona para o painel web se acessado via navegador (throttle:10,1)
 POST /api/delivery/login                    → Login                     (throttle:10,1)
 POST /api/delivery/logout                                                (throttle:60,1)
 GET  /api/delivery/orders                   → Pedidos disponíveis        (throttle:60,1)
@@ -436,8 +442,8 @@ POST /api/superadmin/tenants/{id}/suspend
 POST /api/superadmin/tenants/{id}/reactivate
 PUT  /api/superadmin/tenants/{id}/plan
 POST /api/superadmin/tenants/{id}/force-charge
-GET  /api/superadmin/financial/overview               → MRR, tenants ativos/suspensos, receita 12 meses
-GET  /api/superadmin/financial/payments                → Extrato geral de pagamentos (filtros: status, tenant_id, datas, método)
+GET  /api/superadmin/financial/overview               → Tenants ativos/suspensos/trial, MRR, receita 12 meses etc.
+GET  /api/superadmin/financial/payments                → Extrato geral (filtros: status, tenant_id, date_from, date_to, method)
 GET  /api/superadmin/financial/tenant/{tenant}          → Extrato de um tenant específico
 GET  /api/superadmin/loyalty                            → Status do módulo de fidelidade por tenant
 POST /api/superadmin/loyalty/{tenant}/toggle             → Habilitar/desabilitar fidelidade
@@ -470,20 +476,20 @@ php artisan test
 
 | Categoria | Cobre |
 |---|---|
-| `TenantIsolationTest` | Isolamento cross-tenant em todas as entidades |
-| `SubscriptionTest` | Ciclo de vida da assinatura, suspensão, reativação |
-| `PaymentTest` | Idempotência, criptografia, status de pagamento |
+| `TenantIsolationTest` | Isolamento cross-tenant em categorias, pedidos, mesas, produtos, cupons |
+| `SubscriptionTest` | Ciclo de vida da assinatura, suspensão, reativação, acesso 402 quando suspenso |
+| `PaymentTest` | Idempotência, criptografia de credenciais, status de pagamento |
 | `SecurityTest` | Mass assignment, HMAC, SQL injection, fillable |
-| `WebhookTest` | Validação HMAC, processamento via fila, evento `OrderPaid` |
-| `EncryptedCredentialServiceTest` | AES-256-GCM encrypt/decrypt, detecção de adulteração |
+| `WebhookTest` | Validação HMAC, processamento via fila, evento `OrderPaid` broadcastando |
+| `EncryptedCredentialServiceTest` | AES-256-GCM encrypt/decrypt |
 | `EfiBankServiceTest` | Processamento de webhooks camada 1 e 2 |
-| `AuthTest` | Login, registro, validação |
-| `TableTest` | CRUD de mesas, limite por plano |
-| `MenuTest` | Cardápio público |
-| `DashboardTest` | Acesso ao dashboard |
-| `PointsTest` | Regras do programa de fidelidade/pontos |
+| `AuthTest` | Login, registro, logout, validação |
+| `TableTest` | CRUD de mesas, limite por plano (gratuito x premium) |
+| `MenuTest` | Cardápio público (acesso, 404 para slug inválido, produtos ativos) |
+| `DashboardTest` | Acesso ao dashboard e à página de mesas (autenticado x não autenticado) |
+| `PointsTest` | Regras do programa de fidelidade: cálculo de pontos, idempotência, downgrade, estorno |
 
-> ⚠️ **Gaps conhecidos**: não há testes cobrindo os controllers `Superadmin\PlansController`, `Superadmin\TenantsController`, `Superadmin\FinancialController` e `Superadmin\LoyaltyController`, apesar de manipularem suspensão, troca de plano e cobrança de tenants. Também não há testes de Feature dedicados ao **módulo de entregadores** (painel web `DeliveryWebController`, API `Api\DeliveryController`, convites e notificações), apesar de ser um módulo com fluxo de autenticação próprio (`delivery-web` / `delivery`) e regras de negócio de pedidos.
+> ⚠️ **Gaps conhecidos**: não há testes de Feature cobrindo os controllers `Superadmin\PlansController`, `Superadmin\TenantsController`, `Superadmin\FinancialController` e `Superadmin\LoyaltyController`. Também não há testes dedicados ao módulo de entregadores (`DeliveryWebController`, `Api\DeliveryController`, convites e notificações de delivery).
 
 ### CI/CD
 
@@ -539,9 +545,9 @@ app/
 │   ├── CreateSuperAdmin.php          # Criar usuário superadmin
 │   └── GenerateFinancialReport.php   # Relatório financeiro mensal
 ├── Events/
-│   └── OrderPaid.php                 # Evento de pagamento confirmado
+│   └── OrderPaid.php                 # Evento broadcastável (ShouldBroadcast) de pagamento confirmado
 ├── Listeners/
-│   └── NotifyOrderPaid.php           # Notifica os envolvidos quando um pedido é pago
+│   └── NotifyOrderPaid.php           # Concede pontos de fidelidade ao ouvir OrderPaid
 ├── Http/
 │   ├── Controllers/
 │   │   ├── AuthController.php        # Login/registro multi-tenant (admin, garçom, cliente)
@@ -551,7 +557,7 @@ app/
 │   │   │   ├── DeliveryInvitationController.php # Convite de entregador via API
 │   │   │   └── OrderTrackingController.php      # Rastreio público de pedido (API)
 │   │   ├── Web/
-│   │   │   ├── DeliveryWebController.php   # Painel web do entregador
+│   │   │   ├── DeliveryWebController.php    # Painel web do entregador
 │   │   │   └── DeliveryInviteController.php # Convite de entregador via web
 │   │   ├── Superadmin/               # Planos, tenants, financeiro, fidelidade — API only
 │   │   ├── Tenant/                   # Pagamentos, credenciais EfiBank, financeiro do tenant
@@ -570,10 +576,9 @@ app/
 │   ├── RenewTenantSubscription.php   # Renovar cobrança mensal
 │   └── UpdateOrderPaymentStatus.php  # Atualizar status de pagamento
 ├── Livewire/
-│   ├── Admin/     # Painel do restaurante: Dashboard, TablesPage/TableGrid, MenuManager,
-│   │               # UserManager, CouponManager, LoyaltyManager, DeliveryPeopleManager,
-│   │               # EfiCredentialsManager, SmtpSettings, Settings, SupportManager,
-│   │               # SubscriptionCheckout, SidebarCounts
+│   ├── Admin/     # Dashboard, TablesPage/TableGrid, MenuManager, UserManager, CouponManager,
+│   │               # LoyaltyManager, DeliveryPeopleManager, EfiCredentialsManager, SmtpSettings,
+│   │               # Settings, SupportManager, SubscriptionCheckout, SidebarCounts
 │   ├── Client/    # ClientDashboard, ClientSidebarCounts, SupportPage
 │   ├── Waiter/    # WaiterDashboard, WaiterSidebarCounts, WaiterSupport
 │   ├── Delivery/  # DeliverySidebarCounts
@@ -588,15 +593,15 @@ app/
 │   ├── Table.php, Category.php, Product.php, ProductAttribute.php, ProductAttributeOption.php
 │   ├── Ingredient.php, StockMovement.php
 │   ├── Coupon.php, LoyaltyConfig.php, CustomerPoint.php, PointsTransaction.php
-│   ├── DeliveryPerson.php, Notification.php (polimórfico)
+│   ├── DeliveryPerson.php, Notification.php (relação polimórfica)
 │   ├── SupportTicket.php, SupportTicketMessage.php
 │   └── WebhookLog.php
 ├── Observers/
 │   ├── SaasSubscriptionObserver.php   # Suspensão/reativação automática
 │   └── TenantObserver.php             # Desativa fidelidade em downgrade de plano
 ├── Policies/
-│   ├── SaasSubscriptionPolicy.php, OrderPaymentPolicy.php
-│   └── DeliveryPersonPolicy.php
+│   ├── OrderPaymentPolicy.php, SaasSubscriptionPolicy.php
+│   └── DeliveryPersonPolicy.php       # Regras de acesso do entregador a pedidos
 ├── Scopes/TenantScope.php
 └── Services/
     ├── EncryptedCredentialService.php   # AES-256-GCM
@@ -604,8 +609,8 @@ app/
     ├── SubscriptionService.php          # Ciclo de vida da assinatura
     ├── PointsService.php                # Regras de fidelidade
     ├── StockService.php                 # Baixa/ajuste de estoque
-    ├── DeliveryService.php              # Regras de negócio de entrega/pedidos
-    ├── DeliveryNotificationService.php  # Notificações do entregador
+    ├── DeliveryService.php              # Regras de negócio de entrega
+    ├── DeliveryNotificationService.php  # Notificações de novo pedido / status de entrega
     ├── EfiPixService.php
     └── EfiBank/
         ├── EfiBankClient.php            # Factory por contexto (SaaS/Tenant)
@@ -635,11 +640,12 @@ database/
 
 Levantamento feito em análise do código-fonte atual (não é lista de features planejadas oficialmente — é o que falta pra fechar o que já existe):
 
-1. **Painel web do superadmin** — hoje é só API (`/api/superadmin/*`). Falta a interface (Livewire/Blade) para o dono da plataforma ver e gerenciar as empresas sem chamar a API na mão: listagem de tenants, detalhe, suspender/reativar, trocar plano, dashboard financeiro (MRR, gráfico de receita, extrato).
+1. **Painel web do superadmin** — hoje é só API (`/api/superadmin/*`). Falta a interface (Livewire/Blade) para o dono da plataforma ver e gerenciar as empresas sem chamar a API na mão.
 2. **Paginação e busca em `GET /api/superadmin/tenants`** — hoje retorna todos os tenants de uma vez, sem paginação, filtro ou busca por nome/status/plano.
-3. **Testes do módulo superadmin** — `PlansController`, `TenantsController`, `FinancialController` e `LoyaltyController` não têm cobertura de teste, apesar de mexerem com suspensão e cobrança de tenants.
+3. **Testes do módulo superadmin** — `PlansController`, `TenantsController`, `FinancialController` e `LoyaltyController` não têm cobertura de teste.
 4. **Testes do módulo de entregadores** — painel web, API mobile, convites e notificações de delivery ainda não têm testes de Feature dedicados.
 5. **Auditoria de ações do superadmin** — não há log de quem suspendeu/reativou/trocou o plano de um tenant e quando.
 6. **Rate limiting nas rotas de superadmin** — não têm `throttle` dedicado como as rotas de autenticação têm.
 7. **CRUD completo de tenant pelo superadmin** — hoje só existe `index`/`show`; não há edição direta dos dados de uma empresa pelo painel do dono da plataforma (só via cadastro público em `/register`).
-8. **Comando de geração da chave de criptografia** — o `.env.example` histórico citava `php artisan tenant:generate-encryption-key`, mas esse comando não existe mais no código; a chave precisa ser gerada manualmente (ex.: `php -r "echo base64_encode(random_bytes(32));"`) e colada em `TENANT_CREDENTIAL_ENCRYPTION_KEY`. Vale reavaliar se o comando deve ser reintroduzido para facilitar o setup.
+8. **Comando de geração da chave de criptografia** — não existe um `php artisan tenant:generate-encryption-key` (ou equivalente) no código; hoje a `TENANT_CREDENTIAL_ENCRYPTION_KEY` precisa ser gerada manualmente. Vale considerar adicionar esse comando para facilitar o setup.
+9. **Broadcast de pagamento em tempo real** — o evento `OrderPaid` implementa `ShouldBroadcast`, mas o `.env.example` traz `BROADCAST_CONNECTION=log` por padrão; sem configurar um driver real (Reverb/Pusher/Ably) em produção, esse broadcast não chega ao navegador — hoje as telas dependem de polling (`wire:poll`) para atualizar.
