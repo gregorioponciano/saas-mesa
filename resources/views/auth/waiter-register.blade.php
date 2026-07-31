@@ -49,7 +49,7 @@
                 @if ($tenant->whatsapp)
                     <div class="mt-10 pt-8 border-t border-neutral-800">
                         <p class="text-xs text-neutral-600 mb-2">Contato do restaurante</p>
-                        <p class="text-sm text-neutral-400">{{ $tenant->whatsapp }}</p>
+                        <p class="text-sm text-neutral-400">{{ maskPhone($tenant->whatsapp) }}</p>
                     </div>
                 @endif
             </div>

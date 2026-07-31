@@ -113,20 +113,6 @@
                 @endif
             </div>
 
-            {{-- Senha do Certificado --}}
-            <div>
-                <label for="cert_password" class="block text-sm font-medium text-neutral-300 mb-2">
-                    Senha do Certificado
-                </label>
-                <input type="password" id="cert_password" wire:model="cert_password"
-                       placeholder="Senha do arquivo .p12..."
-                       class="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all">
-                @error('cert_password') <p class="text-red-400 text-xs mt-1">{{ $message }}</p> @enderror
-                <p class="text-xs text-neutral-500 mt-2">
-                    O arquivo .p12 já contém o certificado + chave privada. A senha protege este arquivo.
-                </p>
-            </div>
-
             {{-- Ambiente --}}
             <div>
                 <label for="account_type" class="block text-sm font-medium text-neutral-300 mb-2">

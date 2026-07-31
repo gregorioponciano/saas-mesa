@@ -47,7 +47,6 @@ class TenantEfiCredentialsService
             'client_secret' => $data['client_secret'],
             'pix_key' => $data['pix_key'] ?? '',
             'certificate_content' => $certificateContent ?? '',
-            'cert_password' => $data['cert_password'] ?? null,
         ]);
 
         return TenantEfiCredentials::updateOrCreate(
@@ -57,7 +56,6 @@ class TenantEfiCredentialsService
                 'client_secret_encrypted' => $encrypted['client_secret_encrypted'],
                 'pix_key_encrypted' => $encrypted['pix_key_encrypted'],
                 'certificate_content_encrypted' => $encrypted['certificate_content_encrypted'],
-                'cert_password_encrypted' => $encrypted['cert_password_encrypted'],
                 'account_type' => $data['account_type'],
                 'is_active' => true,
             ]

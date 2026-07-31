@@ -17,7 +17,6 @@ class EfiCredentialsManager extends Component
     public ?string $client_id = null;
     public ?string $client_secret = null;
     public ?string $pix_key = null;
-    public ?string $cert_password = null;
     public string $account_type = 'production';
     public $certificate_file = null;
     public bool $has_credentials = false;
@@ -71,7 +70,6 @@ class EfiCredentialsManager extends Component
             'client_id' => ['required', 'string', 'max:255'],
             'client_secret' => ['required', 'string', 'max:255'],
             'pix_key' => ['required', 'string', 'max:255'],
-            'cert_password' => ['nullable', 'string', 'max:255'],
             'account_type' => ['required', 'in:sandbox,production'],
             'certificate_file' => ['nullable', 'file', 'mimes:p12', 'max:2048'],
         ]);
@@ -94,7 +92,6 @@ class EfiCredentialsManager extends Component
                 'client_secret' => $this->client_secret,
                 'pix_key' => $this->pix_key,
                 'account_type' => $this->account_type,
-                'cert_password' => $this->cert_password,
             ], $certificateContent);
 
             $this->saved = true;
@@ -146,7 +143,6 @@ class EfiCredentialsManager extends Component
         $this->client_id = null;
         $this->client_secret = null;
         $this->pix_key = null;
-        $this->cert_password = null;
         $this->certificate_file = null;
         $this->error = null;
         $this->saved = false;

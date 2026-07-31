@@ -20,7 +20,6 @@ class TenantEfiCredentials extends Model
         'account_type',
         'certificate_path_encrypted',
         'certificate_content_encrypted',
-        'cert_password_encrypted',
         'is_active',
     ];
 
@@ -65,14 +64,6 @@ class TenantEfiCredentials extends Model
         return app(EncryptedCredentialService::class)->decrypt($this->certificate_content_encrypted);
     }
 
-    public function decryptCertPassword(): ?string
-    {
-        if (!$this->cert_password_encrypted) {
-            return null;
-        }
-        return app(EncryptedCredentialService::class)->decrypt($this->cert_password_encrypted);
-    }
-
     public function toDecryptedArray(): array
     {
         return [
@@ -82,7 +73,6 @@ class TenantEfiCredentials extends Model
             'account_type' => $this->account_type,
             'certificate_path' => $this->decryptCertificatePath(),
             'certificate_content' => $this->decryptCertificateContent(),
-            'cert_password' => $this->decryptCertPassword(),
         ];
     }
 }

@@ -29,7 +29,6 @@ class EfiBankClient
             'pix_key' => config('efibank.saas.pix_key'),
             'sandbox' => config('efibank.sandbox'),
             'certificate_path' => config('efibank.saas.certificate_path'),
-            'cert_password' => config('efibank.saas.cert_password'),
             'key_path' => config('efibank.saas.key_path'),
             'key_password' => config('efibank.saas.key_password'),
         ]);
@@ -53,7 +52,6 @@ class EfiBankClient
             'sandbox' => $credentials['account_type'] === 'sandbox',
             'certificate_content' => $credentials['certificate_content'],
             'certificate_path' => $credentials['certificate_path'],
-            'cert_password' => $credentials['cert_password'],
         ]);
     }
 
@@ -190,7 +188,6 @@ class EfiBankClient
         ]);
 
         $cert = null;
-        $certPassword = $this->config['cert_password'] ?? null;
         $key = null;
         $keyPassword = $this->config['key_password'] ?? null;
 
@@ -200,11 +197,11 @@ class EfiBankClient
             if (str_starts_with($content, '-----BEGIN')) {
                 $tmpPath = tempnam(sys_get_temp_dir(), 'efi_cert_');
                 file_put_contents($tmpPath, $content);
-                $cert = $certPassword ? [$tmpPath, $certPassword] : $tmpPath;
+                $cert = $tmpPath;
             } else {
                 $certs = [];
-                if (!openssl_pkcs12_read($content, $certs, $certPassword ?? '')) {
-                    throw new \RuntimeException('Falha ao ler certificado .p12. Verifique a senha do certificado.');
+                if (!openssl_pkcs12_read($content, $certs, '')) {
+                    throw new \RuntimeException('Falha ao ler certificado .p12. Verifique se o arquivo é válido.');
                 }
 
                 $tmpCert = tempnam(sys_get_temp_dir(), 'efi_cert_');
@@ -216,9 +213,7 @@ class EfiBankClient
                 $key = $tmpKey;
             }
         } elseif (!empty($this->config['certificate_path'])) {
-            $cert = $certPassword
-                ? [$this->config['certificate_path'], $certPassword]
-                : $this->config['certificate_path'];
+            $cert = $this->config['certificate_path'];
 
             if (!empty($this->config['key_path'])) {
                 $key = $keyPassword

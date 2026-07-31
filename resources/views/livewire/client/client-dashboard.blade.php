@@ -572,7 +572,7 @@
                         @if ($tenant->whatsapp)
                             <div class="p-3 rounded-xl bg-neutral-950 border border-neutral-800">
                                 <p class="text-[10px] text-neutral-500 uppercase tracking-wider mb-1">WhatsApp</p>
-                                <p class="text-xs font-medium">{{ $tenant->whatsapp }}</p>
+                                <p class="text-xs font-medium">{{ maskPhone($tenant->whatsapp) }}</p>
                             </div>
                         @endif
                         <div class="p-3 rounded-xl bg-neutral-950 border border-neutral-800">

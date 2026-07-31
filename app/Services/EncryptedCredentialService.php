@@ -83,9 +83,6 @@ class EncryptedCredentialService
             'certificate_content_encrypted' => isset($credentials['certificate_content'])
                 ? $this->encrypt($credentials['certificate_content'])
                 : null,
-            'cert_password_encrypted' => isset($credentials['cert_password'])
-                ? $this->encrypt($credentials['cert_password'])
-                : null,
         ];
     }
 
@@ -104,9 +101,6 @@ class EncryptedCredentialService
                     : null,
                 'certificate_path' => $credentials->certificate_path_encrypted
                     ? $this->decrypt($credentials->certificate_path_encrypted)
-                    : null,
-                'cert_password' => $credentials->cert_password_encrypted
-                    ? $this->decrypt($credentials->cert_password_encrypted)
                     : null,
             ];
         } catch (\Throwable $e) {

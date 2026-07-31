@@ -13,7 +13,6 @@ return new class extends Migration
         $this->alterOrders();
         $this->alterOrderItems();
         $this->alterDeliveryPeople();
-        $this->alterEfiCredentials();
         $this->alterProducts();
         $this->alterProductAttributes();
         $this->alterProductAttributeOptions();
@@ -176,15 +175,6 @@ return new class extends Migration
         });
     }
 
-    private function alterEfiCredentials(): void
-    {
-        Schema::table('tenant_efi_credentials', function (Blueprint $table) {
-            if (!Schema::hasColumn('tenant_efi_credentials', 'cert_password_encrypted')) {
-                $table->text('cert_password_encrypted')->nullable();
-            }
-        });
-    }
-
     private function alterProducts(): void
     {
         Schema::table('products', function (Blueprint $table) {
@@ -270,6 +260,9 @@ return new class extends Migration
         Schema::table('tenant_loyalty_configs', function (Blueprint $table) {
             if (!Schema::hasColumn('tenant_loyalty_configs', 'min_points_order_value')) {
                 $table->decimal('min_points_order_value', 10, 2)->default(10.00);
+            }
+            if (!Schema::hasColumn('tenant_loyalty_configs', 'points_to_money_rate')) {
+                $table->decimal('points_to_money_rate', 10, 4)->default(0.01);
             }
         });
     }
