@@ -48,6 +48,18 @@ class Tenant extends Model
         'trial_ends_at',
         'subscription_ends_at',
         'delivery_cost_per_order',
+        'delivery_cost_type',
+        'delivery_cost_per_km',
+        'delivery_cost_enabled',
+        'address',
+        'number',
+        'neighborhood',
+        'city',
+        'state',
+        'zipcode',
+        'latitude',
+        'longitude',
+        'delivery_radius',
         'mail_host',
         'mail_port',
         'mail_username',
@@ -65,7 +77,25 @@ class Tenant extends Model
             'subscription_ends_at' => 'datetime',
             'max_tables' => 'integer',
             'coupons_enabled' => 'boolean',
+            'latitude' => 'decimal:7',
+            'longitude' => 'decimal:7',
+            'delivery_radius' => 'decimal:1',
+            'delivery_cost_per_km' => 'decimal:2',
+            'delivery_cost_enabled' => 'boolean',
         ];
+    }
+
+    public function deliveryCostForDistance(?float $distanceKm = null): float
+    {
+        if (!($this->delivery_cost_enabled ?? true)) {
+            return 0.0;
+        }
+
+        $fixed = (float) ($this->delivery_cost_per_order ?? 0);
+        $perKm = (float) ($this->delivery_cost_per_km ?? 0);
+        $distance = $distanceKm !== null ? (float) $distanceKm : 0.0;
+
+        return round($fixed + $perKm * $distance, 2);
     }
 
     public function users()

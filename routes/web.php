@@ -87,6 +87,8 @@ Route::middleware('auth:delivery-web')->prefix('entregador')->name('delivery.')-
     Route::post('/pedidos/{order}/entregar', [\App\Http\Controllers\Web\DeliveryWebController::class, 'deliverOrder'])->name('order.deliver');
     Route::post('/toggle-disponibilidade', [\App\Http\Controllers\Web\DeliveryWebController::class, 'toggleAvailability'])->name('toggle.availability');
     Route::post('/configuracoes', [\App\Http\Controllers\Web\DeliveryWebController::class, 'updateSettings'])->name('settings.update');
+    Route::get('/exportar-dados', [\App\Http\Controllers\Web\DeliveryWebController::class, 'exportData'])->name('data.export');
+    Route::post('/excluir-conta', [\App\Http\Controllers\Web\DeliveryWebController::class, 'deleteAccount'])->name('data.delete');
     Route::post('/logout', [\App\Http\Controllers\Web\DeliveryWebController::class, 'logout'])->name('logout');
 });
 

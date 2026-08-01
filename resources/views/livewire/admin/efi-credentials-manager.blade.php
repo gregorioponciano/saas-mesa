@@ -62,14 +62,14 @@
             </x-admin.alert>
         @endif
 
-        <form wire:submit="save" class="space-y-5">
+        <form wire:submit="save" autocomplete="off" class="space-y-5">
             {{-- Client ID --}}
             <div>
                 <label for="client_id" class="block text-sm font-medium text-neutral-300 mb-2">
                     Client ID
                 </label>
-                <input type="text" id="client_id" wire:model="client_id"
-                       placeholder="Client_Id_..."
+                <input type="text" id="client_id" wire:model="client_id" autocomplete="off"
+                       placeholder="{{ $has_credentials ? $masked_client_id : 'Client_Id_...' }}"
                        class="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all">
                 @error('client_id') <p class="text-red-400 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
@@ -79,8 +79,8 @@
                 <label for="client_secret" class="block text-sm font-medium text-neutral-300 mb-2">
                     Client Secret
                 </label>
-                <input type="password" id="client_secret" wire:model="client_secret"
-                       placeholder="Client_Secret_..."
+                <input type="password" id="client_secret" wire:model="client_secret" autocomplete="new-password"
+                       placeholder="{{ $has_credentials ? 'Clien**** (salvo)' : 'Client_Secret_...' }}"
                        class="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all">
                 @error('client_secret') <p class="text-red-400 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
@@ -90,8 +90,8 @@
                 <label for="pix_key" class="block text-sm font-medium text-neutral-300 mb-2">
                     Chave PIX
                 </label>
-                <input type="text" id="pix_key" wire:model="pix_key"
-                       placeholder="Chave aleatória ou CPF/CNPJ..."
+                <input type="text" id="pix_key" wire:model="pix_key" autocomplete="off"
+                       placeholder="{{ $has_credentials ? ($masked_pix_key ?? 'Chave PIX salva') : 'Chave aleatória ou CPF/CNPJ...' }}"
                        class="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all">
                 @error('pix_key') <p class="text-red-400 text-xs mt-1">{{ $message }}</p> @enderror
             </div>

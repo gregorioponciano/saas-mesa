@@ -9,6 +9,7 @@ use App\Models\OrderPayment;
 use App\Models\Tenant;
 use App\Services\EncryptedCredentialService;
 use App\Services\EfiPixService;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -84,8 +85,31 @@ class TenantEfiBankService
                 'error' => $e->getMessage(),
             ]);
 
-            throw $e;
+            throw new \RuntimeException($this->translateError($e));
         }
+    }
+
+    private function translateError(\Throwable $e): string
+    {
+        $msg = $e->getMessage();
+
+        if ($e instanceof RequestException || str_contains($msg, 'invalid_client')) {
+            return 'Credenciais da Efí inválidas. Vá em Configurações > EfiBank e verifique seu Client ID, Client Secret e certificado.';
+        }
+        if (str_contains($msg, 'Falha ao ler certificado')) {
+            return 'Certificado .p12 inválido. Faça upload do certificado correto em Configurações > EfiBank.';
+        }
+        if (str_contains($msg, 'Restaurante ainda não configurou')) {
+            return 'Configure os dados bancários em Configurações > EfiBank antes de gerar PIX.';
+        }
+        if (str_contains($msg, 'Chave PIX não configurada')) {
+            return 'Chave PIX não configurada. Vá em Configurações > EfiBank e cadastre sua chave PIX.';
+        }
+        if (str_contains($msg, 'token expirado') || str_contains($msg, 'unauthorized')) {
+            return 'Sessão com a Efí expirou. Tente novamente.';
+        }
+
+        return $msg;
     }
 
     public function generatePixChargeData(Tenant $tenant, float $amount, string $txid, string $payerName = '', ?string $payerCpf = null): array
@@ -117,7 +141,11 @@ class TenantEfiBankService
             'solicitacaoPagador' => "Pedido {$txid}",
         ];
 
-        $response = $client->pixCreateImmediateCharge($txid, $body);
+        try {
+            $response = $client->pixCreateImmediateCharge($txid, $body);
+        } catch (\Throwable $e) {
+            throw new \RuntimeException($this->translateError($e));
+        }
 
         $pixCopiaECola = $response['pixCopiaECola'] ?? null;
         $qrcode = null;

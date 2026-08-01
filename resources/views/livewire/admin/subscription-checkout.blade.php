@@ -42,6 +42,24 @@
                     </svg>
                     1 usuario (admin)
                 </li>
+                <li class="flex items-center gap-3 text-sm text-neutral-300">
+                    <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Cupons de desconto
+                </li>
+                <li class="flex items-center gap-3 text-sm text-neutral-300">
+                    <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Delivery com entregadores
+                </li>
+                <li class="flex items-center gap-3 text-sm text-neutral-500">
+                    <svg class="w-5 h-5 text-neutral-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                    Programa de fidelidade (pontos)
+                </li>
                 <li class="flex items-center gap-3 text-sm text-neutral-500">
                     <svg class="w-5 h-5 text-neutral-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -104,6 +122,24 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                     </svg>
                     Multiplos usuarios (admin + atendente)
+                </li>
+                <li class="flex items-center gap-3 text-sm text-neutral-300">
+                    <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Cupons de desconto
+                </li>
+                <li class="flex items-center gap-3 text-sm text-neutral-300">
+                    <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Programa de fidelidade (pontos)
+                </li>
+                <li class="flex items-center gap-3 text-sm text-neutral-300">
+                    <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Delivery com entregadores
                 </li>
                 <li class="flex items-center gap-3 text-sm text-neutral-300">
                     <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -54,6 +54,9 @@ class DeliveryNotificationService
             'delivery_name' => $delivery->name,
             'delivery_phone' => $delivery->phone,
         ]);
+
+        // Notify the customer
+        $this->notifyCustomer($order, 'delivery_accepted', "Pedido #{$order->id} aceito por {$delivery->name}! Em breve saira para entrega.");
     }
 
     public function orderPickedUp(Order $order, DeliveryPerson $delivery): void
@@ -64,6 +67,9 @@ class DeliveryNotificationService
             'message' => "{$delivery->name} saiu para entrega do pedido #{$order->id}",
             'delivery_name' => $delivery->name,
         ]);
+
+        // Notify the customer
+        $this->notifyCustomer($order, 'delivery_picked_up', "Seu pedido #{$order->id} saiu para entrega! Fique atento.");
     }
 
     public function orderDelivered(Order $order, DeliveryPerson $delivery): void
@@ -83,6 +89,9 @@ class DeliveryNotificationService
             'total' => (float) $order->total,
             'delivery_cost' => (float) ($order->delivery_cost ?? 0),
         ]);
+
+        // Notify the customer
+        $this->notifyCustomer($order, 'delivery_delivered', "Pedido #{$order->id} entregue com sucesso! Obrigado por comprar conosco.");
     }
 
     public function markAsRead(int $notificationId, string $notifiableType, int $notifiableId): void
@@ -126,6 +135,19 @@ class DeliveryNotificationService
         } catch (\Throwable $e) {
             Log::error('Erro ao criar notificação: ' . $e->getMessage());
         }
+    }
+
+    private function notifyCustomer(Order $order, string $type, string $message): void
+    {
+        if (!$order->user_id) return;
+
+        $user = User::find($order->user_id);
+        if (!$user) return;
+
+        $this->create($user, $type, [
+            'order_id' => $order->id,
+            'message' => $message,
+        ]);
     }
 
     private function notifyStaff(int $tenantId, string $type, array $data): void

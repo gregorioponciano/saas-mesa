@@ -128,16 +128,92 @@
                     @endif
                 </div>
             </div>
+            <div class="md:col-span-2">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-neutral-300">Cobranca da Taxa de Entrega</label>
+                    <button type="button" wire:click="$toggle('deliveryCostEnabled')"
+                            class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors {{ $deliveryCostEnabled ? 'bg-amber-500' : 'bg-neutral-700' }}">
+                        <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform {{ $deliveryCostEnabled ? 'translate-x-6' : 'translate-x-1' }}"></span>
+                    </button>
+                </div>
+                @if ($deliveryCostEnabled)
+                <p class="text-xs text-neutral-500 mb-3">A taxa final do cliente e a soma: valor fixo + (custo por km x distancia). Deixe R$ 0,00 no campo que nao quiser cobrar.</p>
+                <p class="text-xs text-neutral-500 mt-2">O raio de entrega definido abaixo e o limite de seguranca: ninguem fora dele consegue fechar pedido de entrega.</p>
+                @else
+                <p class="text-xs text-neutral-500">Taxa de entrega desativada. O cliente nao pagara taxa adicional nos pedidos de entrega.</p>
+                @endif
+            </div>
+            @if ($deliveryCostEnabled)
             <div>
-                <label class="block text-sm font-medium text-neutral-300 mb-2">Custo de Entrega (p/ entregador)</label>
+                <label class="block text-sm font-medium text-neutral-300 mb-2">Custo Fixo de Entrega (p/ entregador)</label>
                 <div class="relative">
                     <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-neutral-500">R$</span>
                     <input wire:model="deliveryCostPerOrder" type="number" step="0.01" min="0" placeholder="0.00"
                            class="w-full pl-9 pr-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('deliveryCostPerOrder') border-red-500 @enderror">
                 </div>
-                <p class="text-xs text-neutral-500 mt-1">Valor padrao pago ao entregador por entrega.</p>
+                <p class="text-xs text-neutral-500 mt-1">Valor fixo cobrado por entrega, somado ao custo por km.</p>
                 @error('deliveryCostPerOrder') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
             </div>
+            <div>
+                <label class="block text-sm font-medium text-neutral-300 mb-2">Custo por Km (p/ entregador)</label>
+                <div class="relative">
+                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-neutral-500">R$</span>
+                    <input wire:model="deliveryCostPerKm" type="number" step="0.01" min="0" placeholder="0.00"
+                           class="w-full pl-9 pr-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('deliveryCostPerKm') border-red-500 @enderror">
+                </div>
+                <p class="text-xs text-neutral-500 mt-1">Valor multiplicado pela distancia (km) da entrega, somado ao valor fixo.</p>
+                @error('deliveryCostPerKm') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+            </div>
+            @endif
+
+            {{-- Delivery Address --}}
+            <div class="md:col-span-2 border-t border-neutral-800 pt-4 mt-2">
+                <h3 class="text-sm font-semibold text-neutral-200 mb-3">Area de Entrega</h3>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-neutral-300 mb-2">Endereco (Rua)</label>
+                <input wire:model="deliveryAddress" type="text" placeholder="Rua do restaurante"
+                       class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('deliveryAddress') border-red-500 @enderror">
+                @error('deliveryAddress') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-neutral-300 mb-2">Numero</label>
+                <input wire:model="deliveryNumber" type="text" placeholder="S/N"
+                       class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('deliveryNumber') border-red-500 @enderror">
+                @error('deliveryNumber') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-neutral-300 mb-2">Bairro</label>
+                <input wire:model="deliveryNeighborhood" type="text" placeholder="Bairro"
+                       class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('deliveryNeighborhood') border-red-500 @enderror">
+                @error('deliveryNeighborhood') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-neutral-300 mb-2">Cidade</label>
+                <input wire:model="deliveryCity" type="text" placeholder="Cidade"
+                       class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('deliveryCity') border-red-500 @enderror">
+                @error('deliveryCity') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-neutral-300 mb-2">Estado (UF)</label>
+                <input wire:model="deliveryState" type="text" maxlength="2" placeholder="SP"
+                       class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('deliveryState') border-red-500 @enderror">
+                @error('deliveryState') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-neutral-300 mb-2">CEP</label>
+                <input wire:model="deliveryZipcode" type="text" maxlength="10" placeholder="00000-000"
+                       class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('deliveryZipcode') border-red-500 @enderror">
+                @error('deliveryZipcode') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-neutral-300 mb-2">Raio de Entrega (km)</label>
+                <input wire:model="deliveryRadius" type="number" step="0.5" min="1" max="100" placeholder="10"
+                       class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('deliveryRadius') border-red-500 @enderror">
+                <p class="text-xs text-neutral-500 mt-1">Distancia maxima para entrega a partir do restaurante.</p>
+                @error('deliveryRadius') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
+            </div>
+
             <div class="md:col-span-2 flex items-center gap-3 pt-2">
                 <x-admin.button variant="primary" type="submit">
                     Salvar Restaurante

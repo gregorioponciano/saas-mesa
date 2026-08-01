@@ -155,16 +155,24 @@ class DeliveryWebController extends Controller
             $delivery->id
         );
 
+        $tenant = $delivery->tenant;
+
         return view('delivery.dashboard', [
             'profile' => $this->deliveryService->getProfile($delivery),
             'todayStats' => $this->deliveryService->getTodayStats($delivery),
             'weeklyEarnings' => $this->deliveryService->getWeeklyEarnings($delivery),
             'ranking' => $this->deliveryService->getDeliveryRanking($delivery),
+            'earningsSummary' => $this->deliveryService->getEarningsSummary($delivery),
+            'earningsDays' => $this->deliveryService->getEarningsDailyHistory($delivery),
+            'earningsOrders' => $this->deliveryService->getEarningsOrders($delivery),
             'availableOrders' => $this->deliveryService->getAvailableOrders($delivery),
             'myOrders' => $this->deliveryService->getMyOrders($delivery),
             'history' => $this->deliveryService->getOrderHistory($delivery),
             'delivery' => $delivery,
             'unreadCount' => $unreadCount,
+            'restaurantLat' => $tenant->latitude,
+            'restaurantLng' => $tenant->longitude,
+            'restaurantAddress' => $tenant->address ? ($tenant->address . ', ' . ($tenant->number ?: '') . ' - ' . ($tenant->neighborhood ?: '') . ', ' . ($tenant->city ?: '')) : '',
         ]);
     }
 
@@ -197,7 +205,17 @@ class DeliveryWebController extends Controller
         $delivery = Auth::guard('delivery-web')->user();
 
         $photo = null;
-        if ($request->hasFile('photo')) {
+        if ($request->filled('photo_data') && str_starts_with($request->input('photo_data'), 'data:image')) {
+            try {
+                $photo = $this->deliveryService->uploadDeliveryPhotoData(
+                    $request->input('photo_data'),
+                    $delivery->tenant_id,
+                    $delivery->id
+                );
+            } catch (\InvalidArgumentException $e) {
+                return back()->with('error', $e->getMessage());
+            }
+        } elseif ($request->hasFile('photo')) {
             $photo = $this->deliveryService->uploadDeliveryPhoto(
                 $request->file('photo'),
                 $delivery->tenant_id,
@@ -332,6 +350,39 @@ class DeliveryWebController extends Controller
                 'mail.from.name' => $tenant->mail_from_name ?? $tenant->name,
             ]);
         }
+    }
+
+    public function exportData(): JsonResponse
+    {
+        $delivery = Auth::guard('delivery-web')->user();
+
+        return response()->json([
+            'name' => $delivery->name,
+            'email' => $delivery->email,
+            'phone' => $delivery->phone,
+            'cpf' => $delivery->cpf,
+            'vehicle_plate' => $delivery->vehicle_plate,
+            'vehicle_model' => $delivery->vehicle_model,
+            'created_at' => $delivery->created_at,
+            'orders' => $delivery->orders()
+                ->select('id', 'status', 'total', 'created_at', 'delivered_at')
+                ->get(),
+            'earnings' => $delivery->earnings()
+                ->select('id', 'order_id', 'amount', 'status', 'paid_at', 'earned_at')
+                ->get(),
+        ]);
+    }
+
+    public function deleteAccount(): JsonResponse
+    {
+        $delivery = Auth::guard('delivery-web')->user();
+
+        $delivery->orders()->update(['delivery_person_id' => null]);
+        $delivery->delete();
+
+        Auth::guard('delivery-web')->logout();
+
+        return response()->json(['success' => true]);
     }
 
     public function logout(Request $request): RedirectResponse

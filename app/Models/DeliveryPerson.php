@@ -32,6 +32,7 @@ class DeliveryPerson extends Authenticatable
         'invite_expires_at',
         'invited_at',
         'activated_at',
+        'is_online',
     ];
 
     protected $hidden = [
@@ -44,6 +45,7 @@ class DeliveryPerson extends Authenticatable
     {
         return [
             'api_token' => 'string',
+            'is_online' => 'boolean',
             'invite_expires_at' => 'datetime',
             'invited_at' => 'datetime',
             'activated_at' => 'datetime',
@@ -58,6 +60,11 @@ class DeliveryPerson extends Authenticatable
     public function orders()
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function earnings()
+    {
+        return $this->hasMany(DeliveryEarning::class);
     }
 
     public function isActive(): bool

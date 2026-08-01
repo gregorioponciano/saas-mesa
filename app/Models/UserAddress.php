@@ -22,6 +22,8 @@ class UserAddress extends Model
         'zipcode',
         'reference',
         'is_default',
+        'latitude',
+        'longitude',
     ];
 
     protected $appends = ['full_address', 'summary'];
@@ -30,6 +32,8 @@ class UserAddress extends Model
     {
         return [
             'is_default' => 'boolean',
+            'latitude' => 'decimal:7',
+            'longitude' => 'decimal:7',
         ];
     }
 

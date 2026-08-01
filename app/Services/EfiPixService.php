@@ -20,14 +20,14 @@ class EfiPixService
 
     public function __construct()
     {
-        $this->clientId = config('efi.client_id');
-        $this->clientSecret = config('efi.client_secret');
-        $this->chavePix = config('efi.chave_pix');
-        $this->baseUrl = config('efi.base_url');
-        $this->oauthUrl = config('efi.oauth_url');
-        $this->certPath = config('efi.cert_path');
-        $this->keyPath = config('efi.key_path');
-        $this->certPassword = config('efi.cert_password');
+        $this->clientId = (string) (config('efi.client_id') ?? '');
+        $this->clientSecret = (string) (config('efi.client_secret') ?? '');
+        $this->chavePix = (string) (config('efi.chave_pix') ?? '');
+        $this->baseUrl = (string) (config('efi.base_url') ?? '');
+        $this->oauthUrl = (string) (config('efi.oauth_url') ?? '');
+        $this->certPath = (string) (config('efi.cert_path') ?? '');
+        $this->keyPath = (string) (config('efi.key_path') ?? '');
+        $this->certPassword = (string) (config('efi.cert_password') ?? '');
     }
 
     private function http(): \Illuminate\Http\Client\PendingRequest

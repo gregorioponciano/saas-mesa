@@ -19,8 +19,14 @@
          settingsPassword: '',
          settingsPasswordConfirm: '',
          settingsSaving: false,
-         settingsMessage: '',
-         settingsMessageType: '',
+          settingsMessage: '',
+          settingsMessageType: '',
+           showDeleteConfirm: false,
+           deleteConfirmation: '',
+           exportingData: false,
+           showMapModal: false,
+           mapOrderAddress: '',
+           mapInitialized: false,
 
          notifUnreadCount: {{ $unreadCount ?? 0 }},
          notifList: [],
@@ -169,14 +175,44 @@
              this.closeCamera();
              form.submit();
          },
-         phoneMask(v) {
-             let r = (v||'').replace(/\D/g,'').substring(0,11);
-             return r.length <= 2 ? (r.length ? '('+r : '') :
-                    r.length <= 6 ? '('+r.substring(0,2)+') '+r.substring(2) :
-                    r.length <= 7 ? '('+r.substring(0,2)+') '+r.substring(2,7) :
-                    '('+r.substring(0,2)+') '+r.substring(2,7)+'-'+r.substring(7);
-         }
-      }">
+          phoneMask(v) {
+              let r = (v||'').replace(/\D/g,'').substring(0,11);
+              return r.length <= 2 ? (r.length ? '('+r : '') :
+                     r.length <= 6 ? '('+r.substring(0,2)+') '+r.substring(2) :
+                     r.length <= 7 ? '('+r.substring(0,2)+') '+r.substring(2,7) :
+                     '('+r.substring(0,2)+') '+r.substring(2,7)+'-'+r.substring(7);
+          },
+          exportData() {
+              this.exportingData = true;
+              fetch('{{ route("delivery.data.export") }}', { headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+                  .then(r => r.json())
+                  .then(data => {
+                      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url; a.download = 'meus-dados.json'; a.click();
+                      URL.revokeObjectURL(url);
+                  })
+                  .catch(() => { this.settingsMessage = 'Erro ao exportar dados.'; this.settingsMessageType = 'error'; })
+                  .finally(() => { this.exportingData = false; });
+          },
+           deleteAccount() {
+               const form = new FormData();
+               form.append('_token', '{{ csrf_token() }}');
+               fetch('{{ route("delivery.data.delete") }}', { method: 'POST', body: form })
+                   .then(r => r.json())
+                   .then(d => {
+                       if (d.success) window.location.href = '{{ route("delivery.login") }}';
+                       else { this.settingsMessage = d.message; this.settingsMessageType = 'error'; }
+                   })
+                   .catch(() => { this.settingsMessage = 'Erro ao excluir conta.'; this.settingsMessageType = 'error'; });
+           },
+           openMap(address, customerLat, customerLng) {
+               this.mapOrderAddress = address;
+               this.showMapModal = true;
+               this.$nextTick(() => initDeliveryMap(address, customerLat, customerLng));
+           }
+        }">
 
     {{-- =================================================================== --}}
     {{-- TOP STATS BAR --}}
@@ -190,7 +226,11 @@
                 </div>
             </div>
             <p class="text-2xl font-black text-emerald-400">R$ {{ number_format($todayStats['earnings'], 2, ',', '.') }}</p>
-            <p class="text-[10px] text-neutral-600 mt-0.5">Total bruto do dia</p>
+            <p class="text-[10px] text-neutral-600 mt-0.5">
+                Pendente R$ {{ number_format($todayStats['earnings_pending'] ?? 0, 2, ',', '.') }}
+                <span class="text-neutral-700">&#183;</span>
+                Pago R$ {{ number_format($todayStats['earnings_paid'] ?? 0, 2, ',', '.') }}
+            </p>
         </div>
 
         <div class="bg-gradient-to-br from-neutral-900 to-neutral-950 rounded-xl border border-neutral-800 p-4">
@@ -454,12 +494,11 @@
                                         <p class="text-[11px] text-neutral-500 mt-0.5">Ref: {{ $order['reference'] }}</p>
                                     @endif
                                 </div>
-                                <a href="https://www.google.com/maps/search/?api=1&query={{ urlencode($order['address']) }}"
-                                   target="_blank"
-                                   class="shrink-0 px-2 py-1 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors text-[10px] font-semibold flex items-center gap-1">
+                                <button @click="openMap('{{ $order['address'] }}', {{ $order['delivery_lat'] ?? 'null' }}, {{ $order['delivery_lng'] ?? 'null' }})"
+                                        class="shrink-0 px-2 py-1 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors text-[10px] font-semibold flex items-center gap-1">
                                     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
                                     Rota
-                                </a>
+                                </button>
                             </div>
 
                             {{-- Items Summary --}}
@@ -578,19 +617,99 @@
                 <div class="bg-gradient-to-br from-neutral-900 to-neutral-950 rounded-xl border border-neutral-800 p-4 text-center">
                     <p class="text-[10px] text-neutral-500 uppercase tracking-wider font-medium mb-1">Total Geral</p>
                     <p class="text-xl font-black text-emerald-400">R$ {{ number_format($profile['earnings'], 2, ',', '.') }}</p>
+                    <p class="text-[10px] text-neutral-600 mt-1">
+                        Pendente R$ {{ number_format($earningsSummary['pending'], 2, ',', '.') }}
+                        <span class="text-neutral-700">&#183;</span>
+                        Pago R$ {{ number_format($earningsSummary['paid'], 2, ',', '.') }}
+                    </p>
+                </div>
+                <div class="bg-gradient-to-br from-neutral-900 to-neutral-950 rounded-xl border border-amber-500/20 p-4 text-center">
+                    <p class="text-[10px] text-neutral-500 uppercase tracking-wider font-medium mb-1">Pendente</p>
+                    <p class="text-xl font-black text-amber-400">R$ {{ number_format($earningsSummary['pending'], 2, ',', '.') }}</p>
+                    <p class="text-[10px] text-neutral-600 mt-1">{{ $earningsSummary['pending_count'] }} entrega(s) aguardando pagamento</p>
+                </div>
+                <div class="bg-gradient-to-br from-neutral-900 to-neutral-950 rounded-xl border border-emerald-500/20 p-4 text-center">
+                    <p class="text-[10px] text-neutral-500 uppercase tracking-wider font-medium mb-1">Pago</p>
+                    <p class="text-xl font-black text-emerald-400">R$ {{ number_format($earningsSummary['paid'], 2, ',', '.') }}</p>
+                    <p class="text-[10px] text-neutral-600 mt-1">{{ $earningsSummary['paid_count'] }} entrega(s) pagas</p>
                 </div>
                 <div class="bg-gradient-to-br from-neutral-900 to-neutral-950 rounded-xl border border-neutral-800 p-4 text-center">
                     <p class="text-[10px] text-neutral-500 uppercase tracking-wider font-medium mb-1">Entregas Totais</p>
                     <p class="text-xl font-black text-white">{{ $profile['total_deliveries'] }}</p>
+                    <p class="text-[10px] text-neutral-600 mt-1">
+                        Tempo medio {{ $profile['avg_time_minutes'] }} min
+                        <span class="text-neutral-700">&#183;</span>
+                        Cancelamento {{ $profile['cancel_rate'] }}%
+                    </p>
                 </div>
-                <div class="bg-gradient-to-br from-neutral-900 to-neutral-950 rounded-xl border border-neutral-800 p-4 text-center">
-                    <p class="text-[10px] text-neutral-500 uppercase tracking-wider font-medium mb-1">Tempo Medio</p>
-                    <p class="text-xl font-black text-amber-400">{{ $profile['avg_time_minutes'] }} <span class="text-sm font-normal text-neutral-500">min</span></p>
+            </div>
+
+            {{-- Daily Earnings History --}}
+            <div class="bg-gradient-to-br from-neutral-900 to-neutral-950 rounded-xl border border-neutral-800 p-5">
+                <h3 class="font-bold text-sm text-white mb-3">Histórico Diário</h3>
+                @if (count($earningsDays) > 0)
+                    <div class="divide-y divide-neutral-800/60 max-h-72 overflow-y-auto">
+                        @foreach ($earningsDays as $day)
+                            <div class="flex items-center justify-between py-2.5">
+                                <div class="min-w-0">
+                                    <p class="text-sm font-medium text-white">{{ $day['weekday'] }}, {{ $day['label'] }}</p>
+                                    <p class="text-xs text-neutral-500">{{ $day['count'] }} entrega(s)</p>
+                                </div>
+                                <div class="text-right shrink-0 ml-3 space-y-0.5">
+                                    <p class="text-sm font-bold text-white">R$ {{ number_format($day['total'], 2, ',', '.') }}</p>
+                                    <div class="flex items-center justify-end gap-1.5">
+                                        @if ($day['pending'] > 0)
+                                            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-semibold">
+                                                Pendente R$ {{ number_format($day['pending'], 2, ',', '.') }}
+                                            </span>
+                                        @endif
+                                        @if ($day['paid'] > 0)
+                                            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold">
+                                                Pago R$ {{ number_format($day['paid'], 2, ',', '.') }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-sm text-neutral-500 text-center py-4">Sem ganhos registrados ainda.</p>
+                @endif
+            </div>
+
+            {{-- Earnings per Order --}}
+            <div class="bg-gradient-to-br from-neutral-900 to-neutral-950 rounded-xl border border-neutral-800 p-5">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="font-bold text-sm text-white">Ganhos por Pedido</h3>
+                    <span class="text-[10px] text-neutral-500">últimos {{ count($earningsOrders) }}</span>
                 </div>
-                <div class="bg-gradient-to-br from-neutral-900 to-neutral-950 rounded-xl border border-neutral-800 p-4 text-center">
-                    <p class="text-[10px] text-neutral-500 uppercase tracking-wider font-medium mb-1">Cancelamento</p>
-                    <p class="text-xl font-black {{ ($profile['cancel_rate'] ?? 0) > 10 ? 'text-red-400' : 'text-emerald-400' }}">{{ $profile['cancel_rate'] }}%</p>
-                </div>
+                @if (count($earningsOrders) > 0)
+                    <div class="space-y-1.5 max-h-72 overflow-y-auto">
+                        @foreach ($earningsOrders as $earning)
+                            <div class="flex items-center justify-between px-3 py-2 rounded-lg bg-neutral-800/30">
+                                <div class="min-w-0">
+                                    <p class="text-xs font-medium text-neutral-200 truncate">
+                                        Pedido #{{ $earning['order_id'] }} · {{ $earning['customer_name'] }}
+                                    </p>
+                                    <p class="text-[10px] text-neutral-500">Entregue em {{ $earning['earned_at'] }}</p>
+                                </div>
+                                <div class="text-right shrink-0 ml-3 flex items-center gap-2">
+                                    <p class="text-sm font-bold text-emerald-400">+ R$ {{ number_format($earning['amount'], 2, ',', '.') }}</p>
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded-full font-semibold
+                                        {{ $earning['status'] === 'paid' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400' }}">
+                                        {{ $earning['status_label'] }}
+                                        @if ($earning['status'] === 'paid')
+                                            <span class="text-neutral-500 font-normal">· {{ $earning['paid_at'] }}</span>
+                                        @endif
+                                    </span>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-sm text-neutral-500 text-center py-4">Nenhum ganho registrado ainda.</p>
+                @endif
             </div>
 
             {{-- Weekly Earnings Chart --}}
@@ -682,6 +801,8 @@
                     <div class="bg-neutral-800/50 rounded-lg p-3 text-center">
                         <p class="text-2xl font-bold text-emerald-400">R$ {{ number_format($profile['earnings'], 2, ',', '.') }}</p>
                         <p class="text-[10px] text-neutral-500 uppercase tracking-wider">Ganhos Totais</p>
+                        <p class="text-[9px] text-amber-400/80 mt-0.5">Pendente R$ {{ number_format($earningsSummary['pending'], 2, ',', '.') }}</p>
+                        <p class="text-[9px] text-emerald-400/80">Pago R$ {{ number_format($earningsSummary['paid'], 2, ',', '.') }}</p>
                     </div>
                     <div class="bg-neutral-800/50 rounded-lg p-3 text-center">
                         <p class="text-2xl font-bold text-amber-400">{{ $profile['avg_time_minutes'] }} <span class="text-sm font-normal text-neutral-500">min</span></p>
@@ -867,6 +988,92 @@
                     <span x-text="settingsSaving ? 'Salvando...' : 'Salvar Alteracoes'"></span>
                 </button>
             </div>
+
+            {{-- LGPD & Privacy --}}
+            <div class="bg-gradient-to-br from-neutral-900 to-neutral-950 rounded-xl border border-neutral-800 p-5 space-y-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-violet-500/20 flex items-center justify-center shrink-0">
+                        <svg class="w-4 h-4 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-sm text-white">Privacidade e Dados (LGPD)</h3>
+                        <p class="text-[11px] text-neutral-500">Exporte ou exclua seus dados pessoais</p>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-xl bg-neutral-950 border border-neutral-800">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h4 class="text-sm font-semibold text-neutral-200">Exportar meus dados</h4>
+                            <p class="text-[11px] text-neutral-500 mt-1">Baixe um arquivo JSON com todos os seus dados pessoais.</p>
+                        </div>
+                        <button @click="exportData()" :disabled="exportingData"
+                                class="shrink-0 px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5">
+                            <template x-if="exportingData">
+                                <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                            </template>
+                            <span x-text="exportingData ? 'Exportando...' : 'Exportar'"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-xl bg-neutral-950 border border-red-500/10">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h4 class="text-sm font-semibold text-red-400">Excluir minha conta</h4>
+                            <p class="text-[11px] text-neutral-500 mt-1">Remove permanentemente sua conta de entregador. Esta acao nao pode ser desfeita.</p>
+                        </div>
+                        <button @click="showDeleteConfirm = true"
+                                class="shrink-0 px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold transition-all">
+                            Excluir Conta
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Delete Account Confirmation Modal --}}
+        <div x-show="showDeleteConfirm" x-cloak
+             class="fixed inset-0 z-[70] flex items-center justify-center p-4"
+             @keydown.window.escape="showDeleteConfirm = false">
+            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="showDeleteConfirm = false"></div>
+            <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl shadow-black/60 p-6"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 scale-95 translate-y-4"
+                 x-transition:enter-end="opacity-100 scale-100 translate-y-0">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center shrink-0">
+                        <svg class="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-red-400">Excluir conta</h3>
+                        <p class="text-xs text-neutral-500">Esta acao nao pode ser desfeita</p>
+                    </div>
+                </div>
+
+                <p class="text-sm text-neutral-300 mb-4">Sua conta de entregador sera removida permanentemente.</p>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-neutral-400 mb-2">
+                            Digite <span class="font-bold text-red-400">EXCLUIR</span> para confirmar
+                        </label>
+                        <input type="text" x-model="deleteConfirmation" placeholder="EXCLUIR"
+                               class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-700 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all">
+                    </div>
+                    <div class="flex gap-2">
+                        <button @click="showDeleteConfirm = false; deleteConfirmation = ''"
+                                class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-semibold transition-all">
+                            Cancelar
+                        </button>
+                        <button @click="if (deleteConfirmation === 'EXCLUIR') deleteAccount()"
+                                :disabled="deleteConfirmation !== 'EXCLUIR'"
+                                class="flex-1 px-4 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                            Excluir Conta
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -900,7 +1107,7 @@
                                     class="px-4 py-2 rounded-full bg-neutral-800/80 text-white text-xs font-semibold backdrop-blur hover:bg-neutral-700 transition-colors">
                                 Refazer
                             </button>
-                            <button @click="submitDelivery({{ $photoOrderId ?? 0 }})"
+                            <button @click="submitDelivery(photoOrderId)"
                                     class="px-4 py-2 rounded-full bg-emerald-500 text-white text-xs font-semibold hover:bg-emerald-400 transition-colors">
                                 Confirmar
                             </button>
@@ -926,13 +1133,76 @@
         @endif
     @endforeach
 
+    {{-- Map Modal --}}
+    <div x-show="showMapModal" x-cloak
+         class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+         @keydown.escape="showMapModal = false">
+        <div class="w-full max-w-2xl bg-neutral-900 rounded-2xl border border-neutral-800 overflow-hidden shadow-2xl">
+            <div class="p-4 border-b border-neutral-800 flex items-center justify-between">
+                <h3 class="font-semibold text-sm text-white flex items-center gap-2">
+                    <svg class="w-4 h-4 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                    Rota de Entrega
+                </h3>
+                <button @click="showMapModal = false" class="text-neutral-500 hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div id="delivery-map" class="w-full h-[400px] bg-neutral-950"></div>
+            <div class="p-4 flex items-center gap-4 text-xs text-neutral-400" x-show="mapOrderAddress">
+                <div class="flex items-center gap-1.5">
+                    <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+                    <span>Restaurante</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-3 h-3 rounded-full bg-violet-500 inline-block"></span>
+                    <span>Cliente</span>
+                </div>
+                <a x-bind:href="'https://www.google.com/maps/dir/?api=1&origin={{ urlencode($restaurantAddress) }}&destination=' + encodeURIComponent(mapOrderAddress)"
+                   target="_blank"
+                   class="ml-auto px-3 py-1.5 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors font-semibold flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    Abrir no Google Maps
+                </a>
+            </div>
+        </div>
+    </div>
+
     <canvas id="delivery-canvas" style="display:none"></canvas>
 </div>
 
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    let deliveryMapInstance = null;
+    function initDeliveryMap(address, customerLat, customerLng) {
+        const restLat = @json($restaurantLat);
+        const restLng = @json($restaurantLng);
+        if (!restLat || !restLng) return;
+        if (deliveryMapInstance) { deliveryMapInstance.remove(); deliveryMapInstance = null; }
+        const map = L.map('delivery-map').setView([restLat, restLng], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap', maxZoom: 19,
+        }).addTo(map);
+        L.marker([restLat, restLng], {
+            icon: L.divIcon({ className: '', html: '<div style="width:16px;height:16px;border-radius:50%;background:#f59e0b;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>', iconSize: [16, 16], iconAnchor: [8, 8] })
+        }).addTo(map).bindPopup('<b>Restaurante</b>');
+        if (customerLat && customerLng) {
+            L.marker([customerLat, customerLng], {
+                icon: L.divIcon({ className: '', html: '<div style="width:16px;height:16px;border-radius:50%;background:#8b5cf6;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>', iconSize: [16, 16], iconAnchor: [8, 8] })
+            }).addTo(map).bindPopup('<b>Cliente</b><br>' + address);
+            map.fitBounds([[restLat, restLng], [customerLat, customerLng]], { padding: [50, 50] });
+        }
+        deliveryMapInstance = map;
+        setTimeout(() => map.invalidateSize(), 300);
+    }
+</script>
 <style>
     [x-cloak] { display: none !important; }
     .scrollbar-thin::-webkit-scrollbar { height: 4px; }
     .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
     .scrollbar-thin::-webkit-scrollbar-thumb { background: #404040; border-radius: 4px; }
+    .leaflet-container { background: #171717 !important; }
+    .leaflet-popup-content-wrapper { background: #262626 !important; color: #fff !important; border-radius: 12px !important; }
+    .leaflet-popup-tip { background: #262626 !important; }
 </style>
 @endsection

@@ -91,7 +91,7 @@
                                 @endif
                             </td>
                             <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                                <x-admin.button variant="ghost" wire:click="showPerformance({{ $delivery->id }})" class="px-2.5 py-1 text-xs rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20">
+                                <x-admin.button variant="ghost" wire:click="openPerformance({{ $delivery->id }})" class="px-2.5 py-1 text-xs rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20">
                                     Ver
                                 </x-admin.button>
                             </td>
@@ -280,9 +280,23 @@
                     <p class="text-lg font-bold text-white">{{ $performanceData['total_deliveries'] ?? 0 }}</p>
                 </div>
                 <div class="bg-neutral-950 rounded-xl p-3 border border-neutral-800">
-                    <p class="text-xs text-neutral-400">Ganhos</p>
+                    <p class="text-xs text-neutral-400">Ganhos totais</p>
                     <p class="text-lg font-bold text-emerald-400">R$ {{ number_format($performanceData['earnings'] ?? 0, 2, ',', '.') }}</p>
+                    <p class="text-[10px] text-neutral-500">Pendente R$ {{ number_format($performanceData['earnings_pending'] ?? 0, 2, ',', '.') }} · Pago R$ {{ number_format($performanceData['earnings_paid'] ?? 0, 2, ',', '.') }}</p>
                 </div>
+                <div class="bg-neutral-950 rounded-xl p-3 border border-amber-500/20">
+                    <p class="text-xs text-neutral-400">Pendente</p>
+                    <p class="text-lg font-bold text-amber-400">R$ {{ number_format($performanceData['earnings_summary']['pending'] ?? 0, 2, ',', '.') }}</p>
+                    <p class="text-[10px] text-neutral-500">{{ $performanceData['earnings_summary']['pending_count'] ?? 0 }} entrega(s)</p>
+                </div>
+                <div class="bg-neutral-950 rounded-xl p-3 border border-emerald-500/20">
+                    <p class="text-xs text-neutral-400">Pago</p>
+                    <p class="text-lg font-bold text-emerald-400">R$ {{ number_format($performanceData['earnings_summary']['paid'] ?? 0, 2, ',', '.') }}</p>
+                    <p class="text-[10px] text-neutral-500">{{ $performanceData['earnings_summary']['paid_count'] ?? 0 }} entrega(s)</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-4 shrink-0">
                 <div class="bg-neutral-950 rounded-xl p-3 border border-neutral-800">
                     <p class="text-xs text-neutral-400">Tempo médio</p>
                     <p class="text-lg font-bold text-white">{{ $performanceData['avg_time_minutes'] ?? 0 }} min</p>
@@ -295,6 +309,40 @@
                 </div>
             </div>
 
+            {{-- Daily Earnings --}}
+            <div class="bg-neutral-950 rounded-xl border border-neutral-800 mb-4 shrink-0">
+                <div class="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
+                    <h4 class="text-sm font-semibold text-neutral-300">Ganhos Diários</h4>
+                    <button type="button" wire:click="markAllEarningsPaid"
+                            class="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/20 transition-colors">
+                        Marcar todos como pagos
+                    </button>
+                </div>
+                @if (!empty($performanceData['earnings_days']))
+                    <div class="divide-y divide-neutral-800/60 max-h-44 overflow-y-auto">
+                        @foreach ($performanceData['earnings_days'] as $day)
+                            <div class="flex items-center justify-between px-4 py-2.5">
+                                <div class="min-w-0">
+                                    <p class="text-sm font-medium text-white">{{ $day['weekday'] }}, {{ $day['label'] }}</p>
+                                    <p class="text-xs text-neutral-500">{{ $day['count'] }} entrega(s)</p>
+                                </div>
+                                <div class="text-right shrink-0 ml-3 space-y-0.5">
+                                    <p class="text-sm font-bold text-white">R$ {{ number_format($day['total'], 2, ',', '.') }}</p>
+                                    @if ($day['pending'] > 0)
+                                        <p class="text-[10px] font-semibold text-amber-400">Pendente R$ {{ number_format($day['pending'], 2, ',', '.') }}</p>
+                                    @endif
+                                    @if ($day['paid'] > 0)
+                                        <p class="text-[10px] font-semibold text-emerald-400">Pago R$ {{ number_format($day['paid'], 2, ',', '.') }}</p>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-sm text-neutral-500 text-center py-4">Sem ganhos no período.</p>
+                @endif
+            </div>
+
             {{-- Order History --}}
             <div class="flex-1 overflow-y-auto min-h-0">
                 <h4 class="text-sm font-semibold text-neutral-300 mb-2">Histórico de Pedidos</h4>
@@ -305,13 +353,29 @@
                                 <div class="min-w-0">
                                     <p class="text-sm font-medium truncate">{{ $order['customer_name'] }}</p>
                                     <p class="text-xs text-neutral-500">{{ $order['created_at'] }} · {{ $order['items_count'] }} itens</p>
+                                    @if ($order['earning_amount'] !== null)
+                                        <p class="text-xs text-emerald-400 font-semibold mt-1">Ganho: R$ {{ number_format($order['earning_amount'], 2, ',', '.') }}</p>
+                                    @endif
                                 </div>
-                                <div class="text-right shrink-0 ml-3">
-                                    <p class="text-sm font-semibold text-white">R$ {{ number_format($order['total'], 2, ',', '.') }}</p>
-                                    <span class="text-xs px-1.5 py-0.5 rounded-full font-medium
-                                        {{ $order['status'] === 'entregue' || $order['status'] === 'fechado' ? 'text-emerald-400 bg-emerald-500/10' : ($order['status'] === 'cancelado' ? 'text-red-400 bg-red-500/10' : 'text-amber-400 bg-amber-500/10') }}">
-                                        {{ $order['status_label'] }}
-                                    </span>
+                                <div class="text-right shrink-0 ml-3 flex items-center gap-2">
+                                    <div>
+                                        <p class="text-sm font-semibold text-white">R$ {{ number_format($order['total'], 2, ',', '.') }}</p>
+                                        <span class="text-xs px-1.5 py-0.5 rounded-full font-medium
+                                            {{ $order['status'] === 'entregue' || $order['status'] === 'fechado' ? 'text-emerald-400 bg-emerald-500/10' : ($order['status'] === 'cancelado' ? 'text-red-400 bg-red-500/10' : 'text-amber-400 bg-amber-500/10') }}">
+                                            {{ $order['status_label'] }}
+                                        </span>
+                                    </div>
+                                    @if ($order['earning_status'] === 'pending')
+                                        <button type="button" wire:click="markEarningPaid({{ $order['earning_id'] }})"
+                                                title="Marcar como pago"
+                                                class="px-2.5 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-semibold hover:bg-amber-500/20 transition-colors">
+                                            Pagar
+                                        </button>
+                                    @elseif ($order['earning_status'] === 'paid')
+                                        <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium" title="Pago em {{ $order['earning_paid_at'] }}">
+                                            Pago
+                                        </span>
+                                    @endif
                                 </div>
                             </div>
                         @endforeach

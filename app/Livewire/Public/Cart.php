@@ -12,7 +12,9 @@ use App\Models\Payment;
 use App\Models\Table;
 use App\Models\UserAddress;
 use App\Services\DeliveryNotificationService;
+use App\Services\DeliveryService;
 use App\Services\EfiBank\TenantEfiBankService;
+use App\Services\GeocodingService;
 use App\Services\PointsService;
 use App\Services\StockService;
 use Illuminate\Support\Facades\Auth;
@@ -62,6 +64,12 @@ class Cart extends Component
 
     public string $deliveryReference = '';
 
+    public string $deliveryCity = '';
+
+    public string $deliveryState = '';
+
+    public string $deliveryZipcode = '';
+
     public string $couponCode = '';
 
     public ?array $appliedCoupon = null;
@@ -76,6 +84,7 @@ class Cart extends Component
 
     public array $userAddresses = [];
     public ?int $selectedAddressId = null;
+    public ?float $deliveryDistance = null;
 
     public bool $showAddressModal = false;
 
@@ -165,6 +174,34 @@ class Cart extends Component
             $this->selectedAddressId = $addressId;
             $this->deliveryAddress = $address->full_address;
             $this->deliveryReference = $address->reference ?? '';
+            $this->deliveryCity = $address->city ?? '';
+            $this->deliveryState = $address->state ?? '';
+            $this->deliveryZipcode = $address->zipcode ?? '';
+            $this->refreshDeliveryDistance();
+        }
+    }
+
+    protected function refreshDeliveryDistance(): void
+    {
+        $this->deliveryDistance = null;
+
+        if (!$this->deliveryAddress) {
+            return;
+        }
+
+        try {
+            $validation = app(DeliveryService::class)->validateDeliveryAddress(
+                $this->tenant,
+                $this->deliveryAddress,
+                $this->deliveryCity ?: $this->tenant->city,
+                $this->deliveryState ?: $this->tenant->state,
+                $this->deliveryZipcode ?: null
+            );
+            if ($validation['valid'] ?? false) {
+                $this->deliveryDistance = $validation['distance'] ?? null;
+            }
+        } catch (\Throwable $e) {
+            $this->deliveryDistance = null;
         }
     }
 
@@ -175,6 +212,9 @@ class Cart extends Component
         } else {
             $this->deliveryAddress = '';
             $this->deliveryReference = '';
+            $this->deliveryCity = '';
+            $this->deliveryState = '';
+            $this->deliveryZipcode = '';
         }
     }
 
@@ -215,6 +255,9 @@ class Cart extends Component
                     $address = $order->address_json;
                     $this->deliveryAddress = $address['address'] ?? '';
                     $this->deliveryReference = $address['reference'] ?? '';
+                    $this->deliveryCity = $address['city'] ?? '';
+                    $this->deliveryState = $address['state'] ?? '';
+                    $this->deliveryZipcode = $address['zipcode'] ?? '';
                 }
             } else {
                 Session::forget("last_order_{$this->tenant->id}");
@@ -284,7 +327,7 @@ class Cart extends Component
     public function total()
     {
         $cartTotal = $this->calcCartTotal();
-        $deliveryCost = $this->orderType === 'entrega' ? (float) ($this->tenant->delivery_cost_per_order ?? 0) : 0;
+        $deliveryCost = $this->orderType === 'entrega' ? $this->tenant->deliveryCostForDistance($this->deliveryDistance) : 0;
         $subtotal = max(0, $cartTotal - $this->discount + $deliveryCost);
         $pointsDiscount = $this->usePoints ? $this->pointsDiscount : 0;
         return max(0, $subtotal - $pointsDiscount);
@@ -385,7 +428,7 @@ class Cart extends Component
 
         if ($this->usePoints) {
             $cartTotal = $this->calcCartTotal();
-            $deliveryCost = $this->orderType === 'entrega' ? (float) ($this->tenant->delivery_cost_per_order ?? 0) : 0;
+            $deliveryCost = $this->orderType === 'entrega' ? $this->tenant->deliveryCostForDistance($this->deliveryDistance) : 0;
             $totalBeforePoints = max(0, $cartTotal - $this->discount + $deliveryCost);
             $minOrderValue = (float) (LoyaltyConfig::forTenant($this->tenant)->min_points_order_value ?? 10.00);
 
@@ -485,6 +528,9 @@ class Cart extends Component
         $this->selectedAddressId = $address->id;
         $this->deliveryAddress = $address->full_address;
         $this->deliveryReference = $address->reference ?? '';
+        $this->deliveryCity = $address->city ?? '';
+        $this->deliveryState = $address->state ?? '';
+        $this->deliveryZipcode = $address->zipcode ?? '';
         $this->showAddressModal = false;
         $this->loadUserAddresses();
         $this->dispatch('notify', message: 'Endereco salvo com sucesso!');
@@ -511,7 +557,19 @@ class Cart extends Component
             $rules['deliveryAddress'] = 'required|string';
             $rules['paymentMethod'] = 'required|in:pix,credit_card,cash';
             if ($this->paymentMethod === 'cash') {
-                $rules['cashAmount'] = 'required|numeric|min:' . ($this->calcCartTotal() - $this->discount + ($this->orderType === 'entrega' ? (float) ($this->tenant->delivery_cost_per_order ?? 0) : 0) + 0.01);
+                $rules['cashAmount'] = 'required|numeric|min:' . ($this->calcCartTotal() - $this->discount + ($this->orderType === 'entrega' ? $this->tenant->deliveryCostForDistance($this->deliveryDistance) : 0) + 0.01);
+            }
+
+            $validation = app(DeliveryService::class)->validateDeliveryAddress(
+                $this->tenant,
+                $this->deliveryAddress,
+                $this->deliveryCity ?: $this->tenant->city,
+                $this->deliveryState ?: $this->tenant->state,
+                $this->deliveryZipcode ?: null
+            );
+            if (!$validation['valid']) {
+                $this->dispatch('notify', message: $validation['error']);
+                return;
             }
         }
 
@@ -550,7 +608,19 @@ class Cart extends Component
 
         DB::transaction(function () use ($tableId, &$orderId, &$order, &$pointsSpent, &$redeemPointsSpent) {
             $addressData = null;
+            $deliveryCoords = null;
             if ($this->orderType === 'entrega' && $this->deliveryAddress) {
+                $validation = app(DeliveryService::class)->validateDeliveryAddress(
+                    $this->tenant,
+                    $this->deliveryAddress,
+                    $this->deliveryCity ?: $this->tenant->city,
+                    $this->deliveryState ?: $this->tenant->state,
+                    $this->deliveryZipcode ?: null
+                );
+                if ($validation['valid'] && isset($validation['coordinates'])) {
+                    $deliveryCoords = $validation['coordinates'];
+                }
+
                 $addressData = [
                     'address' => $this->deliveryAddress,
                     'reference' => $this->deliveryReference,
@@ -558,14 +628,21 @@ class Cart extends Component
                     'number' => $this->newAddressNumber ?: null,
                     'complement' => $this->newAddressComplement ?: null,
                     'neighborhood' => $this->newAddressNeighborhood ?: null,
-                    'city' => $this->newAddressCity ?: '',
-                    'state' => $this->newAddressState ?: '',
-                    'zipcode' => $this->newAddressZipcode ?: null,
+                    'city' => $this->deliveryCity ?: '',
+                    'state' => $this->deliveryState ?: '',
+                    'zipcode' => $this->deliveryZipcode ?: null,
+                    'latitude' => $deliveryCoords['lat'] ?? null,
+                    'longitude' => $deliveryCoords['lng'] ?? null,
                 ];
             }
 
-            $deliveryCost = $this->orderType === 'entrega' ? (float) ($this->tenant->delivery_cost_per_order ?? 0) : 0;
+            $deliveryCost = 0;
+            $deliveryDistance = null;
             $cartTotal = $this->calcCartTotal();
+            if ($this->orderType === 'entrega') {
+                $deliveryDistance = isset($validation) ? ($validation['distance'] ?? null) : null;
+                $deliveryCost = $this->tenant->deliveryCostForDistance($deliveryDistance);
+            }
             $totalBeforePoints = max(0, $cartTotal - $this->discount + $deliveryCost);
             $pointsDiscount = $this->usePoints ? $this->pointsDiscount : 0;
 
@@ -678,11 +755,10 @@ class Cart extends Component
         $willGeneratePix = $this->orderType === 'entrega' && $this->paymentMethod === 'pix' && $order;
 
         if (!$willGeneratePix) {
+            if ($this->orderType === 'entrega' && $order) {
+                app(DeliveryNotificationService::class)->newOrderAvailable($order);
+            }
             $this->dispatch('goToMyOrders')->to('public.menu');
-        }
-
-        if ($this->orderType === 'entrega' && $order) {
-            app(DeliveryNotificationService::class)->newOrderAvailable($order);
         }
 
         if ($willGeneratePix) {
@@ -714,7 +790,11 @@ class Cart extends Component
         $this->dispatch('orderUpdated');
 
         if (!$willGeneratePix) {
-            $this->dispatch('notify', message: "Pedido enviado com sucesso{$orderTypeLabel}! Acompanhe o status.");
+            $deliveryCostMsg = '';
+            if ($this->orderType === 'entrega' && $order && (float) $order->delivery_cost > 0) {
+                $deliveryCostMsg = ' Taxa de entrega: R$ ' . number_format((float) $order->delivery_cost, 2, ',', '.') . '.';
+            }
+            $this->dispatch('notify', message: "Pedido enviado com sucesso{$orderTypeLabel}! Acompanhe o status.{$deliveryCostMsg}");
         }
     }
 
@@ -779,7 +859,9 @@ class Cart extends Component
                         'paid_at' => now(),
                         'notes' => 'Pagamento PIX confirmado via API',
                     ]);
+                    $order->update(['payment_status' => 'paid']);
                     app(PointsService::class)->grantPointsForOrder($order->fresh());
+                    app(DeliveryNotificationService::class)->newOrderAvailable($order->fresh());
                 }
 
                 $this->showPixCheckoutModal = false;
@@ -816,7 +898,7 @@ class Cart extends Component
             return;
         }
 
-        UserAddress::create([
+        $addressData = [
             'tenant_id' => $this->tenant->id,
             'user_id' => $userId,
             'label' => 'Entrega',
@@ -824,12 +906,27 @@ class Cart extends Component
             'number' => $this->newAddressNumber ?: null,
             'complement' => $this->newAddressComplement ?: null,
             'neighborhood' => $this->newAddressNeighborhood ?: null,
-            'city' => $this->newAddressCity ?: '',
-            'state' => $this->newAddressState ?: '',
-            'zipcode' => $this->newAddressZipcode ?: null,
+            'city' => $this->deliveryCity ?: '',
+            'state' => $this->deliveryState ?: '',
+            'zipcode' => $this->deliveryZipcode ?: null,
             'reference' => $this->deliveryReference ?: null,
             'is_default' => $existingCount === 0,
-        ]);
+        ];
+
+        try {
+            $coords = app(GeocodingService::class)->geocode(
+                ($this->newAddressStreet ?: $this->deliveryAddress) . ', ' . ($this->newAddressNumber ? $this->newAddressNumber . ', ' : '') . ($this->newAddressNeighborhood ?: ''),
+                $this->deliveryCity,
+                $this->deliveryState,
+                $this->deliveryZipcode
+            );
+            if ($coords) {
+                $addressData['latitude'] = $coords['lat'];
+                $addressData['longitude'] = $coords['lng'];
+            }
+        } catch (\Throwable $e) {}
+
+        UserAddress::create($addressData);
     }
 
     protected function dispatchBrowserCartEvent(): void

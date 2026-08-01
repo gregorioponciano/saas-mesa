@@ -477,7 +477,7 @@
                     {{-- Total Breakdown --}}
                     <div class="p-4 rounded-2xl bg-neutral-800/30 border border-neutral-800">
                         @php $subtotal = $cartItems ? collect($cartItems)->sum(fn($i) => $i['unit_price'] * $i['quantity']) : 0; @endphp
-                        @php $cost = $orderType === 'entrega' ? (float) ($tenant->delivery_cost_per_order ?? 0) : 0; @endphp
+                        @php $cost = $orderType === 'entrega' ? $tenant->deliveryCostForDistance($this->deliveryDistance) : 0; @endphp
                         @php $netTotal = $total - $cost; @endphp
 
                         <div class="space-y-1.5 text-sm">
@@ -498,9 +498,15 @@
                                 </div>
                             @endif
                             @if ($cost > 0)
+                                @php
+                                    $feeHintParts = [];
+                                    if ((float) $tenant->delivery_cost_per_order > 0) $feeHintParts[] = 'R$ ' . number_format((float) $tenant->delivery_cost_per_order, 2, ',', '.');
+                                    if ((float) $tenant->delivery_cost_per_km > 0) $feeHintParts[] = 'R$ ' . number_format((float) $tenant->delivery_cost_per_km, 2, ',', '.') . '/km';
+                                    $feeHint = implode(' + ', $feeHintParts);
+                                @endphp
                                 <div class="flex items-center justify-between">
-                                    <span class="text-neutral-400">Taxa de Entrega (entregador)</span>
-                                    <span class="text-amber-400">-R$ {{ number_format($cost, 2, ',', '.') }}</span>
+                                    <span class="text-neutral-400">Taxa de Entrega @if ($feeHint) <span class="text-neutral-600">({{ $feeHint }})</span>@endif</span>
+                                    <span class="text-amber-400">+R$ {{ number_format($cost, 2, ',', '.') }}</span>
                                 </div>
                             @endif
                         </div>

@@ -2,18 +2,21 @@
 
 namespace App\Services;
 
+use App\Models\DeliveryEarning;
 use App\Models\DeliveryPerson;
 use App\Models\Order;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\NewAccessToken;
 
 class DeliveryService
 {
     public function __construct(
-        private readonly DeliveryNotificationService $notificationService
+        private readonly DeliveryNotificationService $notificationService,
+        private readonly GeocodingService $geocodingService,
     ) {}
 
     public function login(string $phone, string $password): ?DeliveryPerson
@@ -46,6 +49,10 @@ class DeliveryService
             ->where('type', 'entrega')
             ->whereIn('status', ['novo', 'em_preparo'])
             ->whereNull('delivery_person_id')
+            ->where(function ($q) {
+                $q->where('payment_method', '!=', 'pix')
+                  ->orWhere('payment_status', 'paid');
+            })
             ->with('items')
             ->latest()
             ->get()
@@ -163,9 +170,28 @@ class DeliveryService
 
         $order->update($data);
 
+        $this->recordEarning($order, $delivery);
+
         $this->notificationService->orderDelivered($order, $delivery);
 
         return $order->fresh();
+    }
+
+    private function recordEarning(Order $order, DeliveryPerson $delivery): void
+    {
+        if ((float) $order->delivery_cost <= 0) {
+            return;
+        }
+
+        DeliveryEarning::firstOrCreate(
+            ['tenant_id' => $order->tenant_id, 'order_id' => $order->id],
+            [
+                'delivery_person_id' => $delivery->id,
+                'amount' => $order->delivery_cost,
+                'status' => DeliveryEarning::STATUS_PENDING,
+                'earned_at' => now(),
+            ]
+        );
     }
 
     public function cancelOrder(DeliveryPerson $delivery, int $orderId): ?Order
@@ -221,18 +247,107 @@ class DeliveryService
             ? round(($cancelledCount / ($totalDeliveries + $cancelledCount)) * 100, 1)
             : 0;
 
+        $earningsSummary = $this->getEarningsSummary($delivery, $startDate, $endDate);
+
         return [
             'id' => $delivery->id,
             'name' => $delivery->name,
             'phone' => $delivery->phone,
             'status' => $delivery->status,
             'earnings' => (float) $earnings,
+            'earnings_pending' => $earningsSummary['pending'],
+            'earnings_paid' => $earningsSummary['paid'],
             'total_deliveries' => $totalDeliveries,
             'avg_time_minutes' => $avgTimeMinutes,
             'cancel_rate' => $cancelRate,
             'has_password' => $delivery->hasPassword(),
             'activated_at' => $delivery->activated_at?->toIso8601String(),
         ];
+    }
+
+    public function getEarningsSummary(DeliveryPerson $delivery, ?string $startDate = null, ?string $endDate = null): array
+    {
+        $query = DeliveryEarning::where('tenant_id', $delivery->tenant_id)
+            ->where('delivery_person_id', $delivery->id);
+
+        if ($startDate) {
+            $query->where('earned_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $query->where('earned_at', '<=', $endDate);
+        }
+
+        $earnings = $query->get();
+
+        return [
+            'total' => (float) $earnings->sum('amount'),
+            'pending' => (float) $earnings->where('status', DeliveryEarning::STATUS_PENDING)->sum('amount'),
+            'paid' => (float) $earnings->where('status', DeliveryEarning::STATUS_PAID)->sum('amount'),
+            'total_count' => $earnings->count(),
+            'pending_count' => $earnings->where('status', DeliveryEarning::STATUS_PENDING)->count(),
+            'paid_count' => $earnings->where('status', DeliveryEarning::STATUS_PAID)->count(),
+        ];
+    }
+
+    public function getEarningsDailyHistory(DeliveryPerson $delivery, ?string $startDate = null, ?string $endDate = null, int $maxDays = 90): array
+    {
+        $end = $endDate ? \Illuminate\Support\Carbon::parse($endDate)->endOfDay() : now();
+        $start = $startDate ? \Illuminate\Support\Carbon::parse($startDate)->startOfDay() : now()->startOfDay()->subDays(60);
+
+        if ($start->diffInDays($end, false) > $maxDays) {
+            $start = $end->copy()->startOfDay()->subDays($maxDays - 1);
+        }
+
+        $earnings = DeliveryEarning::where('tenant_id', $delivery->tenant_id)
+            ->where('delivery_person_id', $delivery->id)
+            ->where('earned_at', '>=', $start)
+            ->where('earned_at', '<=', $end)
+            ->get()
+            ->groupBy(fn($e) => $e->earned_at->format('Y-m-d'));
+
+        $history = [];
+        for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+            $key = $date->format('Y-m-d');
+            $dayEarnings = $earnings->get($key, collect());
+
+            if ($dayEarnings->isEmpty()) {
+                continue;
+            }
+
+            $history[] = [
+                'date' => $key,
+                'label' => $date->format('d/m/Y'),
+                'weekday' => $date->format('D'),
+                'total' => (float) $dayEarnings->sum('amount'),
+                'pending' => (float) $dayEarnings->where('status', DeliveryEarning::STATUS_PENDING)->sum('amount'),
+                'paid' => (float) $dayEarnings->where('status', DeliveryEarning::STATUS_PAID)->sum('amount'),
+                'count' => $dayEarnings->count(),
+                'pending_count' => $dayEarnings->where('status', DeliveryEarning::STATUS_PENDING)->count(),
+            ];
+        }
+
+        return array_reverse($history);
+    }
+
+    public function getEarningsOrders(DeliveryPerson $delivery, int $limit = 20): array
+    {
+        return DeliveryEarning::where('tenant_id', $delivery->tenant_id)
+            ->where('delivery_person_id', $delivery->id)
+            ->with(['order' => fn($q) => $q->select('id', 'customer_name')])
+            ->latest()
+            ->limit($limit)
+            ->get()
+            ->map(fn($e) => [
+                'id' => $e->id,
+                'order_id' => $e->order_id,
+                'customer_name' => $e->order?->customer_name ?? 'Cliente',
+                'earned_at' => $e->earned_at?->format('d/m/Y H:i'),
+                'amount' => (float) $e->amount,
+                'status' => $e->status,
+                'status_label' => DeliveryEarning::STATUS_LABELS[$e->status] ?? $e->status,
+                'paid_at' => $e->paid_at?->format('d/m/Y H:i'),
+            ])
+            ->toArray();
     }
 
     public function getTodayStats(DeliveryPerson $delivery): array
@@ -257,6 +372,12 @@ class DeliveryService
 
         $todaysEarnings = (float) $completedToday->sum('delivery_cost');
 
+        $todayEarningsSummary = $this->getEarningsSummary(
+            $delivery,
+            $today->toDateTimeString(),
+            now()->endOfDay()->toDateTimeString()
+        );
+
         $completedFiltered = $completedToday->filter(fn($o) => $o->accepted_at && $o->delivered_at);
         $avgTimeToday = $completedFiltered->isNotEmpty()
             ? round($completedFiltered->avg(fn($o) => $o->accepted_at->diffInMinutes($o->delivered_at)), 1)
@@ -267,6 +388,8 @@ class DeliveryService
             'active' => $activeNow,
             'pending_pickup' => $pendingPickup,
             'earnings' => $todaysEarnings,
+            'earnings_pending' => $todayEarningsSummary['pending'],
+            'earnings_paid' => $todayEarningsSummary['paid'],
             'avg_time_today' => $avgTimeToday,
         ];
     }
@@ -405,6 +528,18 @@ class DeliveryService
         return $photo->store("delivery-photos/{$tenantId}/{$deliveryPersonId}", 'public');
     }
 
+    public function uploadDeliveryPhotoData(string $dataUrl, int $tenantId, int $deliveryPersonId): string
+    {
+        $encoded = explode(',', $dataUrl, 2)[1] ?? '';
+        $decoded = base64_decode($encoded);
+        if (!$decoded) {
+            throw new \InvalidArgumentException('Foto inválida.');
+        }
+        $path = "delivery-photos/{$tenantId}/{$deliveryPersonId}/" . Str::uuid() . '.jpg';
+        Storage::disk('public')->put($path, $decoded);
+        return $path;
+    }
+
     public function uploadAvatar($avatar, int $tenantId): string
     {
         return $avatar->store("delivery-avatars/{$tenantId}", 'public');
@@ -413,8 +548,62 @@ class DeliveryService
     public function toggleAvailability(DeliveryPerson $delivery): bool
     {
         $newStatus = $delivery->status === 'active' ? 'inactive' : 'active';
-        $delivery->update(['status' => $newStatus]);
+        $delivery->update([
+            'status' => $newStatus,
+            'is_online' => $newStatus === 'active',
+        ]);
         return $newStatus === 'active';
+    }
+
+    public function validateDeliveryAddress(\App\Models\Tenant $tenant, string $address, ?string $city = null, ?string $state = null, ?string $zipcode = null): array
+    {
+        $restLat = (float) ($tenant->latitude ?? 0);
+        $restLng = (float) ($tenant->longitude ?? 0);
+
+        if (!$restLat || !$restLng) {
+            if ($tenant->address && $tenant->city) {
+                $coords = $this->geocodingService->geocode($tenant->address . ', ' . ($tenant->number ?: '') . ', ' . ($tenant->neighborhood ?: ''), $tenant->city, $tenant->state, $tenant->zipcode);
+                if ($coords) {
+                    $restLat = $coords['lat'];
+                    $restLng = $coords['lng'];
+                    $tenant->updateQuietly(['latitude' => $restLat, 'longitude' => $restLng]);
+                }
+            }
+            if (!$restLat || !$restLng) {
+                return ['valid' => false, 'error' => 'Restaurante ainda nao configurou endereco de entrega. Vá em Configuracoes e preencha o endereco do restaurante.', 'coordinates' => null];
+            }
+        }
+
+        $coords = $this->geocodingService->geocode($address, $city, $state, $zipcode);
+        if ($coords) {
+            $distance = GeocodingService::haversineDistance($restLat, $restLng, $coords['lat'], $coords['lng']);
+            $radius = (float) ($tenant->delivery_radius ?? 10);
+
+            if ($distance > $radius) {
+                return [
+                    'valid' => false,
+                    'error' => 'Endereco muito distante do restaurante. Distancia: ' . number_format($distance, 1, ',', '.') . 'km (maximo: ' . number_format($radius, 1, ',', '.') . 'km).',
+                    'distance' => $distance,
+                    'radius' => $radius,
+                    'coordinates' => $coords,
+                ];
+            }
+
+            return [
+                'valid' => true,
+                'distance' => $distance,
+                'radius' => $radius,
+                'coordinates' => $coords,
+            ];
+        }
+
+        return [
+            'valid' => true,
+            'distance' => null,
+            'radius' => (float) ($tenant->delivery_radius ?? 10),
+            'coordinates' => null,
+            'warning' => 'Nao foi possivel calcular a distancia, mas o pedido sera enviado.',
+        ];
     }
 
     private function formatOrder(Order $order, bool $includeDeliveryCost = false): array
@@ -453,6 +642,8 @@ class DeliveryService
             'accepted_at' => $order->accepted_at?->format('d/m/Y H:i'),
             'picked_up_at' => $order->picked_up_at?->format('d/m/Y H:i'),
             'delivered_at' => $order->delivered_at?->format('d/m/Y H:i'),
+            'delivery_lat' => $order->address_json['latitude'] ?? null,
+            'delivery_lng' => $order->address_json['longitude'] ?? null,
         ];
 
         if ($includeDeliveryCost) {

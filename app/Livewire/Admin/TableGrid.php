@@ -69,6 +69,8 @@ class TableGrid extends Component
     public string $deliveryCep = '';
     public string $deliveryAddress = '';
     public string $deliveryReference = '';
+    public string $deliveryCity = '';
+    public string $deliveryState = '';
     public string $notes = '';
     public string $addressSearch = '';
     public array $foundAddresses = [];
@@ -742,12 +744,28 @@ class TableGrid extends Component
             return;
         }
 
+        $deliveryCost = 0;
+        if ($this->orderType === 'entrega' && $this->deliveryAddress) {
+            $validation = app(\App\Services\DeliveryService::class)->validateDeliveryAddress(
+                $this->tenant,
+                $this->deliveryAddress,
+                $this->deliveryCity ?: $this->tenant->city,
+                $this->deliveryState ?: $this->tenant->state,
+                $this->deliveryCep ?: null
+            );
+            if (!$validation['valid']) {
+                $this->dispatch('notify', message: $validation['error']);
+                return;
+            }
+            $deliveryCost = $this->tenant->deliveryCostForDistance($validation['distance'] ?? null);
+        }
+
         if ($this->orderPaymentMethod === 'cash' && (!$this->cashAmount || $this->cashAmount <= 0)) {
             $this->dispatch('notify', message: 'Informe o valor para calculo do troco.');
             return;
         }
 
-        if ($this->orderPaymentMethod === 'cash' && $this->cashAmount < $this->cartTotal) {
+        if ($this->orderPaymentMethod === 'cash' && $this->cashAmount < $this->cartTotal + $deliveryCost) {
             $this->dispatch('notify', message: 'O valor informado deve ser maior ou igual ao total do pedido.');
             return;
         }
@@ -776,7 +794,7 @@ class TableGrid extends Component
 
         $orderId = null;
 
-        DB::transaction(function () use ($tableId, &$orderId) {
+        DB::transaction(function () use ($tableId, $deliveryCost, &$orderId) {
             if ($tableId) {
                 $wasFree = Table::where('id', $tableId)->where('status', 'free')->exists();
                 Table::where('id', $tableId)->update(['status' => 'occupied']);
@@ -791,6 +809,8 @@ class TableGrid extends Component
                     'zipcode' => $this->deliveryCep,
                     'address' => $this->deliveryAddress,
                     'reference' => $this->deliveryReference,
+                    'city' => $this->deliveryCity ?: '',
+                    'state' => $this->deliveryState ?: '',
                 ];
             }
 
@@ -800,12 +820,13 @@ class TableGrid extends Component
                 'table_id' => $tableId,
                 'customer_name' => $this->customerName,
                 'customer_phone' => $this->customerPhone,
-                'total' => $this->cartTotal,
+                'total' => $this->cartTotal + $deliveryCost,
                 'payment_method' => $this->orderType === 'entrega' ? $this->orderPaymentMethod : null,
                 'payment_change' => $this->orderPaymentMethod === 'cash' ? $this->cashAmount : null,
                 'status' => 'novo',
                 'type' => $this->orderType,
                 'address_json' => $addressData,
+                'delivery_cost' => $deliveryCost > 0 ? $deliveryCost : null,
                 'notes' => $this->notes,
             ]);
 
@@ -863,6 +884,9 @@ class TableGrid extends Component
         if ($address) {
             $this->deliveryAddress = $address->full_address;
             $this->deliveryReference = $address->reference ?? '';
+            $this->deliveryCep = $address->zipcode ?? '';
+            $this->deliveryCity = $address->city ?? '';
+            $this->deliveryState = $address->state ?? '';
             $this->customerName = $address->user->name;
             $this->foundAddresses = [];
             $this->addressSearch = '';

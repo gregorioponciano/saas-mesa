@@ -57,6 +57,14 @@ class EfiCredentialsManager extends Component
             $this->account_type_display = $data['account_type_display'];
             $this->masked_client_id = $data['client_id_masked'];
             $this->masked_pix_key = $data['pix_key_masked'];
+
+            $record = TenantEfiCredentials::where('tenant_id', $tenant->id)->first();
+            if ($record) {
+                $decrypted = $record->toDecryptedArray();
+                $this->client_id = $decrypted['client_id'];
+                $this->client_secret = $decrypted['client_secret'];
+                $this->pix_key = $decrypted['pix_key'] ?? '';
+            }
         }
     }
 

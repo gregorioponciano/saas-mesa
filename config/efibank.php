@@ -20,15 +20,15 @@ return [
     'urls' => [
         'pix' => 'https://pix.api.efipay.com.br/v2/',
         'oauth' => 'https://pix.api.efipay.com.br/oauth/token',
-        'charges' => 'https://api.efipay.com.br/v1/',
-        'subscriptions' => 'https://api.efipay.com.br/v1/',
+        'charges' => 'https://cobrancas.api.efipay.com.br/v1/',
+        'subscriptions' => 'https://cobrancas.api.efipay.com.br/v1/',
     ],
 
     'sandbox_urls' => [
-        'pix' => 'https://sandbox.efipay.com.br/sandbox/pix/v2/',
-        'oauth' => 'https://sandbox.efipay.com.br/oauth/token',
-        'charges' => 'https://sandbox.efipay.com.br/v1/',
-        'subscriptions' => 'https://sandbox.efipay.com.br/v1/',
+        'pix' => 'https://pix-h.api.efipay.com.br/v2/',
+        'oauth' => 'https://pix-h.api.efipay.com.br/oauth/token',
+        'charges' => 'https://cobrancas-h.api.efipay.com.br/v1/',
+        'subscriptions' => 'https://cobrancas-h.api.efipay.com.br/v1/',
     ],
 
     'suspension_after_days' => (int) env('EFI_SUSPENSION_AFTER_DAYS', 5),

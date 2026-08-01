@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin;
 
+use App\Models\DeliveryEarning;
 use App\Models\DeliveryPerson;
 use App\Models\Order;
 use App\Services\DeliveryService;
@@ -138,7 +139,7 @@ class DeliveryPeopleManager extends Component
         $this->generateInvite($id);
     }
 
-    public function showPerformance(int $id): void
+    public function openPerformance(int $id): void
     {
         $this->performanceId = $id;
         $this->reportPeriod = 'all';
@@ -156,23 +157,7 @@ class DeliveryPeopleManager extends Component
             ->where('tenant_id', Auth::user()->tenant_id)
             ->firstOrFail();
 
-        $startDate = null;
-        $endDate = null;
-
-        switch ($this->reportPeriod) {
-            case 'today':
-                $startDate = now()->startOfDay()->toDateTimeString();
-                $endDate = now()->endOfDay()->toDateTimeString();
-                break;
-            case 'week':
-                $startDate = now()->startOfWeek()->toDateTimeString();
-                $endDate = now()->endOfDay()->toDateTimeString();
-                break;
-            case 'month':
-                $startDate = now()->startOfMonth()->toDateTimeString();
-                $endDate = now()->endOfDay()->toDateTimeString();
-                break;
-        }
+        [$startDate, $endDate] = $this->periodDates();
 
         $service = app(DeliveryService::class);
         $profile = $service->getProfile($delivery, $startDate, $endDate);
@@ -191,19 +176,106 @@ class DeliveryPeopleManager extends Component
         $recentOrders = $orderQuery->with('items')
             ->latest()
             ->limit(20)
-            ->get()
-            ->map(fn($o) => [
-                'id' => $o->id,
-                'customer_name' => $o->customer_name ?? 'Cliente',
-                'total' => (float) $o->total,
-                'status' => $o->status,
-                'status_label' => $o->statusLabel(),
-                'created_at' => $o->created_at->format('d/m/Y H:i'),
-                'items_count' => $o->items->count(),
-            ])
-            ->toArray();
+            ->get();
 
-        $this->performanceData = array_merge($profile, ['recent_orders' => $recentOrders]);
+        $earningsByOrder = DeliveryEarning::where('tenant_id', Auth::user()->tenant_id)
+            ->where('delivery_person_id', $delivery->id)
+            ->whereIn('order_id', $recentOrders->pluck('id'))
+            ->get()
+            ->keyBy('order_id');
+
+        $recentOrders = $recentOrders->map(fn($o) => [
+            'id' => $o->id,
+            'customer_name' => $o->customer_name ?? 'Cliente',
+            'total' => (float) $o->total,
+            'status' => $o->status,
+            'status_label' => $o->statusLabel(),
+            'created_at' => $o->created_at->format('d/m/Y H:i'),
+            'items_count' => $o->items->count(),
+            'earning_id' => $earningsByOrder[$o->id]->id ?? null,
+            'earning_amount' => isset($earningsByOrder[$o->id]) ? (float) $earningsByOrder[$o->id]->amount : null,
+            'earning_status' => $earningsByOrder[$o->id]->status ?? null,
+            'earning_paid_at' => isset($earningsByOrder[$o->id]) && $earningsByOrder[$o->id]->paid_at
+                ? $earningsByOrder[$o->id]->paid_at->format('d/m/Y H:i')
+                : null,
+        ])->toArray();
+
+        $this->performanceData = array_merge($profile, [
+            'recent_orders' => $recentOrders,
+            'earnings_summary' => $service->getEarningsSummary($delivery, $startDate, $endDate),
+            'earnings_days' => $service->getEarningsDailyHistory($delivery, $startDate, $endDate),
+        ]);
+    }
+
+    public function markEarningPaid(int $earningId): void
+    {
+        $earning = DeliveryEarning::where('id', $earningId)
+            ->where('tenant_id', Auth::user()->tenant_id)
+            ->first();
+
+        if ($earning && $earning->status === DeliveryEarning::STATUS_PENDING) {
+            $earning->update([
+                'status' => DeliveryEarning::STATUS_PAID,
+                'paid_at' => now(),
+            ]);
+            $this->dispatch('notify', message: 'Ganho marcado como pago.');
+        }
+
+        $this->loadPerformance();
+    }
+
+    public function markAllEarningsPaid(): void
+    {
+        if (!$this->performanceId) {
+            return;
+        }
+
+        [$startDate, $endDate] = $this->periodDates();
+
+        $query = DeliveryEarning::where('tenant_id', Auth::user()->tenant_id)
+            ->where('delivery_person_id', $this->performanceId)
+            ->where('status', DeliveryEarning::STATUS_PENDING);
+
+        if ($startDate) {
+            $query->where('earned_at', '>=', $startDate);
+        }
+        if ($endDate) {
+            $query->where('earned_at', '<=', $endDate);
+        }
+
+        $count = $query->update([
+            'status' => DeliveryEarning::STATUS_PAID,
+            'paid_at' => now(),
+        ]);
+
+        $this->dispatch('notify', message: $count > 0
+            ? "{$count} ganho(s) marcado(s) como pago."
+            : 'Nenhum ganho pendente no período.');
+
+        $this->loadPerformance();
+    }
+
+    private function periodDates(): array
+    {
+        $startDate = null;
+        $endDate = null;
+
+        switch ($this->reportPeriod) {
+            case 'today':
+                $startDate = now()->startOfDay()->toDateTimeString();
+                $endDate = now()->endOfDay()->toDateTimeString();
+                break;
+            case 'week':
+                $startDate = now()->startOfWeek()->toDateTimeString();
+                $endDate = now()->endOfDay()->toDateTimeString();
+                break;
+            case 'month':
+                $startDate = now()->startOfMonth()->toDateTimeString();
+                $endDate = now()->endOfDay()->toDateTimeString();
+                break;
+        }
+
+        return [$startDate, $endDate];
     }
 
     public function closePerformance(): void

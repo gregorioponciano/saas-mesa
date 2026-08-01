@@ -213,6 +213,7 @@ class Order extends Model
     public function payments() { return $this->hasMany(Payment::class); }
     public function pointsTransactions() { return $this->hasMany(PointsTransaction::class); }
     public function deliveryPerson() { return $this->belongsTo(DeliveryPerson::class); }
+    public function earning() { return $this->hasOne(DeliveryEarning::class); }
     public function stockMovements() { return $this->hasMany(StockMovement::class); }
 
     public function isCancelled(): bool { return $this->status === 'cancelado'; }

@@ -23,6 +23,15 @@ class Settings extends Component
     public string $openingTime = '';
     public string $closingTime = '';
     public string $deliveryCostPerOrder = '0';
+    public bool $deliveryCostEnabled = true;
+    public string $deliveryCostPerKm = '0';
+    public string $deliveryAddress = '';
+    public string $deliveryNumber = '';
+    public string $deliveryNeighborhood = '';
+    public string $deliveryCity = '';
+    public string $deliveryState = '';
+    public string $deliveryZipcode = '';
+    public string $deliveryRadius = '10';
     public $logo = null;
     public int $logoWidth = 44;
     public int $logoHeight = 44;
@@ -45,9 +54,17 @@ class Settings extends Component
              'openingTime' => 'nullable|date_format:H:i',
              'closingTime' => 'nullable|date_format:H:i',
              'deliveryCostPerOrder' => 'nullable|numeric|min:0|max:999999',
+             'deliveryCostPerKm' => 'nullable|numeric|min:0|max:999999',
              'logo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
              'logoWidth' => 'required|integer|min:20|max:120',
              'logoHeight' => 'required|integer|min:20|max:120',
+             'deliveryAddress' => 'nullable|string|max:255',
+             'deliveryNumber' => 'nullable|string|max:20',
+             'deliveryNeighborhood' => 'nullable|string|max:255',
+             'deliveryCity' => 'nullable|string|max:255',
+             'deliveryState' => 'nullable|string|max:2',
+             'deliveryZipcode' => 'nullable|string|max:10',
+             'deliveryRadius' => 'nullable|numeric|min:1|max:100',
          ];
      }
 
@@ -89,6 +106,16 @@ class Settings extends Component
           }
 
           $this->deliveryCostPerOrder = (string) ($tenant->delivery_cost_per_order ?? 0);
+          $this->deliveryCostEnabled = (bool) ($tenant->delivery_cost_enabled ?? true);
+          $this->deliveryCostPerKm = (string) ($tenant->delivery_cost_per_km ?? 0);
+          $this->deliveryCostEnabled = (bool) ($tenant->delivery_cost_enabled ?? true);
+          $this->deliveryAddress = $tenant->address ?? '';
+          $this->deliveryNumber = $tenant->number ?? '';
+          $this->deliveryNeighborhood = $tenant->neighborhood ?? '';
+          $this->deliveryCity = $tenant->city ?? '';
+          $this->deliveryState = $tenant->state ?? '';
+          $this->deliveryZipcode = $tenant->zipcode ?? '';
+          $this->deliveryRadius = (string) ($tenant->delivery_radius ?? 10);
 
           $this->name = $user->name;
           $this->email = $user->email;
@@ -116,7 +143,7 @@ class Settings extends Component
          }
      }
 
-     public function saveTenant(): void
+      public function saveTenant(): void
      {
          $this->validate();
 
@@ -129,9 +156,34 @@ class Settings extends Component
              'opening_time' => $this->openingTime ? \DateTime::createFromFormat('H:i', $this->openingTime)->format('H:i:s') : null,
              'closing_time' => $this->closingTime ? \DateTime::createFromFormat('H:i', $this->closingTime)->format('H:i:s') : null,
              'delivery_cost_per_order' => (float) $this->deliveryCostPerOrder,
+             'delivery_cost_enabled' => $this->deliveryCostEnabled,
+             'delivery_cost_per_km' => (float) $this->deliveryCostPerKm,
+             'delivery_cost_enabled' => $this->deliveryCostEnabled,
              'logo_width' => $this->logoWidth,
              'logo_height' => $this->logoHeight,
+             'address' => $this->deliveryAddress ?: null,
+             'number' => $this->deliveryNumber ?: null,
+             'neighborhood' => $this->deliveryNeighborhood ?: null,
+             'city' => $this->deliveryCity ?: null,
+             'state' => $this->deliveryState ?: null,
+             'zipcode' => $this->deliveryZipcode ?: null,
+             'delivery_radius' => $this->deliveryRadius ? (float) $this->deliveryRadius : 10,
          ];
+
+         if ($this->deliveryAddress && $this->deliveryCity) {
+             try {
+                 $coords = app(\App\Services\GeocodingService::class)->geocode(
+                     $this->deliveryAddress . ', ' . ($this->deliveryNumber ? $this->deliveryNumber . ', ' : '') . $this->deliveryNeighborhood,
+                     $this->deliveryCity,
+                     $this->deliveryState,
+                     $this->deliveryZipcode
+                 );
+                 if ($coords) {
+                     $data['latitude'] = $coords['lat'];
+                     $data['longitude'] = $coords['lng'];
+                 }
+             } catch (\Throwable $e) {}
+         }
 
          if ($this->logo) {
              if ($tenant->logo) {
