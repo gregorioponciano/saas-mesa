@@ -22,3 +22,8 @@ Schedule::command('saas:check-subscriptions')
 Schedule::command('saas:financial-report')
     ->monthlyOn(1, '06:00')
     ->appendOutputTo(storage_path('logs/scheduler-financial-report.log'));
+
+// Remover backups expirados (retenção por plano) diariamente
+Schedule::command('backups:purge')
+    ->dailyAt('03:00')
+    ->appendOutputTo(storage_path('logs/scheduler-backups-purge.log'));

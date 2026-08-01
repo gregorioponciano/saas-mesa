@@ -292,12 +292,14 @@ class Cart extends Component
             return;
         }
 
+        $product = $this->resolveProductForCart($productId);
         $this->addCartItem($productId, $productName, 0, [], $quantity);
 
         $key = $productId . '-' . md5(json_encode([]));
         if (isset($this->cartItems[$key])) {
             $this->cartItems[$key]['is_points_item'] = true;
-            $this->cartItems[$key]['points_cost'] = (int) $pointsPrice;
+            $this->cartItems[$key]['points_cost'] = $product ? (int) round((float) $product->points_price) : 0;
+            $this->cartItems[$key]['unit_price'] = 0.0;
             $this->persistCartToSession();
         }
 
@@ -543,6 +545,8 @@ class Cart extends Component
             return;
         }
 
+        $this->revalidateCartAgainstDatabase();
+
         $rules = [
             'customerName' => 'required|string|max:255',
         ];
@@ -757,6 +761,9 @@ class Cart extends Component
         if (!$willGeneratePix) {
             if ($this->orderType === 'entrega' && $order) {
                 app(DeliveryNotificationService::class)->newOrderAvailable($order);
+            }
+            if ($this->orderType === 'mesa' && $order) {
+                app(DeliveryNotificationService::class)->newMesaOrder($order);
             }
             $this->dispatch('goToMyOrders')->to('public.menu');
         }

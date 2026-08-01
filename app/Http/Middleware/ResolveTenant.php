@@ -36,8 +36,14 @@ class ResolveTenant
             $tenant = Tenant::find(Auth::user()->tenant_id);
         }
 
-        if ($request->header('X-Tenant-Id')) {
-            $tenantByHeader = Tenant::find($request->header('X-Tenant-Id'));
+        // O header X-Tenant-Id só pode sobrescrever o tenant quando o usuário
+        // autenticado é superadmin. Em qualquer outro caso o header é ignorado
+        // completamente, para que um admin de um tenant não consiga trocar de
+        // tenant via header.
+        $headerTenantId = $request->header('X-Tenant-Id');
+
+        if ($headerTenantId && Auth::check() && Auth::user()->isSuperAdmin()) {
+            $tenantByHeader = Tenant::find($headerTenantId);
             if ($tenantByHeader) {
                 $tenant = $tenantByHeader;
             }

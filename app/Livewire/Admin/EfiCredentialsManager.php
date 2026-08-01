@@ -17,11 +17,13 @@ class EfiCredentialsManager extends Component
     public ?string $client_id = null;
     public ?string $client_secret = null;
     public ?string $pix_key = null;
+    public ?string $webhook_secret = null;
     public string $account_type = 'production';
     public $certificate_file = null;
     public bool $has_credentials = false;
     public ?string $masked_client_id = null;
     public ?string $masked_pix_key = null;
+    public bool $has_webhook_secret = false;
     public ?string $account_type_display = null;
     public bool $test_result = false;
     public ?string $test_message = null;
@@ -57,6 +59,7 @@ class EfiCredentialsManager extends Component
             $this->account_type_display = $data['account_type_display'];
             $this->masked_client_id = $data['client_id_masked'];
             $this->masked_pix_key = $data['pix_key_masked'];
+            $this->has_webhook_secret = $data['has_webhook_secret'] ?? false;
 
             $record = TenantEfiCredentials::where('tenant_id', $tenant->id)->first();
             if ($record) {
@@ -64,6 +67,7 @@ class EfiCredentialsManager extends Component
                 $this->client_id = $decrypted['client_id'];
                 $this->client_secret = $decrypted['client_secret'];
                 $this->pix_key = $decrypted['pix_key'] ?? '';
+                $this->webhook_secret = $record->decryptWebhookSecret() ?? '';
             }
         }
     }
@@ -78,6 +82,7 @@ class EfiCredentialsManager extends Component
             'client_id' => ['required', 'string', 'max:255'],
             'client_secret' => ['required', 'string', 'max:255'],
             'pix_key' => ['required', 'string', 'max:255'],
+            'webhook_secret' => ['nullable', 'string', 'max:255'],
             'account_type' => ['required', 'in:sandbox,production'],
             'certificate_file' => ['nullable', 'file', 'mimes:p12', 'max:2048'],
         ]);
@@ -99,9 +104,9 @@ class EfiCredentialsManager extends Component
                 'client_id' => $this->client_id,
                 'client_secret' => $this->client_secret,
                 'pix_key' => $this->pix_key,
+                'webhook_secret' => $this->webhook_secret !== null && $this->webhook_secret !== '' ? $this->webhook_secret : null,
                 'account_type' => $this->account_type,
             ], $certificateContent);
-
             $this->saved = true;
             $this->has_credentials = true;
             $this->loadCredentials();
@@ -151,6 +156,7 @@ class EfiCredentialsManager extends Component
         $this->client_id = null;
         $this->client_secret = null;
         $this->pix_key = null;
+        $this->webhook_secret = null;
         $this->certificate_file = null;
         $this->error = null;
         $this->saved = false;

@@ -49,16 +49,23 @@ class EfiCredentialsController extends Controller
             'client_id' => ['required', 'string'],
             'client_secret' => ['required', 'string'],
             'pix_key' => ['nullable', 'string'],
+            'webhook_secret' => ['nullable', 'string'],
             'account_type' => ['required', 'string', 'in:sandbox,production'],
             'certificate_content' => ['nullable', 'string'],
         ]);
 
-        $this->credentialsService->save($tenant, [
+        $saveData = [
             'client_id' => $validated['client_id'],
             'client_secret' => $validated['client_secret'],
             'pix_key' => $validated['pix_key'] ?? '',
             'account_type' => $validated['account_type'],
-        ], $validated['certificate_content'] ?? null);
+        ];
+
+        if (array_key_exists('webhook_secret', $validated) && $validated['webhook_secret'] !== '') {
+            $saveData['webhook_secret'] = $validated['webhook_secret'];
+        }
+
+        $this->credentialsService->save($tenant, $saveData, $validated['certificate_content'] ?? null);
 
         return response()->json([
             'message' => 'Credenciais EfiBank atualizadas com sucesso.',

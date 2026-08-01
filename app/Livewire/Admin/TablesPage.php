@@ -129,6 +129,7 @@ class TablesPage extends Component
 
         if ($this->editingTableId) {
             $table = Table::findOrFail($this->editingTableId);
+            $this->authorize('update', $table);
 
             if ($this->status === 'free' && $table->status !== 'free') {
                 $activeOrders = Order::where('table_id', $table->id)
@@ -156,6 +157,7 @@ class TablesPage extends Component
 
             $this->dispatch('notify', message: 'Mesa ' . $this->number . ' atualizada!');
         } else {
+            $this->authorize('create', Table::class);
             Table::create([
                 'tenant_id' => $tenant->id,
                 'number' => $this->number,
@@ -223,6 +225,7 @@ class TablesPage extends Component
     public function delete(int $id): void
     {
         $table = Table::findOrFail($id);
+        $this->authorize('delete', $table);
         $number = $table->number;
 
         if ($table->orders()->whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])->exists()) {
@@ -237,6 +240,7 @@ class TablesPage extends Component
     public function toggleStatus(int $id): void
     {
         $table = Table::findOrFail($id);
+        $this->authorize('update', $table);
         $newStatus = match ($table->status) {
             'free' => 'occupied',
             'occupied' => 'reserved',
@@ -302,6 +306,11 @@ class TablesPage extends Component
     public function tables()
     {
         $tenant = auth()->user()->tenant;
+
+        if (!$tenant) {
+            return new \Illuminate\Pagination\LengthAwarePaginator([], 0, 12, 1);
+        }
+
         $query = $tenant->manageableTables()->with('tenant');
 
         if ($this->search) {
@@ -319,6 +328,11 @@ class TablesPage extends Component
     public function stats()
     {
         $tenant = auth()->user()->tenant;
+
+        if (!$tenant) {
+            return ['total' => 0, 'free' => 0, 'occupied' => 0, 'reserved' => 0];
+        }
+
         $q = $tenant->manageableTables();
 
         $total = (clone $q)->count();

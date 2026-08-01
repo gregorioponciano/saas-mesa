@@ -20,6 +20,7 @@ class TenantEfiCredentials extends Model
         'account_type',
         'certificate_path_encrypted',
         'certificate_content_encrypted',
+        'webhook_secret_encrypted',
         'is_active',
     ];
 
@@ -62,6 +63,14 @@ class TenantEfiCredentials extends Model
             return null;
         }
         return app(EncryptedCredentialService::class)->decrypt($this->certificate_content_encrypted);
+    }
+
+    public function decryptWebhookSecret(): ?string
+    {
+        if (!$this->webhook_secret_encrypted) {
+            return null;
+        }
+        return app(EncryptedCredentialService::class)->decrypt($this->webhook_secret_encrypted);
     }
 
     public function toDecryptedArray(): array

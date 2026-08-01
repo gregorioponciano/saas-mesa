@@ -45,6 +45,19 @@ class DeliveryNotificationService
         }
     }
 
+    public function newMesaOrder(Order $order): void
+    {
+        if (!$order->tenant_id) return;
+
+        $this->notifyStaff($order->tenant_id, 'order_created', [
+            'order_id' => $order->id,
+            'message' => "Novo pedido de mesa #{$order->id}!",
+            'customer' => $order->customer_name,
+            'total' => (float) $order->total,
+            'table_number' => $order->table?->number,
+        ]);
+    }
+
     public function orderAccepted(Order $order, DeliveryPerson $delivery): void
     {
         // Notify admin/waiters of this tenant

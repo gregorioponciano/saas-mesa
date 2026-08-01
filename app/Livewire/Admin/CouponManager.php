@@ -85,9 +85,12 @@ class CouponManager extends Component
         ];
 
         if ($this->editingCouponId) {
-            Coupon::where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->editingCouponId)->update($data);
+            $coupon = Coupon::where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->editingCouponId);
+            $this->authorize('update', $coupon);
+            $coupon->update($data);
             $this->dispatch('notify', message: 'Cupom atualizado com sucesso!');
         } else {
+            $this->authorize('create', Coupon::class);
             Coupon::create($data);
             $this->dispatch('notify', message: 'Cupom criado com sucesso!');
         }
@@ -99,12 +102,15 @@ class CouponManager extends Component
     public function toggleActive(int $id): void
     {
         $coupon = Coupon::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
+        $this->authorize('update', $coupon);
         $coupon->update(['active' => !$coupon->active]);
     }
 
     public function delete(int $id): void
     {
-        Coupon::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id)->delete();
+        $coupon = Coupon::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
+        $this->authorize('delete', $coupon);
+        $coupon->delete();
         $this->dispatch('notify', message: 'Cupom removido.');
     }
 

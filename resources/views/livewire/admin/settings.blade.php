@@ -4,6 +4,23 @@
         subtitle="Gerencie as informações do restaurante e seu perfil"
     />
 
+    @if (! $hasTenant)
+        <x-admin.card>
+            <div class="py-10 text-center space-y-3">
+                <div class="mx-auto flex items-center justify-center w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                    <svg class="w-7 h-7 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    </svg>
+                </div>
+                <h3 class="text-sm font-semibold text-white">Nenhuma empresa vinculada</h3>
+                <p class="text-sm text-neutral-400 max-w-md mx-auto">
+                    Esta página gerencia as configurações do restaurante. Sua conta não possui uma empresa
+                    vinculada, então não há configurações para exibir.
+                </p>
+            </div>
+        </x-admin.card>
+    @else
+
     {{-- Restaurant Info --}}
     <x-admin.card>
         <div class="flex items-center gap-3 mb-6">
@@ -418,4 +435,5 @@
             </div>
         </div>
     </x-admin.card>
+    @endif
 </div>

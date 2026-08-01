@@ -167,6 +167,27 @@ class ProcessEfiBankWebhook implements ShouldQueue
             return;
         }
 
+        if ($this->tenantId !== null && $payment->tenant_id !== $this->tenantId) {
+            Log::warning('Tenant webhook: txid belongs to another tenant, ignoring', [
+                'txid' => $txid,
+                'webhook_tenant_id' => $this->tenantId,
+                'payment_tenant_id' => $payment->tenant_id,
+            ]);
+            return;
+        }
+
+        $order = $payment->order;
+
+        if ($this->tenantId !== null && $order && $order->tenant_id !== $this->tenantId) {
+            Log::warning('Tenant webhook: order belongs to another tenant, ignoring', [
+                'txid' => $txid,
+                'webhook_tenant_id' => $this->tenantId,
+                'order_tenant_id' => $order->tenant_id,
+                'payment_id' => $payment->id,
+            ]);
+            return;
+        }
+
         if ($payment->isPaid()) {
             return;
         }
@@ -177,7 +198,6 @@ class ProcessEfiBankWebhook implements ShouldQueue
             'webhook_received_at' => now(),
         ]);
 
-        $order = $payment->order;
         if ($order) {
             $order->update([
                 'payment_status' => 'paid',

@@ -100,7 +100,8 @@ class DeliveryPeopleManager extends Component
             ->where('tenant_id', Auth::user()->tenant_id)
             ->firstOrFail();
 
-        $delivery->update(['api_token' => \Illuminate\Support\Str::random(60)]);
+        $token = \Illuminate\Support\Str::random(60);
+        $delivery->update(['api_token' => DeliveryPerson::hashToken($token)]);
 
         $this->dispatch('notify', message: 'Token gerado! Copie o token agora (não será exibido novamente).');
     }

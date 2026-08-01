@@ -42,6 +42,7 @@ class Settings extends Component
 
     public bool $showAccountDeleteConfirm = false;
     public bool $showTenantDeleteConfirm = false;
+    public bool $hasTenant = true;
     public string $deleteConfirmation = '';
     public string $deleteTenantConfirmation = '';
 
@@ -83,6 +84,12 @@ class Settings extends Component
     {
         $user = Auth::user()->load('tenant');
         $tenant = $user->tenant;
+
+        if (! $tenant) {
+            $this->hasTenant = false;
+
+            return;
+        }
 
         $this->tenantName = $tenant->name;
         $this->tenantEmail = $tenant->email;

@@ -17,7 +17,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -34,8 +33,10 @@ class AuthController extends Controller
     {
         if (Auth::check()) {
             $user = Auth::user()->load('tenant');
+
             return $this->redirectByRole($user);
         }
+
         return view('auth.login');
     }
 
@@ -46,9 +47,18 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
 
+        if (Auth::check() && Auth::user()->isSuperAdmin()) {
+            $target = User::where('email', $credentials['email'])->first();
+
+            if (! $target || $target->tenant_id !== Auth::user()->tenant_id) {
+                abort(403, 'Acesso restrito: um superadmin de outra empresa está logado neste navegador. Faça logout do painel superadmin antes de entrar com essa conta.');
+            }
+        }
+
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
             $user = Auth::user()->load('tenant');
+
             return $this->redirectByRole($user);
         }
 
@@ -62,6 +72,7 @@ class AuthController extends Controller
         if (Auth::check()) {
             return redirect('/dashboard');
         }
+
         return view('auth.register-tenant');
     }
 
@@ -139,8 +150,10 @@ class AuthController extends Controller
             if ($user->tenant_id === $slug->id) {
                 return $this->redirectByRole($user);
             }
+
             return redirect()->route('menu.show', $slug->slug);
         }
+
         return view('auth.waiter-login', ['tenant' => $slug]);
     }
 
@@ -156,6 +169,7 @@ class AuthController extends Controller
 
             if ($user->tenant_id !== $slug->id) {
                 Auth::logout();
+
                 return back()->withErrors([
                     'email' => 'Voce nao possui acesso a este restaurante.',
                 ])->onlyInput('email');
@@ -182,8 +196,10 @@ class AuthController extends Controller
             if ($user->tenant_id === $slug->id) {
                 return $this->redirectByRole($user);
             }
+
             return redirect()->route('menu.show', $slug->slug);
         }
+
         return view('auth.waiter-register', ['tenant' => $slug]);
     }
 
@@ -219,7 +235,7 @@ class AuthController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['error' => 'Unauthenticated'], 401);
         }
 
@@ -261,7 +277,7 @@ class AuthController extends Controller
     {
         $request->validate(['email' => 'required|email']);
 
-        if (!$slug->mail_host) {
+        if (! $slug->mail_host) {
             return back()->withErrors(['email' => 'Restaurante não configurou envio de email. O administrador precisa configurar em Configurar Email.']);
         }
 
@@ -269,7 +285,7 @@ class AuthController extends Controller
             ->where('tenant_id', $slug->id)
             ->first();
 
-        if (!$user) {
+        if (! $user) {
             return back()->withErrors(['email' => 'Email nao encontrado neste restaurante.']);
         }
 
@@ -284,7 +300,8 @@ class AuthController extends Controller
             $this->applyTenantMailConfig($slug);
             Mail::to($request->email)->send(new ResetPasswordMail($slug, $token, $request->email));
         } catch (\Exception $e) {
-            Log::error('Erro ao enviar email de reset: ' . $e->getMessage());
+            Log::error('Erro ao enviar email de reset: '.$e->getMessage());
+
             return back()->withErrors(['email' => 'Erro ao enviar email. Verifique as configurações de SMTP do restaurante.']);
         }
 
@@ -298,7 +315,7 @@ class AuthController extends Controller
             ->where('tenant_id', $slug->id)
             ->first();
 
-        if (!$reset || now()->diffInMinutes($reset->created_at) > 60) {
+        if (! $reset || now()->diffInMinutes($reset->created_at) > 60) {
             return redirect()->route('waiter.forgot.form', $slug->slug)
                 ->withErrors(['email' => 'Link expirado ou invalido. Solicite novamente.']);
         }
@@ -323,7 +340,7 @@ class AuthController extends Controller
             ->where('tenant_id', $slug->id)
             ->first();
 
-        if (!$reset || now()->diffInMinutes($reset->created_at) > 60) {
+        if (! $reset || now()->diffInMinutes($reset->created_at) > 60) {
             return redirect()->route('waiter.forgot.form', $slug->slug)
                 ->withErrors(['email' => 'Link expirado ou invalido. Solicite novamente.']);
         }
@@ -332,7 +349,7 @@ class AuthController extends Controller
             ->where('tenant_id', $slug->id)
             ->first();
 
-        if (!$user) {
+        if (! $user) {
             return redirect()->route('waiter.forgot.form', $slug->slug)
                 ->withErrors(['email' => 'Usuario nao encontrado.']);
         }
@@ -361,11 +378,11 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user) {
+        if (! $user) {
             return back()->withErrors(['email' => 'Email nao encontrado.']);
         }
 
-        if (!$user->isAdmin()) {
+        if (! $user->isAdmin()) {
             return back()->withErrors(['email' => 'Apenas administradores podem recuperar senha por aqui.']);
         }
 
@@ -380,7 +397,8 @@ class AuthController extends Controller
         try {
             Mail::to($request->email)->send(new ResetPasswordMail($tenant, $token, $request->email, isAdmin: true));
         } catch (\Exception $e) {
-            Log::error('Erro ao enviar email de reset admin: ' . $e->getMessage());
+            Log::error('Erro ao enviar email de reset admin: '.$e->getMessage());
+
             return back()->withErrors(['email' => 'Erro ao enviar email. Tente novamente mais tarde.']);
         }
 
@@ -393,7 +411,7 @@ class AuthController extends Controller
             ->where('token', $token)
             ->first();
 
-        if (!$reset || now()->diffInMinutes($reset->created_at) > 60) {
+        if (! $reset || now()->diffInMinutes($reset->created_at) > 60) {
             return redirect()->route('admin.forgot.form')
                 ->withErrors(['email' => 'Link expirado ou inválido. Solicite novamente.']);
         }
@@ -416,14 +434,14 @@ class AuthController extends Controller
             ->where('token', $token)
             ->first();
 
-        if (!$reset || now()->diffInMinutes($reset->created_at) > 60) {
+        if (! $reset || now()->diffInMinutes($reset->created_at) > 60) {
             return redirect()->route('admin.forgot.form')
                 ->withErrors(['email' => 'Link expirado ou inválido. Solicite novamente.']);
         }
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user) {
+        if (! $user) {
             return redirect()->route('admin.forgot.form')
                 ->withErrors(['email' => 'Usuário não encontrado.']);
         }
@@ -444,6 +462,7 @@ class AuthController extends Controller
     private function redirectByRole($user): RedirectResponse
     {
         return match ($user->role) {
+            'superadmin' => redirect()->intended('/superadmin'),
             'admin' => redirect()->intended('/dashboard'),
             'atendente' => redirect()->route('waiter.panel', $user->tenant->slug),
             default => redirect()->route('menu.show', $user->tenant->slug),

@@ -73,6 +73,12 @@ class Dashboard extends Component
 
     public function switchTab(string $tab): void
     {
+        if ($tab === 'grid' && !auth()->user()->tenant_id) {
+            $this->dispatch('notify', message: 'Nenhuma empresa vinculada à sua conta.', type: 'alert');
+
+            return;
+        }
+
         $this->tab = $tab;
     }
 
@@ -984,7 +990,13 @@ class Dashboard extends Component
     #[Computed]
     public function lowStockProducts()
     {
-        return app(StockService::class)->getLowStockProducts(auth()->user()->tenant_id, 10);
+        $tenantId = auth()->user()->tenant_id;
+
+        if (! $tenantId) {
+            return collect();
+        }
+
+        return app(StockService::class)->getLowStockProducts($tenantId, 10);
     }
 
     public function render()

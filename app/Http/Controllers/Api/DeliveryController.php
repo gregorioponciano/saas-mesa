@@ -9,6 +9,7 @@ use App\Models\DeliveryPerson;
 use App\Services\DeliveryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class DeliveryController extends Controller
@@ -218,10 +219,25 @@ class DeliveryController extends Controller
             return $accessToken->tokenable->status === 'active' ? $accessToken->tokenable : null;
         }
 
-        // Fallback: old api_token column (transition period)
-        $delivery = DeliveryPerson::where('api_token', $token)
+        // Fallback: old api_token column (transition period).
+        // New tokens are stored as sha256 hash; legacy plain-text tokens are
+        // still accepted during the transition, with a deprecation log.
+        $delivery = DeliveryPerson::where('api_token', DeliveryPerson::hashToken($token))
             ->where('status', 'active')
             ->first();
+
+        if (!$delivery) {
+            $delivery = DeliveryPerson::where('api_token', $token)
+                ->where('status', 'active')
+                ->first();
+
+            if ($delivery) {
+                Log::warning('Delivery legacy plain-text api_token used (deprecated)', [
+                    'delivery_id' => $delivery->id,
+                    'tenant_id' => $delivery->tenant_id,
+                ]);
+            }
+        }
 
         if ($delivery) {
             return $delivery;

@@ -133,6 +133,11 @@ class Tenant extends Model
         return $this->hasMany(Ingredient::class);
     }
 
+    public function backups()
+    {
+        return $this->hasMany(\App\Models\TenantBackup::class);
+    }
+
     public function isActive(): bool
     {
         return in_array($this->status, ['active', 'trial']);
@@ -189,6 +194,12 @@ class Tenant extends Model
     public function planLabel(): string
     {
         return self::PLAN_LABELS[$this->plan] ?? 'Gratuito';
+    }
+
+    public function activeSubscription()
+    {
+        return $this->hasOne(\App\Models\SaasSubscription::class)
+            ->whereIn('status', ['active', 'trialing']);
     }
 
     public function isSuspended(): bool

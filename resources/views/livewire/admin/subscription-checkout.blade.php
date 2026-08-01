@@ -6,6 +6,14 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
         {{-- Free Plan --}}
+@if (!auth()->user()->tenant)
+    <div class="max-w-md mx-auto mt-16 p-8 rounded-2xl bg-neutral-900 border border-neutral-800 text-center space-y-3">
+        <p class="text-5xl">🏪</p>
+        <h2 class="text-lg font-bold text-white">Nenhuma empresa vinculada</h2>
+        <p class="text-sm text-neutral-400">Sua conta não está vinculada a nenhuma empresa.</p>
+    </div>
+    @php return; @endphp
+@endif
         <div class="relative p-8 rounded-3xl bg-neutral-900/50 border {{ auth()->user()->tenant->isFree() ? 'border-amber-500/30 ring-2 ring-amber-500/20' : 'border-neutral-800' }} transition-all duration-300 hover:border-neutral-700">
             @if (auth()->user()->tenant->isFree())
                 <span class="absolute -top-3 right-6 px-4 py-1 text-xs font-semibold rounded-full bg-amber-500 text-neutral-950">Seu Plano</span>

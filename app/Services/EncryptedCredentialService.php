@@ -25,13 +25,18 @@ class EncryptedCredentialService
 
     public function encrypt(string $value): string
     {
+        return $this->encryptWith($value, $this->key);
+    }
+
+    private function encryptWith(string $value, string $key): string
+    {
         $iv = random_bytes(12);
         $tag = '';
 
         $encrypted = openssl_encrypt(
             $value,
             $this->cipher,
-            $this->key,
+            $key,
             OPENSSL_RAW_DATA,
             $iv,
             $tag,
@@ -49,6 +54,11 @@ class EncryptedCredentialService
 
     public function decrypt(string $payload): string
     {
+        return $this->decryptWith($payload, $this->key);
+    }
+
+    private function decryptWith(string $payload, string $key): string
+    {
         $decoded = base64_decode($payload, true);
         if ($decoded === false || strlen($decoded) < 28) {
             throw new \RuntimeException('Invalid encrypted payload format.');
@@ -61,7 +71,7 @@ class EncryptedCredentialService
         $decrypted = openssl_decrypt(
             $encrypted,
             $this->cipher,
-            $this->key,
+            $key,
             OPENSSL_RAW_DATA,
             $iv,
             $tag
@@ -114,14 +124,33 @@ class EncryptedCredentialService
 
     public function rotateKey(string $oldKey, string $newKey): void
     {
-        TenantEfiCredentials::chunk(100, function ($credentialsBatch) use ($oldKey, $newKey) {
+        $oldDerivedKey = $this->deriveKey($oldKey);
+        $newDerivedKey = $this->deriveKey($newKey);
+
+        TenantEfiCredentials::chunk(100, function ($credentialsBatch) use ($oldDerivedKey, $newDerivedKey) {
             foreach ($credentialsBatch as $cred) {
                 try {
-                    $decrypted = $this->decryptTenantCredentials($cred);
-                    $this->key = $this->deriveKey($newKey);
-                    $encrypted = $this->encryptTenantCredentials($decrypted);
+                    $updates = [];
 
-                    $cred->update($encrypted);
+                    foreach ([
+                        'client_id_encrypted',
+                        'client_secret_encrypted',
+                        'pix_key_encrypted',
+                        'certificate_path_encrypted',
+                        'certificate_content_encrypted',
+                        'webhook_secret_encrypted',
+                    ] as $field) {
+                        if (empty($cred->{$field})) {
+                            continue;
+                        }
+
+                        $decrypted = $this->decryptWith($cred->{$field}, $oldDerivedKey);
+                        $updates[$field] = $this->encryptWith($decrypted, $newDerivedKey);
+                    }
+
+                    if ($updates) {
+                        $cred->update($updates);
+                    }
                 } catch (\Throwable $e) {
                     Log::error('Credential rotation failed for tenant', [
                         'tenant_id' => $cred->tenant_id,

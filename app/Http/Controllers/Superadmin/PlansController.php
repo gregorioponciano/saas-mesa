@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SaasPlan;
+use App\Services\AuditService;
 use App\Services\EfiBank\SaasEfiBankService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,12 +15,14 @@ use Illuminate\Support\Str;
 class PlansController extends Controller
 {
     public function __construct(
-        private readonly SaasEfiBankService $efiBankService
+        private readonly SaasEfiBankService $efiBankService,
+        private readonly AuditService $auditService
     ) {}
 
     public function index(): JsonResponse
     {
         $plans = SaasPlan::orderBy('price_cents')->get();
+
         return response()->json($plans);
     }
 
@@ -47,6 +50,18 @@ class PlansController extends Controller
         } catch (\Throwable $e) {
             // Plan created locally even if EfiBank sync fails
         }
+
+        $this->auditService->log(
+            'plan.create',
+            "Plano \"{$plan->name}\" criado.",
+            [
+                'plan_id' => $plan->id,
+                'price_cents' => $plan->price_cents,
+                'interval' => $plan->interval,
+            ],
+            entityType: SaasPlan::class,
+            entityId: (string) $plan->id
+        );
 
         return response()->json($plan, 201);
     }
@@ -76,6 +91,14 @@ class PlansController extends Controller
 
         $plan->update($validated);
 
+        $this->auditService->log(
+            'plan.update',
+            "Plano \"{$plan->name}\" atualizado.",
+            ['plan_id' => $plan->id, 'changes' => $validated],
+            entityType: SaasPlan::class,
+            entityId: (string) $plan->id
+        );
+
         return response()->json($plan);
     }
 
@@ -83,6 +106,14 @@ class PlansController extends Controller
     {
         $plan->update(['is_active' => false]);
         $plan->delete();
+
+        $this->auditService->log(
+            'plan.delete',
+            "Plano \"{$plan->name}\" excluído.",
+            ['plan_id' => $plan->id],
+            entityType: SaasPlan::class,
+            entityId: (string) $plan->id
+        );
 
         return response()->json(null, 204);
     }

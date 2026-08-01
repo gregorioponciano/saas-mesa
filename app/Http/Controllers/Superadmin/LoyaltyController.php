@@ -7,15 +7,16 @@ namespace App\Http\Controllers\Superadmin;
 use App\Http\Controllers\Controller;
 use App\Models\LoyaltyConfig;
 use App\Models\Tenant;
+use App\Services\AuditService;
 use App\Services\PointsService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class LoyaltyController extends Controller
 {
     public function __construct(
-        private readonly PointsService $pointsService
+        private readonly PointsService $pointsService,
+        private readonly AuditService $auditService
     ) {}
 
     public function index(): JsonResponse
@@ -44,9 +45,9 @@ class LoyaltyController extends Controller
     {
         $config = LoyaltyConfig::forTenant($tenant);
 
-        $newState = !$config->points_enabled;
+        $newState = ! $config->points_enabled;
 
-        if ($newState && !$tenant->isPaid()) {
+        if ($newState && ! $tenant->isPaid()) {
             return response()->json([
                 'error' => 'Nao e possivel ativar pontos para um tenant que nao esta no plano Premium.',
             ], 422);
@@ -59,6 +60,15 @@ class LoyaltyController extends Controller
             'new_state' => $newState,
             'admin_id' => auth()->id(),
         ]);
+
+        $this->auditService->log(
+            'loyalty.toggle',
+            ($newState ? 'Pontos ativados' : 'Pontos desativados')." para \"{$tenant->name}\".",
+            ['tenant_id' => $tenant->id, 'points_enabled' => $newState],
+            $tenant,
+            LoyaltyConfig::class,
+            (string) $config->id
+        );
 
         return response()->json([
             'tenant_id' => $tenant->id,

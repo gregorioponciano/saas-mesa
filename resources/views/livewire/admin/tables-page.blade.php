@@ -13,6 +13,14 @@
      ">
 
     {{-- Header --}}
+    @if (!auth()->user()->tenant)
+        <div class="max-w-md mx-auto mt-16 p-8 rounded-2xl bg-neutral-900 border border-neutral-800 text-center space-y-3">
+            <p class="text-5xl">🗄️</p>
+            <h2 class="text-lg font-bold text-white">Nenhuma empresa vinculada</h2>
+            <p class="text-sm text-neutral-400">Sua conta não está vinculada a nenhuma empresa. Fale com o suporte ou entre com a conta de uma empresa para gerenciar as mesas.</p>
+        </div>
+        @php return; @endphp
+    @endif
     <x-admin.page-header
         title="Gerenciar Mesas"
         subtitle="{{ $stats['total'] }} mesas cadastradas | Limite: {{ auth()->user()->tenant->maxTablesAllowed() }}"

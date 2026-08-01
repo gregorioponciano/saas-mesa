@@ -8,12 +8,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderPayment;
 use App\Services\EfiBank\TenantEfiBankService;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class PaymentController extends Controller
 {
+    use AuthorizesRequests;
+
     public function __construct(
         private readonly TenantEfiBankService $efiBankService
     ) {}

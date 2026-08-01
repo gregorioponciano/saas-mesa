@@ -735,6 +735,8 @@ class TableGrid extends Component
             'customerName' => 'required|string|max:255',
         ]);
 
+        $this->revalidateCartAgainstDatabase();
+
         if (empty($this->cartItems)) {
             return;
         }

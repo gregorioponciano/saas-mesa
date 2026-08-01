@@ -3,14 +3,12 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Category;
-use App\Models\CustomerPoint;
 use App\Models\Ingredient;
 use App\Models\Product;
 use App\Models\ProductAttribute;
 use App\Models\ProductAttributeOption;
 use App\Services\StockService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -21,48 +19,79 @@ class MenuManager extends Component
     public string $view = 'categories';
 
     public bool $showCategoryForm = false;
+
     public ?int $editingCategoryId = null;
+
     public string $categoryName = '';
+
     public string $categorySlug = '';
+
     public int $categoryPosition = 0;
 
     public bool $showProductForm = false;
+
     public ?int $editingProductId = null;
+
     public string $productName = '';
+
     public ?string $productDescription = null;
+
     public string $productPrice = '';
+
     public ?string $productImageUrl = null;
+
     public $productImage = null;
+
     public string $productStatus = 'active';
+
     public ?int $productCategoryId = null;
+
     public ?string $productPointsPrice = null;
+
     public int $productStock = 0;
 
     public bool $showStockModal = false;
+
     public ?int $stockAdjustmentProductId = null;
+
     public string $stockAdjustmentValue = '0';
 
     public bool $showStockMovementsModal = false;
+
     public array $stockMovementsData = [];
+
     public ?int $stockMovementsProductId = null;
+
     public string $stockMovementsProductName = '';
 
     public ?int $confirmDeleteCategoryId = null;
+
     public ?int $confirmDeleteProductId = null;
+
     public ?int $confirmDeleteAttributeId = null;
 
     public ?int $editingAttributeId = null;
+
     public bool $showAttributeForm = false;
+
     public string $attributeName = '';
+
     public string $attributeType = 'single';
+
     public bool $attributeRequired = false;
+
     public string $attributePrice = '0';
+
     public ?int $attributeProductId = null;
 
     public ?int $editingOptionId = null;
+
     public bool $showOptionForm = false;
+
     public string $optionName = '';
+
     public string $optionPrice = '0';
+
     public ?int $optionAttributeId = null;
 
     public array $pointsPrices = [];
@@ -90,6 +119,7 @@ class MenuManager extends Component
                 'optionPrice' => 'required|numeric|min:0|max:999',
             ];
         }
+
         return [
             'productName' => 'required|string|max:255',
             'productDescription' => 'nullable|string|max:1000',
@@ -137,20 +167,26 @@ class MenuManager extends Component
 
     public function savePointsProduct(int $productId): void
     {
-        if (!auth()->user()->isAdmin()) { abort(403); }
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
         $product = Product::where('tenant_id', auth()->user()->tenant_id)->findOrFail($productId);
+        $this->authorize('update', $product);
         $value = $this->pointsPrices[$productId] ?? '';
         $product->update([
             'points_price' => $value !== '' && $value !== null ? (float) $value : null,
         ]);
-        $this->dispatch('notify', message: $product->name . ' atualizado para troca por pontos!');
+        $this->dispatch('notify', message: $product->name.' atualizado para troca por pontos!');
     }
 
     public function clearPointsProduct(int $productId): void
     {
-        if (!auth()->user()->isAdmin()) { abort(403); }
-        Product::where('tenant_id', auth()->user()->tenant_id)->findOrFail($productId)
-            ->update(['points_price' => null]);
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
+        $product = Product::where('tenant_id', auth()->user()->tenant_id)->findOrFail($productId);
+        $this->authorize('update', $product);
+        $product->update(['points_price' => null]);
         $this->pointsPrices[$productId] = '';
         $this->dispatch('notify', message: 'Produto removido da troca por pontos!');
     }
@@ -225,12 +261,14 @@ class MenuManager extends Component
 
         if ($this->editingCategoryId) {
             $category = Category::where('tenant_id', $tenant->id)->findOrFail($this->editingCategoryId);
+            $this->authorize('update', $category);
             $category->update($data);
-            $this->dispatch('notify', message: 'Categoria "' . $category->name . '" atualizada!');
+            $this->dispatch('notify', message: 'Categoria "'.$category->name.'" atualizada!');
         } else {
+            $this->authorize('create', Category::class);
             $data['tenant_id'] = $tenant->id;
             Category::create($data);
-            $this->dispatch('notify', message: 'Categoria "' . $this->categoryName . '" criada!');
+            $this->dispatch('notify', message: 'Categoria "'.$this->categoryName.'" criada!');
         }
 
         $this->showCategoryForm = false;
@@ -245,16 +283,18 @@ class MenuManager extends Component
     public function deleteCategory(int $id): void
     {
         $category = Category::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
+        $this->authorize('delete', $category);
         $name = $category->name;
         $category->products()->where('tenant_id', auth()->user()->tenant_id)->delete();
         $category->delete();
         $this->confirmDeleteCategoryId = null;
-        $this->dispatch('notify', message: 'Categoria "' . $name . '" e seus produtos foram excluídos!');
+        $this->dispatch('notify', message: 'Categoria "'.$name.'" e seus produtos foram excluídos!');
     }
 
     public function moveCategoryUp(int $id): void
     {
         $category = Category::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
+        $this->authorize('update', $category);
         $prev = Category::where('tenant_id', auth()->user()->tenant_id)->where('position', '<', $category->position)
             ->orderBy('position', 'desc')->first();
         if ($prev) {
@@ -267,6 +307,7 @@ class MenuManager extends Component
     public function moveCategoryDown(int $id): void
     {
         $category = Category::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
+        $this->authorize('update', $category);
         $next = Category::where('tenant_id', auth()->user()->tenant_id)->where('position', '>', $category->position)
             ->orderBy('position')->first();
         if ($next) {
@@ -331,12 +372,14 @@ class MenuManager extends Component
 
         if ($this->editingProductId) {
             $product = Product::where('tenant_id', $tenant->id)->findOrFail($this->editingProductId);
+            $this->authorize('update', $product);
             $product->update($data);
-            $this->dispatch('notify', message: 'Produto "' . $product->name . '" atualizado!');
+            $this->dispatch('notify', message: 'Produto "'.$product->name.'" atualizado!');
         } else {
+            $this->authorize('create', Product::class);
             $data['tenant_id'] = $tenant->id;
             Product::create($data);
-            $this->dispatch('notify', message: 'Produto "' . $this->productName . '" criado!');
+            $this->dispatch('notify', message: 'Produto "'.$this->productName.'" criado!');
         }
 
         $this->showProductForm = false;
@@ -351,19 +394,20 @@ class MenuManager extends Component
     public function deleteProduct(int $id): void
     {
         $product = Product::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
+        $this->authorize('delete', $product);
         $name = $product->name;
         $product->attributes()->each(fn ($attr) => $attr->options()->delete());
         $product->attributes()->delete();
         $product->delete();
         $this->confirmDeleteProductId = null;
-        $this->dispatch('notify', message: 'Produto "' . $name . '" excluído!');
+        $this->dispatch('notify', message: 'Produto "'.$name.'" excluído!');
     }
 
     public function toggleProductStatus(int $id): void
     {
         $product = Product::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
         $product->update(['status' => $product->status === 'active' ? 'inactive' : 'active']);
-        $this->dispatch('notify', message: $product->name . ' ' . ($product->status === 'active' ? 'ativado' : 'desativado') . '!');
+        $this->dispatch('notify', message: $product->name.' '.($product->status === 'active' ? 'ativado' : 'desativado').'!');
     }
 
     public function openCreateAttribute(int $productId): void
@@ -407,13 +451,13 @@ class MenuManager extends Component
         if ($this->editingAttributeId) {
             $attr = ProductAttribute::where('tenant_id', $tenant->id)->findOrFail($this->editingAttributeId);
             $attr->update($data);
-            $this->dispatch('notify', message: 'Atributo "' . $attr->name . '" atualizado!');
+            $this->dispatch('notify', message: 'Atributo "'.$attr->name.'" atualizado!');
         } else {
             $data['tenant_id'] = $tenant->id;
             $data['product_id'] = $this->attributeProductId;
             $data['position'] = ProductAttribute::where('product_id', $this->attributeProductId)->count();
             ProductAttribute::create($data);
-            $this->dispatch('notify', message: 'Atributo "' . $this->attributeName . '" criado!');
+            $this->dispatch('notify', message: 'Atributo "'.$this->attributeName.'" criado!');
         }
 
         $this->showAttributeForm = false;
@@ -432,7 +476,7 @@ class MenuManager extends Component
         $attr->options()->delete();
         $attr->delete();
         $this->confirmDeleteAttributeId = null;
-        $this->dispatch('notify', message: 'Atributo "' . $name . '" removido!');
+        $this->dispatch('notify', message: 'Atributo "'.$name.'" removido!');
     }
 
     public function openCreateOption(int $attributeId): void
@@ -478,12 +522,12 @@ class MenuManager extends Component
         if ($this->editingOptionId) {
             $option = ProductAttributeOption::where('tenant_id', $tenant->id)->findOrFail($this->editingOptionId);
             $option->update($data);
-            $this->dispatch('notify', message: 'Opção "' . $option->name . '" atualizada!');
+            $this->dispatch('notify', message: 'Opção "'.$option->name.'" atualizada!');
         } else {
             $data['product_attribute_id'] = $this->optionAttributeId;
             $data['position'] = ProductAttributeOption::where('product_attribute_id', $this->optionAttributeId)->count();
             ProductAttributeOption::create($data);
-            $this->dispatch('notify', message: 'Opção "' . $this->optionName . '" criada!');
+            $this->dispatch('notify', message: 'Opção "'.$this->optionName.'" criada!');
         }
 
         $this->showOptionForm = false;
@@ -499,7 +543,7 @@ class MenuManager extends Component
 
     public function getCategoriesProperty()
     {
-        return auth()->user()->tenant->categories()->withCount('products')->orderBy('position')->get();
+        return auth()->user()->tenant?->categories()?->withCount('products')->orderBy('position')->get() ?? collect();
     }
 
     public function getProductsProperty()
@@ -508,6 +552,7 @@ class MenuManager extends Component
         if ($this->view === 'categories') {
             $query->whereIn('category_id', $this->categories->pluck('id'));
         }
+
         return $query->orderBy('category_id')->orderBy('name')->get();
     }
 
@@ -530,7 +575,9 @@ class MenuManager extends Component
 
     public function adjustStock(): void
     {
-        if (!auth()->user()->isAdmin()) { abort(403); }
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
 
         $this->validate([
             'stockAdjustmentValue' => 'required|integer|min:0|max:999999',
@@ -546,7 +593,7 @@ class MenuManager extends Component
             );
             $this->dispatch('notify', message: 'Estoque atualizado com sucesso!');
         } catch (\Throwable $e) {
-            $this->dispatch('notify', message: 'Erro ao ajustar estoque: ' . $e->getMessage());
+            $this->dispatch('notify', message: 'Erro ao ajustar estoque: '.$e->getMessage());
         }
 
         $this->closeStockModal();
@@ -571,11 +618,15 @@ class MenuManager extends Component
 
     public function render()
     {
+        $tenantId = auth()->user()->tenant_id;
+
         return view('livewire.admin.menu-manager', [
             'categories' => $this->categories,
             'products' => $this->products,
             'tenant' => auth()->user()->tenant,
-            'lowStockProducts' => app(StockService::class)->getLowStockProducts(auth()->user()->tenant_id, 5),
+            'lowStockProducts' => $tenantId
+                ? app(StockService::class)->getLowStockProducts($tenantId, 5)
+                : collect(),
         ])->extends('layouts.admin');
     }
 }

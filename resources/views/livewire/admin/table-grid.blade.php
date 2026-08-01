@@ -6,6 +6,14 @@
          }
      }"
      @keydown.window.escape="if (selectedTableId !== null) $wire.closeDetail()">
+    @if (!auth()->user()->tenant)
+        <div class="max-w-md mx-auto mt-16 p-8 rounded-2xl bg-neutral-900 border border-neutral-800 text-center space-y-3">
+            <p class="text-5xl">🗄️</p>
+            <h2 class="text-lg font-bold text-white">Nenhuma empresa vinculada</h2>
+            <p class="text-sm text-neutral-400">Sua conta não está vinculada a nenhuma empresa.</p>
+        </div>
+        @php return; @endphp
+    @endif
     {{-- Header Stats --}}
     <div class="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6 overflow-x-auto pb-2">
         <button wire:click="$set('filter', 'all')"

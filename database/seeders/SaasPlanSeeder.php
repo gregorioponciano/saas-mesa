@@ -24,6 +24,8 @@ class SaasPlanSeeder extends Seeder
                 'reports' => false,
                 'delivery' => false,
                 'priority_support' => false,
+                'backup_retention_days' => 7,
+                'backup_max_count' => 3,
             ],
             'is_active' => true,
         ]);
@@ -41,6 +43,8 @@ class SaasPlanSeeder extends Seeder
                 'reports' => true,
                 'delivery' => true,
                 'priority_support' => true,
+                'backup_retention_days' => null,
+                'backup_max_count' => 30,
             ],
             'is_active' => true,
         ]);

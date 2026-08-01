@@ -24,8 +24,11 @@ class LoyaltyManager extends Component
     {
         $this->tenant = Auth::user()->tenant;
 
-        if (!$this->tenant->isPaid()) {
+        if (!$this->tenant || !$this->tenant->isPaid()) {
             $this->points_enabled = false;
+            $this->points_percentage = 5;
+            $this->points_to_money_rate = '0.01';
+            $this->min_points_order_value = 10.0;
         } else {
             $config = LoyaltyConfig::forTenant($this->tenant);
             $this->points_enabled = (bool) $config->points_enabled;
@@ -37,7 +40,7 @@ class LoyaltyManager extends Component
 
     public function saveLoyaltyConfig(): void
     {
-        if (!$this->tenant->isPaid()) {
+        if (!$this->tenant || !$this->tenant->isPaid()) {
             $this->dispatch('notify', message: 'O programa de fidelidade é um recurso exclusivo do plano Premium.', type: 'alert');
             return;
         }
@@ -62,6 +65,10 @@ class LoyaltyManager extends Component
     #[Computed]
     public function customerRanking()
     {
+        if (!$this->tenant) {
+            return new \Illuminate\Pagination\LengthAwarePaginator([], 0, 15, 1);
+        }
+
         return CustomerPoint::where('tenant_id', $this->tenant->id)
             ->with('user')
             ->where('balance', '>', 0)

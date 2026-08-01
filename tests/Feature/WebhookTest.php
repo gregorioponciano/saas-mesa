@@ -7,9 +7,31 @@ use App\Models\OrderPayment;
 use App\Models\SaasPlan;
 use App\Models\SaasSubscription;
 use App\Models\Tenant;
+use App\Models\TenantEfiCredentials;
 use App\Models\WebhookLog;
 use App\Jobs\ProcessEfiBankWebhook;
+use App\Services\EncryptedCredentialService;
 use Illuminate\Support\Facades\Queue;
+
+function createTenantEfiCredentials(Tenant $tenant, string $webhookSecret): TenantEfiCredentials
+{
+    $encryptor = app(EncryptedCredentialService::class);
+
+    return TenantEfiCredentials::create([
+        'tenant_id' => $tenant->id,
+        'client_id_encrypted' => $encryptor->encrypt('Client_Id_test'),
+        'client_secret_encrypted' => $encryptor->encrypt('Client_Secret_test'),
+        'pix_key_encrypted' => $encryptor->encrypt('pix@test.com'),
+        'account_type' => 'sandbox',
+        'webhook_secret_encrypted' => $encryptor->encrypt($webhookSecret),
+        'is_active' => true,
+    ]);
+}
+
+function signWebhookPayload(string $payload, string $secret): string
+{
+    return base64_encode(hash_hmac('sha256', $payload, $secret, true));
+}
 
 test('saas webhook endpoint returns queued response', function () {
     Queue::fake();
@@ -54,6 +76,8 @@ test('tenant webhook endpoint processes pix confirmation via job', function () {
     $tenant = createTenant();
     $user = createTenantAdmin($tenant);
 
+    createTenantEfiCredentials($tenant, 'tenant_secret_abc');
+
     $order = Order::factory()->create([
         'tenant_id' => $tenant->id,
         'user_id' => $user->id,
@@ -74,10 +98,11 @@ test('tenant webhook endpoint processes pix confirmation via job', function () {
         'pix' => [['txid' => 'test_txid_webhook']],
     ]);
 
-    $secret = 'test_webhook_secret';
-    config(['efibank.webhook_secret' => $secret]);
-
-    $signature = base64_encode(hash_hmac('sha256', $payload, $secret, true));
+    // NOTE: this test was updated along with the P1 fix. Before the fix,
+    // tenant webhooks were validated against the global secret
+    // (config('efibank.webhook_secret')), which was the vulnerability being
+    // fixed. Now each tenant must be validated against its own webhook secret.
+    $signature = signWebhookPayload($payload, 'tenant_secret_abc');
 
     $response = $this->postJson("/webhook/efi/tenant/{$tenant->id}", json_decode($payload, true), [
         'x-efi-hmac-sha256' => $signature,
@@ -86,6 +111,98 @@ test('tenant webhook endpoint processes pix confirmation via job', function () {
     $response->assertStatus(200);
 
     Queue::assertPushed(ProcessEfiBankWebhook::class);
+});
+
+test('tenant webhook signed with another tenant secret is rejected with 401', function () {
+    Queue::fake();
+
+    $tenantA = createTenant();
+    $tenantB = createTenant();
+
+    createTenantEfiCredentials($tenantA, 'secret_of_tenant_A');
+    createTenantEfiCredentials($tenantB, 'secret_of_tenant_B');
+
+    $payload = json_encode(['pix' => [['txid' => 'txid_test_1']]]);
+
+    // Payload signed with A's secret must NOT validate on B's endpoint...
+    $response = $this->postJson("/webhook/efi/tenant/{$tenantB->id}", json_decode($payload, true), [
+        'x-efi-hmac-sha256' => signWebhookPayload($payload, 'secret_of_tenant_A'),
+    ]);
+
+    $response->assertStatus(401);
+    $response->assertJson(['error' => 'Invalid signature']);
+
+    // ...nor B's secret on A's endpoint.
+    $response = $this->postJson("/webhook/efi/tenant/{$tenantA->id}", json_decode($payload, true), [
+        'x-efi-hmac-sha256' => signWebhookPayload($payload, 'secret_of_tenant_B'),
+    ]);
+
+    $response->assertStatus(401);
+    $response->assertJson(['error' => 'Invalid signature']);
+
+    Queue::assertNotPushed(ProcessEfiBankWebhook::class);
+});
+
+test('tenant webhook signed with its own secret is accepted', function () {
+    Queue::fake();
+
+    $tenant = createTenant();
+    createTenantEfiCredentials($tenant, 'secret_of_tenant');
+
+    $payload = json_encode(['pix' => [['txid' => 'txid_test_2']]]);
+
+    $response = $this->postJson("/webhook/efi/tenant/{$tenant->id}", json_decode($payload, true), [
+        'x-efi-hmac-sha256' => signWebhookPayload($payload, 'secret_of_tenant'),
+    ]);
+
+    $response->assertStatus(200);
+    $response->assertJson(['status' => 'queued']);
+
+    Queue::assertPushed(ProcessEfiBankWebhook::class);
+});
+
+test('tenant webhook without configured webhook secret is rejected with 401', function () {
+    Queue::fake();
+
+    $tenant = createTenant();
+
+    $payload = json_encode(['pix' => [['txid' => 'txid_test_3']]]);
+
+    // Even a signature produced with the global secret must not be accepted
+    // when the tenant has no webhook secret configured.
+    config(['efibank.webhook_secret' => 'global_secret']);
+
+    $response = $this->postJson("/webhook/efi/tenant/{$tenant->id}", json_decode($payload, true), [
+        'x-efi-hmac-sha256' => signWebhookPayload($payload, 'global_secret'),
+    ]);
+
+    $response->assertStatus(401);
+    $response->assertJson(['error' => 'Invalid signature']);
+
+    $log = WebhookLog::where('tenant_id', $tenant->id)->latest()->first();
+    expect($log)->not->toBeNull();
+    expect($log->error_message)->toBe('Tenant webhook secret not configured');
+
+    Queue::assertNotPushed(ProcessEfiBankWebhook::class);
+});
+
+test('tenant webhook secret does not validate on the saas endpoint', function () {
+    Queue::fake();
+
+    $tenant = createTenant();
+    createTenantEfiCredentials($tenant, 'tenant_only_secret');
+
+    config(['efibank.webhook_secret' => 'global_secret']);
+
+    $payload = json_encode(['event' => 'test', 'charge_id' => 'ch_x']);
+
+    $response = $this->postJson('/webhook/efi/saas', json_decode($payload, true), [
+        'x-efi-hmac-sha256' => signWebhookPayload($payload, 'tenant_only_secret'),
+    ]);
+
+    $response->assertStatus(401);
+
+    Queue::assertNotPushed(ProcessEfiBankWebhook::class);
 });
 
 test('order paid event broadcasts to tenant channel', function () {

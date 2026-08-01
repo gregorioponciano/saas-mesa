@@ -143,13 +143,15 @@
             <p class="px-4 text-xs font-medium text-neutral-500 uppercase tracking-wider">Restaurante</p>
         </div>
 
-        <a href="{{ route('menu.show', Auth::user()?->tenant?->slug) }}"
-           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-400 hover:text-white hover:bg-neutral-800/50 transition-all duration-200">
-            <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-            </svg>
-            Ver Cardápio
-        </a>
+        @if (Auth::user()?->tenant)
+            <a href="{{ route('menu.show', Auth::user()->tenant->slug) }}"
+               class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-400 hover:text-white hover:bg-neutral-800/50 transition-all duration-200">
+                <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                </svg>
+                Ver Cardápio
+            </a>
+        @endif
 
         <div class="pt-4 mt-4 border-t border-neutral-800">
             <p class="px-4 text-xs font-medium text-neutral-500 uppercase tracking-wider">Configurações</p>
@@ -178,6 +180,15 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
             </svg>
             Email SMTP
+        </a>
+
+        <a href="{{ route('dashboard.backup') }}"
+           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ request()->routeIs('dashboard.backup*') ? 'bg-amber-500/10 text-amber-400' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50' }}">
+            <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13.5V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7.5m4-7.5h3a2 2 0 012 2v1a2 2 0 01-2 2H8a2 2 0 01-2-2V6a2 2 0 012-2z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 17h16m-5 0l-3-3m0 0l-3 3m3-3v6"/>
+            </svg>
+            Backup do Sistema
         </a>
 
         <div class="pt-4 mt-4 border-t border-neutral-800">

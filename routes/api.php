@@ -3,10 +3,15 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Superadmin\AuditLogsController;
+use App\Http\Controllers\Superadmin\BackupsController;
 use App\Http\Controllers\Superadmin\FinancialController;
 use App\Http\Controllers\Superadmin\LoyaltyController;
 use App\Http\Controllers\Superadmin\PlansController;
 use App\Http\Controllers\Superadmin\TenantsController;
+use App\Http\Controllers\Superadmin\TenantSettingsController;
+use App\Http\Controllers\Superadmin\UsersController;
+use App\Http\Controllers\Superadmin\WebhookLogsController;
 use App\Http\Controllers\Tenant\EfiCredentialsController;
 use App\Http\Controllers\Tenant\FinancialController as TenantFinancialController;
 use App\Http\Controllers\Tenant\PaymentController;
@@ -61,16 +66,29 @@ Route::prefix('superadmin')
     ->middleware(['auth', 'role:superadmin'])
     ->group(function () {
         Route::apiResource('plans', PlansController::class);
-        Route::apiResource('tenants', TenantsController::class)->only(['index', 'show']);
+        Route::apiResource('tenants', TenantsController::class)->only(['index', 'show', 'store', 'destroy']);
+        Route::apiResource('users', UsersController::class)->only(['index', 'store']);
+        Route::post('users/{user}/revoke', [UsersController::class, 'revoke']);
         Route::get('financial/overview', [FinancialController::class, 'overview']);
         Route::get('financial/payments', [FinancialController::class, 'payments']);
+        Route::get('financial/subscriptions', [FinancialController::class, 'subscriptions']);
+        Route::get('financial/invoices', [FinancialController::class, 'invoices']);
         Route::get('financial/tenant/{tenant}', [FinancialController::class, 'tenant']);
         Route::post('tenants/{tenant}/suspend', [TenantsController::class, 'suspend']);
         Route::post('tenants/{tenant}/reactivate', [TenantsController::class, 'reactivate']);
         Route::put('tenants/{tenant}/plan', [TenantsController::class, 'changePlan']);
         Route::post('tenants/{tenant}/force-charge', [TenantsController::class, 'forceCharge']);
+        Route::get('tenants/{tenant}/export', [TenantsController::class, 'export']);
         Route::get('loyalty', [LoyaltyController::class, 'index']);
         Route::post('loyalty/{tenant}/toggle', [LoyaltyController::class, 'toggle']);
+        Route::get('backups', [BackupsController::class, 'index']);
+        Route::post('backups', [BackupsController::class, 'store']);
+        Route::delete('backups/{backup}', [BackupsController::class, 'destroy']);
+        Route::get('tenants/{tenant}/settings', [TenantSettingsController::class, 'show']);
+        Route::put('tenants/{tenant}/settings', [TenantSettingsController::class, 'update']);
+        Route::get('webhook-logs', [WebhookLogsController::class, 'index']);
+        Route::get('webhook-logs/{log}', [WebhookLogsController::class, 'show']);
+        Route::get('audit-logs', [AuditLogsController::class, 'index']);
     });
 
 // TENANT API

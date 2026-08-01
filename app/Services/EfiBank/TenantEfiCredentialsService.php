@@ -33,6 +33,7 @@ class TenantEfiCredentialsService
             'is_active' => $credentials->is_active,
             'has_pix_key' => !empty($credentials->pix_key_encrypted),
             'has_certificate' => !empty($credentials->certificate_content_encrypted),
+            'has_webhook_secret' => !empty($credentials->webhook_secret_encrypted),
             'client_id_masked' => $this->mask($credentials->decryptClientId()),
             'pix_key_masked' => $credentials->pix_key_encrypted
                 ? $this->mask($credentials->decryptPixKey() ?? '')
@@ -49,16 +50,24 @@ class TenantEfiCredentialsService
             'certificate_content' => $certificateContent ?? '',
         ]);
 
+        $values = [
+            'client_id_encrypted' => $encrypted['client_id_encrypted'],
+            'client_secret_encrypted' => $encrypted['client_secret_encrypted'],
+            'pix_key_encrypted' => $encrypted['pix_key_encrypted'],
+            'certificate_content_encrypted' => $encrypted['certificate_content_encrypted'],
+            'account_type' => $data['account_type'],
+            'is_active' => true,
+        ];
+
+        if (array_key_exists('webhook_secret', $data)
+            && $data['webhook_secret'] !== null
+            && $data['webhook_secret'] !== '') {
+            $values['webhook_secret_encrypted'] = $this->encryptionService->encrypt($data['webhook_secret']);
+        }
+
         return TenantEfiCredentials::updateOrCreate(
             ['tenant_id' => $tenant->id],
-            [
-                'client_id_encrypted' => $encrypted['client_id_encrypted'],
-                'client_secret_encrypted' => $encrypted['client_secret_encrypted'],
-                'pix_key_encrypted' => $encrypted['pix_key_encrypted'],
-                'certificate_content_encrypted' => $encrypted['certificate_content_encrypted'],
-                'account_type' => $data['account_type'],
-                'is_active' => true,
-            ]
+            $values
         );
     }
 

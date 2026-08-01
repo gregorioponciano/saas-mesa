@@ -57,13 +57,19 @@ class SidebarCounts extends Component
     public function tablesCount(): int
     {
         $tenant = Auth::user()->tenant;
-        return $tenant->manageableTables()->count();
+
+        return $tenant ? $tenant->manageableTables()->count() : 0;
     }
 
     #[Computed]
     public function occupiedTablesCount(): int
     {
         $tenant = Auth::user()->tenant;
+
+        if (! $tenant) {
+            return 0;
+        }
+
         return (clone $tenant->manageableTables())->where('status', 'occupied')->count();
     }
 

@@ -96,6 +96,20 @@
                 @error('pix_key') <p class="text-red-400 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
 
+            {{-- Webhook Secret --}}
+            <div>
+                <label for="webhook_secret" class="block text-sm font-medium text-neutral-300 mb-2">
+                    Webhook Secret
+                </label>
+                <input type="password" id="webhook_secret" wire:model="webhook_secret" autocomplete="new-password"
+                       placeholder="{{ $has_credentials && $has_webhook_secret ? '•••••••• (salvo)' : 'Segredo do webhook da sua conta EfiBank' }}"
+                       class="w-full bg-neutral-800/50 border border-neutral-700 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all">
+                @error('webhook_secret') <p class="text-red-400 text-xs mt-1">{{ $message }}</p> @enderror
+                <p class="text-xs text-neutral-500 mt-1">
+                    Deixe em branco para manter o atual. Use o mesmo segredo configurado no webhook da sua conta EfiBank.
+                </p>
+            </div>
+
             {{-- Certificado .p12 --}}
             <div>
                 <label class="block text-sm font-medium text-neutral-300 mb-2">

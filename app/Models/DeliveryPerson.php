@@ -98,4 +98,9 @@ class DeliveryPerson extends Authenticatable
     {
         return Str::random(60);
     }
+
+    public static function hashToken(string $token): string
+    {
+        return hash('sha256', $token);
+    }
 }

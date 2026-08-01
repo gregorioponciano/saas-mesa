@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\SubscriptionController;
+use App\Http\Controllers\SuperadminAuthController;
+use App\Http\Controllers\SuperadminPanelController;
 use App\Http\Controllers\Webhook\SaasWebhookController;
 use App\Http\Controllers\Webhook\TenantWebhookController;
 use App\Livewire\Admin\CouponManager;
@@ -47,14 +49,31 @@ Route::get('/politica-de-privacidade', function () {
     return view('terms', compact('content'));
 })->name('privacy');
 
-Route::middleware(['throttle:10,1'])->group(function () {
-    Route::get('/login', [AuthController::class, 'loginForm'])->name('login');
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::get('/register', [AuthController::class, 'registerTenantForm'])->name('register.tenant');
-    Route::post('/register', [AuthController::class, 'registerTenant'])->name('register.tenant.store');
-});
+Route::get('/login', [AuthController::class, 'loginForm'])->name('login');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::get('/register', [AuthController::class, 'registerTenantForm'])->name('register.tenant');
+Route::post('/register', [AuthController::class, 'registerTenant'])->middleware('throttle:10,1')->name('register.tenant.store');
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+// Superadmin Panel (web)
+Route::get('/superadmin/login', [SuperadminAuthController::class, 'loginForm'])->name('superadmin.login');
+Route::post('/superadmin/login', [SuperadminAuthController::class, 'login'])->middleware('throttle:10,1');
+
+Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
+    Route::post('/logout', [SuperadminAuthController::class, 'logout'])->name('logout');
+    Route::get('/', [SuperadminPanelController::class, 'dashboard'])->name('dashboard');
+    Route::get('/empresas', [SuperadminPanelController::class, 'tenants'])->name('tenants');
+    Route::get('/planos', [SuperadminPanelController::class, 'plans'])->name('plans');
+    Route::get('/financeiro', [SuperadminPanelController::class, 'financial'])->name('financial');
+    Route::get('/loyalty', [SuperadminPanelController::class, 'loyalty'])->name('loyalty');
+    Route::get('/backups', [SuperadminPanelController::class, 'backups'])->name('backups');
+    Route::get('/usuarios', [SuperadminPanelController::class, 'users'])->name('users');
+    Route::get('/webhooks', [SuperadminPanelController::class, 'webhooks'])->name('webhooks');
+    Route::get('/auditoria', [SuperadminPanelController::class, 'audit'])->name('audit');
+    Route::get('/privacidade', [SuperadminPanelController::class, 'privacy'])->name('privacy');
+    Route::get('/empresas/{tenant}/configuracoes', [SuperadminPanelController::class, 'tenantSettings'])->name('tenant.settings');
+});
 
 Route::middleware('throttle:5,1')->group(function () {
     Route::get('/login/recuperar-senha', [AuthController::class, 'adminForgotPasswordForm'])->name('admin.forgot.form');
@@ -100,7 +119,7 @@ Route::prefix('convidar/entregador')->name('delivery.invite.')->middleware('thro
 });
 
 // Admin Panel
-Route::middleware(['auth', 'tenant.scope', 'check.subscription', 'check.admin'])->group(function () {
+Route::middleware(['auth', 'tenant.scope', 'block.superadmin.from.tenant.panel', 'check.subscription', 'check.admin'])->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
     Route::get('/dashboard/tables', TablesPage::class)->name('dashboard.tables');
     Route::get('/dashboard/menu', MenuManager::class)->name('dashboard.menu');
@@ -115,6 +134,10 @@ Route::middleware(['auth', 'tenant.scope', 'check.subscription', 'check.admin'])
     Route::get('/dashboard/efi-credentials', \App\Livewire\Admin\EfiCredentialsManager::class)->name('dashboard.efi-credentials');
     Route::get('/dashboard/configurar-email', \App\Livewire\Admin\SmtpSettings::class)->name('dashboard.smtp-settings');
     Route::get('/dashboard/suporte', SupportManager::class)->name('dashboard.support');
+    Route::get('/dashboard/backup', \App\Livewire\Admin\BackupManager::class)->name('dashboard.backup');
+    Route::get('/dashboard/backup/{backup}/download', [\App\Http\Controllers\BackupController::class, 'download'])
+        ->name('dashboard.backup.download')
+        ->middleware('throttle:10,1');
 });
 
 // Public Menu
