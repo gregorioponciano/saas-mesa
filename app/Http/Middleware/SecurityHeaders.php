@@ -24,12 +24,12 @@ class SecurityHeaders
             $response->headers->set($key, $value);
         }
 
-        if (!$response->headers->has('Content-Security-Policy')) {
+        if (! $response->headers->has('Content-Security-Policy')) {
             $csp = $this->buildContentSecurityPolicy();
             $response->headers->set('Content-Security-Policy', $csp);
         }
 
-        if (config('app.env') === 'production' && !$request->isSecure()) {
+        if (config('app.env') === 'production' && ! $request->isSecure()) {
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
         }
 
@@ -40,9 +40,15 @@ class SecurityHeaders
 
     private function buildContentSecurityPolicy(): string
     {
+        $scriptSrc = "'self' 'unsafe-inline' https://*.saasmesa.com.br";
+
+        if (config('app.env') !== 'production') {
+            $scriptSrc .= " 'unsafe-eval'";
+        }
+
         $directives = [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.saasmesa.com.br",
+            "script-src $scriptSrc",
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob: https:",
             "font-src 'self' data:",

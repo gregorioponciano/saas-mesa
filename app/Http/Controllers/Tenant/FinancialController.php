@@ -84,7 +84,7 @@ class FinancialController extends Controller
 
         return response()->json([
             'total_collected_cents' => $totalCollected,
-            'total_collected_formatted' => 'R$ ' . number_format($totalCollected / 100, 2, ',', '.'),
+            'total_collected_formatted' => 'R$ '.number_format($totalCollected / 100, 2, ',', '.'),
             'today_collected_cents' => $todayCollected,
             'this_month_collected_cents' => $thisMonthCollected,
             'pending_cents' => $pendingPayments,

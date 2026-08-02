@@ -27,8 +27,9 @@ class StockService
 
             $product = $products->get($productId);
 
-            if (!$product) {
-                $errors[$key] = "Produto nao encontrado.";
+            if (! $product) {
+                $errors[$key] = 'Produto nao encontrado.';
+
                 continue;
             }
 
@@ -116,7 +117,7 @@ class StockService
         string $type = 'sale',
         ?string $description = null
     ): bool {
-        if (!$productId || $quantity <= 0) {
+        if (! $productId || $quantity <= 0) {
             return false;
         }
 
@@ -133,7 +134,7 @@ class StockService
                 ->lockForUpdate()
                 ->first();
 
-            if (!$product) {
+            if (! $product) {
                 throw new \RuntimeException("Produto #{$productId} nao encontrado.");
             }
 
@@ -183,7 +184,7 @@ class StockService
         string $type = 'return',
         ?string $description = null
     ): bool {
-        if (!$productId || $quantity <= 0) {
+        if (! $productId || $quantity <= 0) {
             return false;
         }
 
@@ -200,7 +201,7 @@ class StockService
                 ->lockForUpdate()
                 ->first();
 
-            if (!$product) {
+            if (! $product) {
                 throw new \RuntimeException("Produto #{$productId} nao encontrado.");
             }
 
@@ -257,7 +258,7 @@ class StockService
                 ->lockForUpdate()
                 ->first();
 
-            if (!$product) {
+            if (! $product) {
                 throw new \RuntimeException("Produto #{$productId} nao encontrado.");
             }
 
@@ -265,7 +266,7 @@ class StockService
             $difference = $newStock - $stockBefore;
 
             if ($newStock < 0) {
-                throw new \RuntimeException("Estoque nao pode ser negativo.");
+                throw new \RuntimeException('Estoque nao pode ser negativo.');
             }
 
             $product->update(['stock' => $newStock]);

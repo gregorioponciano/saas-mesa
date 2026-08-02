@@ -63,7 +63,7 @@
                             <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium">{{ $delivery->name }}</td>
                             <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-neutral-400">{{ $delivery->email ?: '-' }}</td>
                             <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-neutral-400">{{ $delivery->phone }}</td>
-                            <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-neutral-400">{{ $delivery->cpf ?: '-' }}</td>
+                            <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-neutral-400">{{ $delivery->cpf ? maskCpf($delivery->cpf) : '-' }}</td>
                             <td class="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-neutral-400">
                                 @if ($delivery->vehicle_model || $delivery->vehicle_plate)
                                     <span class="text-xs">{{ $delivery->vehicle_model ?: '-' }}</span>
@@ -183,24 +183,25 @@
                 <div x-data="{ 
                     cpfDisplay: '',
                     init() { this.cpfDisplay = $wire.cpf ? this.fmt($wire.cpf) : ''; },
-                    fmt(v) {
-                        let r = (v||'').replace(/\D/g,'').substring(0,11);
-                        if (r.length<=3) return r;
-                        if (r.length<=6) return r.substring(0,3)+'.'+r.substring(3);
-                        if (r.length<=9) return r.substring(0,3)+'.'+r.substring(3,6)+'.'+r.substring(6);
-                        return r.substring(0,3)+'.'+r.substring(3,6)+'.'+r.substring(6,9)+'-'+r.substring(9);
-                    },
+                    fmt(v) { return applyCpfMask(v); },
                     onCpfInput() {
                         let raw = (this.cpfDisplay||'').replace(/\D/g,'').substring(0,11);
                         this.cpfDisplay = this.fmt(raw);
                         $wire.cpf = raw;
-                    }
+                    },
+                    get cpfValid() { return isValidCpf(this.cpfDisplay); },
+                    get cpfState() { return this.cpfDisplay === '' ? 'empty' : (this.cpfValid ? 'ok' : 'err'); }
                 }">
                     <label class="block text-xs font-medium text-neutral-400 mb-1">CPF</label>
-                    <input type="text" inputmode="numeric" placeholder="000.000.000-00" maxlength="14"
-                           x-model="cpfDisplay"
-                           @input="onCpfInput"
-                           class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('cpf') border-red-500 @enderror">
+                    <div class="relative">
+                        <input type="text" inputmode="numeric" placeholder="000.000.000-00" maxlength="14"
+                               x-model="cpfDisplay"
+                               @input="onCpfInput"
+                               class="w-full px-3.5 py-2 pr-10 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('cpf') border-red-500 @enderror">
+                        <span x-show="cpfState === 'ok'" class="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400 text-sm font-bold">✓</span>
+                        <span x-show="cpfState === 'err'" class="absolute right-3 top-1/2 -translate-y-1/2 text-red-400 text-sm font-bold">✗</span>
+                    </div>
+                    <p class="mt-1 text-xs text-neutral-500" x-show="cpfState === 'err'" x-cloak>CPF inválido. Verifique os dígitos.</p>
                     @error('cpf') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                 </div>
                 <div>
@@ -392,3 +393,5 @@
         </div>
     </div>
 </div>
+
+@include('partials.cpf-validator')

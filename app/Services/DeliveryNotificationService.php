@@ -6,7 +6,6 @@ use App\Models\DeliveryPerson;
 use App\Models\Notification;
 use App\Models\Order;
 use App\Models\User;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class DeliveryNotificationService
@@ -27,7 +26,9 @@ class DeliveryNotificationService
 
     public function newOrderAvailable(Order $order): void
     {
-        if (!$order->tenant_id) return;
+        if (! $order->tenant_id) {
+            return;
+        }
 
         // Notify all active delivery people for this tenant
         $deliveryPeople = DeliveryPerson::where('tenant_id', $order->tenant_id)
@@ -47,7 +48,9 @@ class DeliveryNotificationService
 
     public function newMesaOrder(Order $order): void
     {
-        if (!$order->tenant_id) return;
+        if (! $order->tenant_id) {
+            return;
+        }
 
         $this->notifyStaff($order->tenant_id, 'order_created', [
             'order_id' => $order->id,
@@ -98,7 +101,7 @@ class DeliveryNotificationService
         // Notify the delivery person themselves (for their own records)
         $this->create($delivery, 'delivery_delivered', [
             'order_id' => $order->id,
-            'message' => "Pedido #{$order->id} entregue! +R\$ " . number_format((float)($order->delivery_cost ?? 0), 2, ',', '.'),
+            'message' => "Pedido #{$order->id} entregue! +R\$ ".number_format((float) ($order->delivery_cost ?? 0), 2, ',', '.'),
             'total' => (float) $order->total,
             'delivery_cost' => (float) ($order->delivery_cost ?? 0),
         ]);
@@ -146,16 +149,20 @@ class DeliveryNotificationService
                 'color' => self::COLORS[$type] ?? 'neutral',
             ]);
         } catch (\Throwable $e) {
-            Log::error('Erro ao criar notificação: ' . $e->getMessage());
+            Log::error('Erro ao criar notificação: '.$e->getMessage());
         }
     }
 
     private function notifyCustomer(Order $order, string $type, string $message): void
     {
-        if (!$order->user_id) return;
+        if (! $order->user_id) {
+            return;
+        }
 
         $user = User::find($order->user_id);
-        if (!$user) return;
+        if (! $user) {
+            return;
+        }
 
         $this->create($user, $type, [
             'order_id' => $order->id,

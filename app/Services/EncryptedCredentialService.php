@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 class EncryptedCredentialService
 {
     private string $key;
+
     private string $cipher = 'aes-256-gcm';
 
     public function __construct()
@@ -20,6 +21,7 @@ class EncryptedCredentialService
     private function deriveKey(string $appKey): string
     {
         $hash = hash_hkdf('sha256', $appKey, 32, 'tenant-credentials-encryption');
+
         return $hash;
     }
 
@@ -45,10 +47,11 @@ class EncryptedCredentialService
         );
 
         if ($encrypted === false) {
-            throw new \RuntimeException('Encryption failed: ' . openssl_error_string());
+            throw new \RuntimeException('Encryption failed: '.openssl_error_string());
         }
 
-        $payload = base64_encode($iv . $tag . $encrypted);
+        $payload = base64_encode($iv.$tag.$encrypted);
+
         return $payload;
     }
 
@@ -78,7 +81,7 @@ class EncryptedCredentialService
         );
 
         if ($decrypted === false) {
-            throw new \RuntimeException('Decryption failed: ' . openssl_error_string());
+            throw new \RuntimeException('Decryption failed: '.openssl_error_string());
         }
 
         return $decrypted;

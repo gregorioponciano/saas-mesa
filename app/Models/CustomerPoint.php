@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CustomerPoint extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'customer_points';
 
     protected $fillable = [
@@ -21,12 +25,12 @@ class CustomerPoint extends Model
         ];
     }
 
-    public function tenant()
+    public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
     }
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }

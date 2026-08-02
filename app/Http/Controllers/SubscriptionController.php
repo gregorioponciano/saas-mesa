@@ -12,9 +12,11 @@ use App\Services\EfiBank\SaasEfiBankService;
 use App\Services\SubscriptionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\View\View;
 
 class SubscriptionController extends Controller
 {
@@ -26,7 +28,7 @@ class SubscriptionController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'plan' => ['required', 'string', 'in:free,premium'],
+            'plan' => ['required', 'string'],
             'months' => ['sometimes', 'integer', 'in:1,3,6,12'],
             'payment_method' => ['sometimes', 'string', 'in:pix,credit_card,billet'],
         ]);
@@ -35,7 +37,7 @@ class SubscriptionController extends Controller
         $planSlug = $validated['plan'];
         $months = (int) ($validated['months'] ?? 1);
 
-        if ($planSlug === 'free') {
+        if (in_array($planSlug, ['free', 'gratuito'], true)) {
             return $this->activateFreePlan($tenant);
         }
 
@@ -43,7 +45,7 @@ class SubscriptionController extends Controller
             ->where('is_active', true)
             ->first();
 
-        if (!$plan) {
+        if (! $plan) {
             return redirect()->route('subscription.checkout')
                 ->with('error', 'Plano não encontrado.');
         }
@@ -53,7 +55,7 @@ class SubscriptionController extends Controller
         // Se já tem pagamento pendente válido, reexibe
         if ($existingSubscription && $existingSubscription->status === 'pending') {
             $details = $this->efiBankService->pixDetails($existingSubscription);
-            if (!empty($details['expired'])) {
+            if (! empty($details['expired'])) {
                 // PIX expirado — vai gerar novo
                 $this->logExpiredCharge($existingSubscription);
             } else {
@@ -95,13 +97,13 @@ class SubscriptionController extends Controller
             ]);
 
             return redirect()->route('subscription.checkout')
-                ->with('error', 'Erro ao gerar cobrança: ' . $e->getMessage());
+                ->with('error', 'Erro ao gerar cobrança: '.$e->getMessage());
         }
     }
 
     private function activateFreePlan(Tenant $tenant): RedirectResponse
     {
-        $freePlan = SaasPlan::where('slug', 'free')->first();
+        $freePlan = SaasPlan::whereIn('slug', ['free', 'gratuito'])->first();
 
         DB::transaction(function () use ($tenant, $freePlan) {
             $subscription = SaasSubscription::where('tenant_id', $tenant->id)->first();
@@ -179,8 +181,8 @@ class SubscriptionController extends Controller
     private function logExpiredCharge(SaasSubscription $subscription): void
     {
         $metadata = $subscription->metadata ?? [];
-        $expiresAt = !empty($metadata['expires_at'])
-            ? \Illuminate\Support\Carbon::parse($metadata['expires_at'])
+        $expiresAt = ! empty($metadata['expires_at'])
+            ? Carbon::parse($metadata['expires_at'])
             : null;
 
         SaasPaymentHistory::updateOrCreate(
@@ -196,9 +198,11 @@ class SubscriptionController extends Controller
         );
     }
 
-    public function checkout(): \Illuminate\View\View
+    public function checkout(): View
     {
-        $plans = SaasPlan::where('is_active', true)->get();
+        $plans = SaasPlan::where('is_active', true)
+            ->orderBy('price_cents')
+            ->get();
         $tenant = Auth::user()->tenant;
         $currentSubscription = SaasSubscription::where('tenant_id', $tenant->id)->first();
         $paymentHistory = SaasPaymentHistory::where('tenant_id', $tenant->id)
@@ -211,7 +215,7 @@ class SubscriptionController extends Controller
             $pendingSubscription = SaasSubscription::find(session('payment_pending'));
             if ($pendingSubscription && $pendingSubscription->tenant_id === $tenant->id) {
                 $pendingPayment = $this->efiBankService->pixDetails($pendingSubscription);
-                if (!empty($pendingPayment['expired'])) {
+                if (! empty($pendingPayment['expired'])) {
                     $this->logExpiredCharge($pendingSubscription);
                 }
                 $pendingPayment['subscription_id'] = $pendingSubscription->id;

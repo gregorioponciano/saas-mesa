@@ -7,6 +7,7 @@ use App\Models\DeliveryPerson;
 use App\Models\Order;
 use App\Services\DeliveryService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -15,28 +16,44 @@ class DeliveryPeopleManager extends Component
     use WithPagination;
 
     public bool $showModal = false;
+
     public bool $showInviteModal = false;
+
     public bool $showPerformance = false;
+
     public ?int $editingId = null;
+
     public string $name = '';
+
     public string $email = '';
+
     public string $phone = '';
+
     public string $cpf = '';
+
     public string $status = 'active';
+
     public string $search = '';
 
     public string $inviteLink = '';
+
     public ?int $performanceId = null;
+
     public array $performanceData = [];
+
     public string $reportPeriod = 'all';
 
     protected function rules(): array
     {
         return [
             'name' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255|unique:delivery_people,email,' . ($this->editingId ?? 'NULL') . ',id,tenant_id,' . auth()->user()->tenant_id,
+            'email' => 'nullable|email|max:255|unique:delivery_people,email,'.($this->editingId ?? 'NULL').',id,tenant_id,'.auth()->user()->tenant_id,
             'phone' => 'required|string|max:20',
-            'cpf' => 'nullable|string|max:14',
+            'cpf' => ['nullable', 'string', 'max:14', function (string $attribute, mixed $value, \Closure $fail): void {
+                if ($value !== null && $value !== '' && ! isValidCpf($value)) {
+                    $fail('O CPF informado é inválido.');
+                }
+            }],
             'status' => 'required|in:active,inactive',
         ];
     }
@@ -100,7 +117,7 @@ class DeliveryPeopleManager extends Component
             ->where('tenant_id', Auth::user()->tenant_id)
             ->firstOrFail();
 
-        $token = \Illuminate\Support\Str::random(60);
+        $token = Str::random(60);
         $delivery->update(['api_token' => DeliveryPerson::hashToken($token)]);
 
         $this->dispatch('notify', message: 'Token gerado! Copie o token agora (não será exibido novamente).');
@@ -150,7 +167,7 @@ class DeliveryPeopleManager extends Component
 
     public function loadPerformance(): void
     {
-        if (!$this->performanceId) {
+        if (! $this->performanceId) {
             return;
         }
 
@@ -185,7 +202,7 @@ class DeliveryPeopleManager extends Component
             ->get()
             ->keyBy('order_id');
 
-        $recentOrders = $recentOrders->map(fn($o) => [
+        $recentOrders = $recentOrders->map(fn ($o) => [
             'id' => $o->id,
             'customer_name' => $o->customer_name ?? 'Cliente',
             'total' => (float) $o->total,
@@ -227,7 +244,7 @@ class DeliveryPeopleManager extends Component
 
     public function markAllEarningsPaid(): void
     {
-        if (!$this->performanceId) {
+        if (! $this->performanceId) {
             return;
         }
 

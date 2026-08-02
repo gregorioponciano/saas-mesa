@@ -1,51 +1,61 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BackupController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\SuperadminAuthController;
 use App\Http\Controllers\SuperadminPanelController;
+use App\Http\Controllers\Web\DeliveryInviteController;
+use App\Http\Controllers\Web\DeliveryWebController;
 use App\Http\Controllers\Webhook\SaasWebhookController;
 use App\Http\Controllers\Webhook\TenantWebhookController;
+use App\Livewire\Admin\BackupManager;
 use App\Livewire\Admin\CouponManager;
 use App\Livewire\Admin\Dashboard;
 use App\Livewire\Admin\DeliveryPeopleManager;
+use App\Livewire\Admin\EfiCredentialsManager;
+use App\Livewire\Admin\LoyaltyManager;
 use App\Livewire\Admin\MenuManager;
 use App\Livewire\Admin\Settings;
-use App\Livewire\Admin\SubscriptionCheckout;
-use App\Livewire\Admin\TablesPage;
+use App\Livewire\Admin\SmtpSettings;
 use App\Livewire\Admin\SupportManager;
+use App\Livewire\Admin\TablesPage;
 use App\Livewire\Admin\UserManager;
-use App\Livewire\Client\ClientDashboard;
 use App\Livewire\Client\SupportPage;
-use App\Livewire\Waiter\WaiterDashboard;
 use App\Livewire\Waiter\WaiterSupport;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Storage;
 use League\CommonMark\CommonMarkConverter;
 use League\CommonMark\Extension\Table\TableExtension;
-use League\CommonMark\Extension\HeadingPermalink\HeadingPermalinkExtension;
 
-Route::get('/', function () { return view('welcome'); });
+Route::get('/', function () {
+    return view('welcome');
+});
 
 Route::get('/termos-de-uso', function () {
     $path = base_path('docs/termos-de-uso-saas-mesa.md');
-    if (!file_exists($path)) abort(404);
+    if (! file_exists($path)) {
+        abort(404);
+    }
     $markdown = file_get_contents($path);
     $converter = new CommonMarkConverter(['html_input' => 'strip', 'allow_unsafe_links' => false, 'max_nesting_level' => 6]);
-    $converter->getEnvironment()->addExtension(new TableExtension());
+    $converter->getEnvironment()->addExtension(new TableExtension);
     $content = $converter->convert($markdown)->getContent();
+
     return view('terms', compact('content'));
 })->name('terms');
 
 Route::get('/politica-de-privacidade', function () {
     $path = base_path('docs/termos-clientes-finais.md');
-    if (!file_exists($path)) abort(404);
+    if (! file_exists($path)) {
+        abort(404);
+    }
     $markdown = file_get_contents($path);
     $converter = new CommonMarkConverter(['html_input' => 'strip', 'allow_unsafe_links' => false, 'max_nesting_level' => 6]);
-    $converter->getEnvironment()->addExtension(new TableExtension());
+    $converter->getEnvironment()->addExtension(new TableExtension);
     $content = $converter->convert($markdown)->getContent();
+
     return view('terms', compact('content'));
 })->name('privacy');
 
@@ -60,9 +70,10 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/superadmin/login', [SuperadminAuthController::class, 'loginForm'])->name('superadmin.login');
 Route::post('/superadmin/login', [SuperadminAuthController::class, 'login'])->middleware('throttle:10,1');
 
-Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
+Route::middleware(['auth', 'role:superadmin', 'throttle:superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
     Route::post('/logout', [SuperadminAuthController::class, 'logout'])->name('logout');
     Route::get('/', [SuperadminPanelController::class, 'dashboard'])->name('dashboard');
+    Route::get('/relatorios', [SuperadminPanelController::class, 'reports'])->name('reports');
     Route::get('/empresas', [SuperadminPanelController::class, 'tenants'])->name('tenants');
     Route::get('/planos', [SuperadminPanelController::class, 'plans'])->name('plans');
     Route::get('/financeiro', [SuperadminPanelController::class, 'financial'])->name('financial');
@@ -83,39 +94,39 @@ Route::middleware('throttle:5,1')->group(function () {
 });
 
 // Client Order Tracking (public, no auth)
-Route::get('/pedido/{id}/rastreio', [\App\Http\Controllers\Web\DeliveryWebController::class, 'trackOrder'])
+Route::get('/pedido/{id}/rastreio', [DeliveryWebController::class, 'trackOrder'])
     ->name('order.tracking')
     ->whereNumber('id');
 
 // Delivery Web Panel
 Route::middleware('throttle:10,1')->group(function () {
-    Route::get('/entregador/login', [\App\Http\Controllers\Web\DeliveryWebController::class, 'loginForm'])->name('delivery.login');
-    Route::post('/entregador/login', [\App\Http\Controllers\Web\DeliveryWebController::class, 'login']);
-    Route::get('/entregador/recuperar-senha', [\App\Http\Controllers\Web\DeliveryWebController::class, 'forgotPasswordForm'])->name('delivery.forgot.form');
-    Route::post('/entregador/recuperar-senha', [\App\Http\Controllers\Web\DeliveryWebController::class, 'sendResetLink'])->name('delivery.forgot.send');
-    Route::get('/entregador/redefinir-senha/{token}', [\App\Http\Controllers\Web\DeliveryWebController::class, 'resetPasswordForm'])->name('delivery.reset.form');
-    Route::post('/entregador/redefinir-senha/{token}', [\App\Http\Controllers\Web\DeliveryWebController::class, 'resetPassword'])->name('delivery.reset');
+    Route::get('/entregador/login', [DeliveryWebController::class, 'loginForm'])->name('delivery.login');
+    Route::post('/entregador/login', [DeliveryWebController::class, 'login']);
+    Route::get('/entregador/recuperar-senha', [DeliveryWebController::class, 'forgotPasswordForm'])->name('delivery.forgot.form');
+    Route::post('/entregador/recuperar-senha', [DeliveryWebController::class, 'sendResetLink'])->name('delivery.forgot.send');
+    Route::get('/entregador/redefinir-senha/{token}', [DeliveryWebController::class, 'resetPasswordForm'])->name('delivery.reset.form');
+    Route::post('/entregador/redefinir-senha/{token}', [DeliveryWebController::class, 'resetPassword'])->name('delivery.reset');
 });
 
 Route::middleware('auth:delivery-web')->prefix('entregador')->name('delivery.')->group(function () {
-    Route::get('/painel', [\App\Http\Controllers\Web\DeliveryWebController::class, 'dashboard'])->name('dashboard');
-    Route::get('/notificacoes', [\App\Http\Controllers\Web\DeliveryWebController::class, 'getNotifications'])->name('notifications.json');
-    Route::post('/notificacoes/{notification}/ler', [\App\Http\Controllers\Web\DeliveryWebController::class, 'markNotificationRead'])->name('notification.read');
-    Route::post('/pedidos/{order}/aceitar', [\App\Http\Controllers\Web\DeliveryWebController::class, 'acceptOrder'])->name('order.accept');
-    Route::post('/pedidos/{order}/coletar', [\App\Http\Controllers\Web\DeliveryWebController::class, 'pickupOrder'])->name('order.pickup');
-    Route::post('/pedidos/{order}/entregar', [\App\Http\Controllers\Web\DeliveryWebController::class, 'deliverOrder'])->name('order.deliver');
-    Route::post('/toggle-disponibilidade', [\App\Http\Controllers\Web\DeliveryWebController::class, 'toggleAvailability'])->name('toggle.availability');
-    Route::post('/configuracoes', [\App\Http\Controllers\Web\DeliveryWebController::class, 'updateSettings'])->name('settings.update');
-    Route::get('/exportar-dados', [\App\Http\Controllers\Web\DeliveryWebController::class, 'exportData'])->name('data.export');
-    Route::post('/excluir-conta', [\App\Http\Controllers\Web\DeliveryWebController::class, 'deleteAccount'])->name('data.delete');
-    Route::post('/logout', [\App\Http\Controllers\Web\DeliveryWebController::class, 'logout'])->name('logout');
+    Route::get('/painel', [DeliveryWebController::class, 'dashboard'])->name('dashboard');
+    Route::get('/notificacoes', [DeliveryWebController::class, 'getNotifications'])->name('notifications.json');
+    Route::post('/notificacoes/{notification}/ler', [DeliveryWebController::class, 'markNotificationRead'])->name('notification.read');
+    Route::post('/pedidos/{order}/aceitar', [DeliveryWebController::class, 'acceptOrder'])->name('order.accept');
+    Route::post('/pedidos/{order}/coletar', [DeliveryWebController::class, 'pickupOrder'])->name('order.pickup');
+    Route::post('/pedidos/{order}/entregar', [DeliveryWebController::class, 'deliverOrder'])->name('order.deliver');
+    Route::post('/toggle-disponibilidade', [DeliveryWebController::class, 'toggleAvailability'])->name('toggle.availability');
+    Route::post('/configuracoes', [DeliveryWebController::class, 'updateSettings'])->name('settings.update');
+    Route::get('/exportar-dados', [DeliveryWebController::class, 'exportData'])->name('data.export');
+    Route::post('/excluir-conta', [DeliveryWebController::class, 'deleteAccount'])->name('data.delete');
+    Route::post('/logout', [DeliveryWebController::class, 'logout'])->name('logout');
 });
 
 // Delivery Invite
 Route::prefix('convidar/entregador')->name('delivery.invite.')->middleware('throttle:10,1')->group(function () {
-    Route::get('/sucesso', [\App\Http\Controllers\Web\DeliveryInviteController::class, 'success'])->name('success');
-    Route::get('/{token}', [\App\Http\Controllers\Web\DeliveryInviteController::class, 'show'])->name('show');
-    Route::post('/{token}', [\App\Http\Controllers\Web\DeliveryInviteController::class, 'accept'])->name('accept');
+    Route::get('/sucesso', [DeliveryInviteController::class, 'success'])->name('success');
+    Route::get('/{token}', [DeliveryInviteController::class, 'show'])->name('show');
+    Route::post('/{token}', [DeliveryInviteController::class, 'accept'])->name('accept');
 });
 
 // Admin Panel
@@ -126,16 +137,16 @@ Route::middleware(['auth', 'tenant.scope', 'block.superadmin.from.tenant.panel',
     Route::get('/dashboard/users', UserManager::class)->name('dashboard.users');
     Route::get('/dashboard/cupons', CouponManager::class)->name('dashboard.cupons');
     Route::get('/dashboard/entregadores', DeliveryPeopleManager::class)->name('dashboard.delivery-people');
-    Route::get('/dashboard/pontos', \App\Livewire\Admin\LoyaltyManager::class)->name('dashboard.loyalty');
+    Route::get('/dashboard/pontos', LoyaltyManager::class)->name('dashboard.loyalty');
     Route::get('/dashboard/configuracoes', Settings::class)->name('dashboard.settings');
     Route::get('/subscription', [SubscriptionController::class, 'checkout'])->name('subscription.checkout');
     Route::post('/subscription', [SubscriptionController::class, 'store'])->name('subscription.checkout.store');
     Route::post('/subscription/cancel', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
-    Route::get('/dashboard/efi-credentials', \App\Livewire\Admin\EfiCredentialsManager::class)->name('dashboard.efi-credentials');
-    Route::get('/dashboard/configurar-email', \App\Livewire\Admin\SmtpSettings::class)->name('dashboard.smtp-settings');
+    Route::get('/dashboard/efi-credentials', EfiCredentialsManager::class)->name('dashboard.efi-credentials');
+    Route::get('/dashboard/configurar-email', SmtpSettings::class)->name('dashboard.smtp-settings');
     Route::get('/dashboard/suporte', SupportManager::class)->name('dashboard.support');
-    Route::get('/dashboard/backup', \App\Livewire\Admin\BackupManager::class)->name('dashboard.backup');
-    Route::get('/dashboard/backup/{backup}/download', [\App\Http\Controllers\BackupController::class, 'download'])
+    Route::get('/dashboard/backup', BackupManager::class)->name('dashboard.backup');
+    Route::get('/dashboard/backup/{backup}/download', [BackupController::class, 'download'])
         ->name('dashboard.backup.download')
         ->middleware('throttle:10,1');
 });
@@ -143,7 +154,10 @@ Route::middleware(['auth', 'tenant.scope', 'block.superadmin.from.tenant.panel',
 // Public Menu
 Route::prefix('/cardapio')->group(function () {
     Route::get('/{slug:slug}', function (Tenant $slug) {
-        if (Auth::check() && Auth::user()->tenant_id !== $slug->id) abort(403);
+        if (Auth::check() && Auth::user()->tenant_id !== $slug->id) {
+            abort(403);
+        }
+
         return view('menu-page', ['tenant' => $slug]);
     })->name('menu.show');
 
@@ -169,14 +183,22 @@ Route::prefix('/cardapio')->group(function () {
 Route::middleware(['auth', 'tenant.scope', 'check.staff'])->prefix('/painel')->group(function () {
     Route::get('/{slug:slug}', function (Tenant $slug) {
         $user = Auth::user();
-        if ($user->tenant_id !== $slug->id) abort(403);
-        if ($slug->isFree()) abort(403, 'Acesso restrito. Plano Premium requerido.');
+        if ($user->tenant_id !== $slug->id) {
+            abort(403);
+        }
+        if ($slug->isFree()) {
+            abort(403, 'Acesso restrito. Plano Premium requerido.');
+        }
+
         return view('waiter-panel', ['tenant' => $slug]);
     })->name('waiter.panel');
 
     Route::get('/{slug:slug}/configuracoes', function (Tenant $slug) {
         $user = Auth::user();
-        if ($user->tenant_id !== $slug->id) abort(403);
+        if ($user->tenant_id !== $slug->id) {
+            abort(403);
+        }
+
         return view('waiter-panel', ['tenant' => $slug, 'tab' => 'settings']);
     })->name('waiter.panel.settings');
 
@@ -187,7 +209,10 @@ Route::middleware(['auth', 'tenant.scope', 'check.staff'])->prefix('/painel')->g
 Route::middleware(['auth', 'tenant.scope'])->prefix('/conta')->group(function () {
     Route::get('/{slug:slug}', function (Tenant $slug) {
         $user = Auth::user();
-        if ($user->tenant_id !== $slug->id) abort(403);
+        if ($user->tenant_id !== $slug->id) {
+            abort(403);
+        }
+
         return view('client-panel', ['tenant' => $slug]);
     })->name('client.panel');
 

@@ -12,7 +12,7 @@ class CouponSeeder extends Seeder
     {
         $tenant = Tenant::where('slug', 'classic-burger-artisan')->first();
 
-        if (!$tenant) {
+        if (! $tenant) {
             return;
         }
 

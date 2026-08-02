@@ -2,13 +2,10 @@
 
 namespace App\Livewire\Admin;
 
-use App\Models\CustomerPoint;
-use App\Models\Tenant;
 use App\Models\User;
-use App\Services\PointsService;
+use App\Services\GeocodingService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -18,56 +15,81 @@ class Settings extends Component
     use WithFileUploads;
 
     public string $tenantName = '';
+
     public string $tenantEmail = '';
+
     public string $whatsapp = '';
+
     public string $openingTime = '';
+
     public string $closingTime = '';
+
     public string $deliveryCostPerOrder = '0';
+
     public bool $deliveryCostEnabled = true;
+
     public string $deliveryCostPerKm = '0';
+
     public string $deliveryAddress = '';
+
     public string $deliveryNumber = '';
+
     public string $deliveryNeighborhood = '';
+
     public string $deliveryCity = '';
+
     public string $deliveryState = '';
+
     public string $deliveryZipcode = '';
+
     public string $deliveryRadius = '10';
+
     public $logo = null;
+
     public int $logoWidth = 44;
+
     public int $logoHeight = 44;
+
     public string $name = '';
+
     public string $email = '';
+
     public string $password = '';
+
     public string $passwordConfirmation = '';
 
     public bool $showAccountDeleteConfirm = false;
+
     public bool $showTenantDeleteConfirm = false;
+
     public bool $hasTenant = true;
+
     public string $deleteConfirmation = '';
+
     public string $deleteTenantConfirmation = '';
 
-     protected function rules(): array
-     {
-         return [
-             'tenantName' => 'required|string|max:255',
-             'tenantEmail' => 'required|email|max:255',
-             'whatsapp' => 'nullable|string|max:20',
-             'openingTime' => 'nullable|date_format:H:i',
-             'closingTime' => 'nullable|date_format:H:i',
-             'deliveryCostPerOrder' => 'nullable|numeric|min:0|max:999999',
-             'deliveryCostPerKm' => 'nullable|numeric|min:0|max:999999',
-             'logo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
-             'logoWidth' => 'required|integer|min:20|max:120',
-             'logoHeight' => 'required|integer|min:20|max:120',
-             'deliveryAddress' => 'nullable|string|max:255',
-             'deliveryNumber' => 'nullable|string|max:20',
-             'deliveryNeighborhood' => 'nullable|string|max:255',
-             'deliveryCity' => 'nullable|string|max:255',
-             'deliveryState' => 'nullable|string|max:2',
-             'deliveryZipcode' => 'nullable|string|max:10',
-             'deliveryRadius' => 'nullable|numeric|min:1|max:100',
-         ];
-     }
+    protected function rules(): array
+    {
+        return [
+            'tenantName' => 'required|string|max:255',
+            'tenantEmail' => 'required|email|max:255',
+            'whatsapp' => 'nullable|string|max:20',
+            'openingTime' => 'nullable|date_format:H:i',
+            'closingTime' => 'nullable|date_format:H:i',
+            'deliveryCostPerOrder' => 'nullable|numeric|min:0|max:999999',
+            'deliveryCostPerKm' => 'nullable|numeric|min:0|max:999999',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'logoWidth' => 'required|integer|min:20|max:120',
+            'logoHeight' => 'required|integer|min:20|max:120',
+            'deliveryAddress' => 'nullable|string|max:255',
+            'deliveryNumber' => 'nullable|string|max:20',
+            'deliveryNeighborhood' => 'nullable|string|max:255',
+            'deliveryCity' => 'nullable|string|max:255',
+            'deliveryState' => 'nullable|string|max:2',
+            'deliveryZipcode' => 'nullable|string|max:10',
+            'deliveryRadius' => 'nullable|numeric|min:1|max:100',
+        ];
+    }
 
     protected $messages = [
         'tenantName.required' => 'O nome do restaurante é obrigatório.',
@@ -96,124 +118,124 @@ class Settings extends Component
         $this->whatsapp = $tenant->whatsapp ?? '';
         $this->logoWidth = $tenant->logo_width ?? 44;
         $this->logoHeight = $tenant->logo_height ?? 44;
-          if ($tenant->opening_time) {
-              $this->openingTime = is_string($tenant->opening_time)
-                  ? substr($tenant->opening_time, 0, 5)
-                  : date('H:i', strtotime($tenant->opening_time));
-          } else {
-              $this->openingTime = '08:00'; // Default opening time
-          }
+        if ($tenant->opening_time) {
+            $this->openingTime = is_string($tenant->opening_time)
+                ? substr($tenant->opening_time, 0, 5)
+                : date('H:i', strtotime($tenant->opening_time));
+        } else {
+            $this->openingTime = '08:00'; // Default opening time
+        }
 
-          if ($tenant->closing_time) {
-              $this->closingTime = is_string($tenant->closing_time)
-                  ? substr($tenant->closing_time, 0, 5)
-                  : date('H:i', strtotime($tenant->closing_time));
-          } else {
-              $this->closingTime = '22:00'; // Default closing time
-          }
+        if ($tenant->closing_time) {
+            $this->closingTime = is_string($tenant->closing_time)
+                ? substr($tenant->closing_time, 0, 5)
+                : date('H:i', strtotime($tenant->closing_time));
+        } else {
+            $this->closingTime = '22:00'; // Default closing time
+        }
 
-          $this->deliveryCostPerOrder = (string) ($tenant->delivery_cost_per_order ?? 0);
-          $this->deliveryCostEnabled = (bool) ($tenant->delivery_cost_enabled ?? true);
-          $this->deliveryCostPerKm = (string) ($tenant->delivery_cost_per_km ?? 0);
-          $this->deliveryCostEnabled = (bool) ($tenant->delivery_cost_enabled ?? true);
-          $this->deliveryAddress = $tenant->address ?? '';
-          $this->deliveryNumber = $tenant->number ?? '';
-          $this->deliveryNeighborhood = $tenant->neighborhood ?? '';
-          $this->deliveryCity = $tenant->city ?? '';
-          $this->deliveryState = $tenant->state ?? '';
-          $this->deliveryZipcode = $tenant->zipcode ?? '';
-          $this->deliveryRadius = (string) ($tenant->delivery_radius ?? 10);
+        $this->deliveryCostPerOrder = (string) ($tenant->delivery_cost_per_order ?? 0);
+        $this->deliveryCostEnabled = (bool) ($tenant->delivery_cost_enabled ?? true);
+        $this->deliveryCostPerKm = (string) ($tenant->delivery_cost_per_km ?? 0);
+        $this->deliveryCostEnabled = (bool) ($tenant->delivery_cost_enabled ?? true);
+        $this->deliveryAddress = $tenant->address ?? '';
+        $this->deliveryNumber = $tenant->number ?? '';
+        $this->deliveryNeighborhood = $tenant->neighborhood ?? '';
+        $this->deliveryCity = $tenant->city ?? '';
+        $this->deliveryState = $tenant->state ?? '';
+        $this->deliveryZipcode = $tenant->zipcode ?? '';
+        $this->deliveryRadius = (string) ($tenant->delivery_radius ?? 10);
 
-          $this->name = $user->name;
-          $this->email = $user->email;
-     }
+        $this->name = $user->name;
+        $this->email = $user->email;
+    }
 
-     public function updatedOpeningTime($value)
-     {
-         $this->openingTime = trim($value);
-         // Parse time and format as H:i (allow 1-2 digits for hours/minutes)
-         if ($this->openingTime && preg_match('/^([0-9]{1,2}):([0-9]{1,2})(?::([0-9]{1,2}))?$/', $this->openingTime, $matches)) {
-             $hours = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
-             $minutes = str_pad($matches[2], 2, '0', STR_PAD_LEFT);
-             $this->openingTime = $hours . ':' . $minutes;
-         }
-     }
+    public function updatedOpeningTime($value)
+    {
+        $this->openingTime = trim($value);
+        // Parse time and format as H:i (allow 1-2 digits for hours/minutes)
+        if ($this->openingTime && preg_match('/^([0-9]{1,2}):([0-9]{1,2})(?::([0-9]{1,2}))?$/', $this->openingTime, $matches)) {
+            $hours = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
+            $minutes = str_pad($matches[2], 2, '0', STR_PAD_LEFT);
+            $this->openingTime = $hours.':'.$minutes;
+        }
+    }
 
-     public function updatedClosingTime($value)
-     {
-         $this->closingTime = trim($value);
-         // Parse time and format as H:i (allow 1-2 digits for hours/minutes)
-         if ($this->closingTime && preg_match('/^([0-9]{1,2}):([0-9]{1,2})(?::([0-9]{1,2}))?$/', $this->closingTime, $matches)) {
-             $hours = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
-             $minutes = str_pad($matches[2], 2, '0', STR_PAD_LEFT);
-             $this->closingTime = $hours . ':' . $minutes;
-         }
-     }
+    public function updatedClosingTime($value)
+    {
+        $this->closingTime = trim($value);
+        // Parse time and format as H:i (allow 1-2 digits for hours/minutes)
+        if ($this->closingTime && preg_match('/^([0-9]{1,2}):([0-9]{1,2})(?::([0-9]{1,2}))?$/', $this->closingTime, $matches)) {
+            $hours = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
+            $minutes = str_pad($matches[2], 2, '0', STR_PAD_LEFT);
+            $this->closingTime = $hours.':'.$minutes;
+        }
+    }
 
-      public function saveTenant(): void
-     {
-         $this->validate();
+    public function saveTenant(): void
+    {
+        $this->validate();
 
-         $tenant = Auth::user()->tenant;
+        $tenant = Auth::user()->tenant;
 
-         $data = [
-             'name' => $this->tenantName,
-             'email' => $this->tenantEmail,
-             'whatsapp' => $this->whatsapp,
-             'opening_time' => $this->openingTime ? \DateTime::createFromFormat('H:i', $this->openingTime)->format('H:i:s') : null,
-             'closing_time' => $this->closingTime ? \DateTime::createFromFormat('H:i', $this->closingTime)->format('H:i:s') : null,
-             'delivery_cost_per_order' => (float) $this->deliveryCostPerOrder,
-             'delivery_cost_enabled' => $this->deliveryCostEnabled,
-             'delivery_cost_per_km' => (float) $this->deliveryCostPerKm,
-             'delivery_cost_enabled' => $this->deliveryCostEnabled,
-             'logo_width' => $this->logoWidth,
-             'logo_height' => $this->logoHeight,
-             'address' => $this->deliveryAddress ?: null,
-             'number' => $this->deliveryNumber ?: null,
-             'neighborhood' => $this->deliveryNeighborhood ?: null,
-             'city' => $this->deliveryCity ?: null,
-             'state' => $this->deliveryState ?: null,
-             'zipcode' => $this->deliveryZipcode ?: null,
-             'delivery_radius' => $this->deliveryRadius ? (float) $this->deliveryRadius : 10,
-         ];
+        $data = [
+            'name' => $this->tenantName,
+            'email' => $this->tenantEmail,
+            'whatsapp' => $this->whatsapp,
+            'opening_time' => $this->openingTime ? \DateTime::createFromFormat('H:i', $this->openingTime)->format('H:i:s') : null,
+            'closing_time' => $this->closingTime ? \DateTime::createFromFormat('H:i', $this->closingTime)->format('H:i:s') : null,
+            'delivery_cost_per_order' => (float) $this->deliveryCostPerOrder,
+            'delivery_cost_enabled' => $this->deliveryCostEnabled,
+            'delivery_cost_per_km' => (float) $this->deliveryCostPerKm,
+            'logo_width' => $this->logoWidth,
+            'logo_height' => $this->logoHeight,
+            'address' => $this->deliveryAddress ?: null,
+            'number' => $this->deliveryNumber ?: null,
+            'neighborhood' => $this->deliveryNeighborhood ?: null,
+            'city' => $this->deliveryCity ?: null,
+            'state' => $this->deliveryState ?: null,
+            'zipcode' => $this->deliveryZipcode ?: null,
+            'delivery_radius' => $this->deliveryRadius ? (float) $this->deliveryRadius : 10,
+        ];
 
-         if ($this->deliveryAddress && $this->deliveryCity) {
-             try {
-                 $coords = app(\App\Services\GeocodingService::class)->geocode(
-                     $this->deliveryAddress . ', ' . ($this->deliveryNumber ? $this->deliveryNumber . ', ' : '') . $this->deliveryNeighborhood,
-                     $this->deliveryCity,
-                     $this->deliveryState,
-                     $this->deliveryZipcode
-                 );
-                 if ($coords) {
-                     $data['latitude'] = $coords['lat'];
-                     $data['longitude'] = $coords['lng'];
-                 }
-             } catch (\Throwable $e) {}
-         }
+        if ($this->deliveryAddress && $this->deliveryCity) {
+            try {
+                $coords = app(GeocodingService::class)->geocode(
+                    $this->deliveryAddress.', '.($this->deliveryNumber ? $this->deliveryNumber.', ' : '').$this->deliveryNeighborhood,
+                    $this->deliveryCity,
+                    $this->deliveryState,
+                    $this->deliveryZipcode
+                );
+                if ($coords) {
+                    $data['latitude'] = $coords['lat'];
+                    $data['longitude'] = $coords['lng'];
+                }
+            } catch (\Throwable $e) {
+            }
+        }
 
-         if ($this->logo) {
-             if ($tenant->logo) {
-                 Storage::disk('public')->delete($tenant->logo);
-             }
-             $data['logo'] = $this->logo->store('logos/' . $tenant->id, 'public');
-         }
+        if ($this->logo) {
+            if ($tenant->logo) {
+                Storage::disk('public')->delete($tenant->logo);
+            }
+            $data['logo'] = $this->logo->store('logos/'.$tenant->id, 'public');
+        }
 
-         $tenant->update($data);
+        $tenant->update($data);
 
-         $this->dispatch('notify', message: 'Dados do restaurante atualizados!');
-     }
+        $this->dispatch('notify', message: 'Dados do restaurante atualizados!');
+    }
 
-     public function removeLogo(): void
-     {
-         $tenant = Auth::user()->tenant;
-         if ($tenant->logo) {
-             Storage::disk('public')->delete($tenant->logo);
-             $tenant->update(['logo' => null]);
-         }
-         $this->logo = null;
-         $this->dispatch('notify', message: 'Logo removida!');
-     }
+    public function removeLogo(): void
+    {
+        $tenant = Auth::user()->tenant;
+        if ($tenant->logo) {
+            Storage::disk('public')->delete($tenant->logo);
+            $tenant->update(['logo' => null]);
+        }
+        $this->logo = null;
+        $this->dispatch('notify', message: 'Logo removida!');
+    }
 
     public function saveProfile(): void
     {
@@ -273,7 +295,7 @@ class Settings extends Component
         $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         $path = tempnam(sys_get_temp_dir(), 'lgpd-');
         file_put_contents($path, $json);
-        $filename = 'dados-lgpd-' . $tenant->slug . '-' . now()->format('Y-m-d') . '.json';
+        $filename = 'dados-lgpd-'.$tenant->slug.'-'.now()->format('Y-m-d').'.json';
 
         return response()->download($path, $filename, ['Content-Type' => 'application/json'])->deleteFileAfterSend();
     }
@@ -300,6 +322,7 @@ class Settings extends Component
 
         if ($adminCount <= 1 && $tenant->users()->count() > 1) {
             $this->addError('deleteConfirmation', 'Você é o único administrador. Transfira o cargo para outro usuário antes de excluir.');
+
             return;
         }
 
@@ -335,7 +358,7 @@ class Settings extends Component
         $tenant = $user->tenant;
 
         DB::transaction(function () use ($tenant) {
-            $tenant->orders()->each(fn($o) => $o->items()->delete());
+            $tenant->orders()->each(fn ($o) => $o->items()->delete());
             $tenant->orders()->delete();
             $tenant->products()->delete();
             $tenant->categories()->delete();

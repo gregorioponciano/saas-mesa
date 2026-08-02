@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Models\SaasPlan;
 use App\Models\SaasSubscription;
-use App\Models\Tenant;
+use App\Services\EfiBank\SaasEfiBankService;
 use App\Services\SubscriptionService;
 
 test('suspended tenant receives 402 on API access', function () {
@@ -54,7 +54,7 @@ test('webhook marks subscription as active', function () {
     ];
 
     $service = app(SubscriptionService::class);
-    $efiService = app(\App\Services\EfiBank\SaasEfiBankService::class);
+    $efiService = app(SaasEfiBankService::class);
     $efiService->processSaasWebhook($payload);
 
     $subscription->refresh();

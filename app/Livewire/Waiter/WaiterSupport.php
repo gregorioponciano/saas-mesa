@@ -13,14 +13,19 @@ class WaiterSupport extends Component
     public $tenant;
 
     public string $statusFilter = 'aberto';
+
     public string $categoryFilter = 'all';
+
     public string $search = '';
 
     public ?int $viewingTicketId = null;
+
     public ?array $viewingTicket = null;
+
     public bool $showDetail = false;
 
     public string $replyBody = '';
+
     public bool $replyIsInternal = false;
 
     public function mount(): void
@@ -32,9 +37,9 @@ class WaiterSupport extends Component
     public function tickets()
     {
         return SupportTicket::where('tenant_id', auth()->user()->tenant_id)->with(['user', 'lastMessage', 'assignedTo'])
-            ->when($this->statusFilter !== 'all', fn($q) => $q->where('status', $this->statusFilter))
-            ->when($this->categoryFilter !== 'all', fn($q) => $q->where('category', $this->categoryFilter))
-            ->when($this->search, fn($q) => $q->where('subject', 'like', "%{$this->search}%"))
+            ->when($this->statusFilter !== 'all', fn ($q) => $q->where('status', $this->statusFilter))
+            ->when($this->categoryFilter !== 'all', fn ($q) => $q->where('category', $this->categoryFilter))
+            ->when($this->search, fn ($q) => $q->where('subject', 'like', "%{$this->search}%"))
             ->latest('updated_at')
             ->take(100)
             ->get();
@@ -42,34 +47,34 @@ class WaiterSupport extends Component
 
     public function viewTicket(int $ticketId): void
     {
-        $ticket = SupportTicket::where('tenant_id', auth()->user()->tenant_id)->with(['messages' => fn($q) => $q->oldest(), 'user', 'assignedTo'])
+        $ticket = SupportTicket::where('tenant_id', auth()->user()->tenant_id)->with(['messages' => fn ($q) => $q->oldest(), 'user', 'assignedTo'])
             ->findOrFail($ticketId);
 
         $this->viewingTicketId = $ticketId;
         $this->viewingTicket = [
-            'id'          => $ticket->id,
-            'subject'     => $ticket->subject,
-            'category'    => $ticket->category,
+            'id' => $ticket->id,
+            'subject' => $ticket->subject,
+            'category' => $ticket->category,
             'categoryLabel' => $ticket->categoryLabel(),
-            'priority'    => $ticket->priority,
+            'priority' => $ticket->priority,
             'priorityLabel' => $ticket->priorityLabel(),
             'priorityClasses' => $ticket->priorityClasses(),
-            'status'      => $ticket->status,
+            'status' => $ticket->status,
             'statusLabel' => $ticket->statusLabel(),
             'statusClasses' => $ticket->statusClasses(),
-            'created_at'  => $ticket->created_at->format('d/m/Y H:i'),
-            'updated_at'  => $ticket->updated_at->format('d/m/Y H:i'),
-            'user_name'   => $ticket->user?->name ?? '—',
+            'created_at' => $ticket->created_at->format('d/m/Y H:i'),
+            'updated_at' => $ticket->updated_at->format('d/m/Y H:i'),
+            'user_name' => $ticket->user?->name ?? '—',
             'assigned_to' => $ticket->assignedTo?->name,
             'assigned_to_id' => $ticket->assigned_to,
-            'order_id'    => $ticket->order_id,
-            'messages'    => $ticket->messages->map(fn($m) => [
-                'id'          => $m->id,
-                'body'        => $m->body,
+            'order_id' => $ticket->order_id,
+            'messages' => $ticket->messages->map(fn ($m) => [
+                'id' => $m->id,
+                'body' => $m->body,
                 'author_role' => $m->author_role,
                 'author_name' => $m->author_name,
                 'is_internal' => $m->is_internal,
-                'created_at'  => $m->created_at->format('d/m/Y H:i'),
+                'created_at' => $m->created_at->format('d/m/Y H:i'),
             ])->toArray(),
         ];
         $this->showDetail = true;
@@ -86,15 +91,15 @@ class WaiterSupport extends Component
         $authorRole = $user->isAdmin() ? 'admin' : 'atendente';
 
         SupportTicketMessage::create([
-            'ticket_id'   => $ticket->id,
-            'user_id'     => $user->id,
-            'body'        => $this->replyBody,
+            'ticket_id' => $ticket->id,
+            'user_id' => $user->id,
+            'body' => $this->replyBody,
             'is_internal' => $this->replyIsInternal,
             'author_role' => $authorRole,
             'author_name' => $user->name,
         ]);
 
-        if (!$this->replyIsInternal) {
+        if (! $this->replyIsInternal) {
             if ($ticket->status === 'aberto') {
                 $ticket->update(['status' => 'em_atendimento']);
             }

@@ -22,6 +22,8 @@
         </div>
     </div>
 
+    @include('superadmin.partials.subnav')
+
     <div class="rounded-2xl bg-neutral-900 border border-neutral-800 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -226,7 +228,7 @@
                                 class="w-full px-3.5 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 focus:border-amber-500 text-white text-sm outline-none">
                             <option value="">Gratuito (padrão)</option>
                             <template x-for="p in plans" :key="p.id">
-                                <option :value="p.id" x-text="p.name + ' (' + formatCents(p.price_cents) + '/' + p.interval + ')'"></option>
+                                <option :value="p.id" x-text="p.name + ' (' + formatCents(p.price_cents) + '/' + intervalLabel(p.interval) + ')'"></option>
                             </template>
                         </select>
                     </div>
@@ -368,7 +370,13 @@
                 return new Date(date).toLocaleDateString('pt-BR');
             },
             formatCents(cents) {
-                return 'R$ ' + Number(cents || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                return 'R$ ' + (Number(cents || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+            },
+            intervalLabel(interval) {
+                return interval === 'month' ? 'mês'
+                    : (interval === 'quarter' ? '3 meses'
+                    : (interval === 'semiannual' ? '6 meses'
+                    : (interval === 'year' ? 'ano' : interval)));
             }
         };
     }

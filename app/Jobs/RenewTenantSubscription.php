@@ -19,6 +19,7 @@ class RenewTenantSubscription implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
+
     public array $backoff = [60, 300, 900];
 
     public function __construct(
@@ -31,10 +32,11 @@ class RenewTenantSubscription implements ShouldQueue
             $plan = $this->subscription->plan;
             $tenant = $this->subscription->tenant;
 
-            if (!$plan || !$tenant) {
+            if (! $plan || ! $tenant) {
                 Log::warning('Renewal skipped: plan or tenant not found', [
                     'subscription_id' => $this->subscription->id,
                 ]);
+
                 return;
             }
 

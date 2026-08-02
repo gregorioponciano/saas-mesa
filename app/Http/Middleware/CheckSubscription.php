@@ -15,7 +15,7 @@ class CheckSubscription
     {
         $user = Auth::user();
 
-        if (!$user || !$user->tenant) {
+        if (! $user || ! $user->tenant) {
             return $next($request);
         }
 

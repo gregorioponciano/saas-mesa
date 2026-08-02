@@ -6,7 +6,6 @@ namespace App\Observers;
 
 use App\Jobs\SuspendTenantAccess;
 use App\Models\SaasSubscription;
-use App\Services\PointsService;
 use Illuminate\Support\Facades\Log;
 
 class SaasSubscriptionObserver

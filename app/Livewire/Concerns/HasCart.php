@@ -15,7 +15,7 @@ trait HasCart
         if (property_exists($this, 'tenant') && $this->tenant) {
             $tenantId = is_object($this->tenant) ? $this->tenant->id : $this->tenant;
             $items = Session::get("cart_{$tenantId}", []);
-            if (!empty($items)) {
+            if (! empty($items)) {
                 $this->cartItems = $items;
             }
         }
@@ -53,7 +53,7 @@ trait HasCart
         $validated = [];
 
         foreach ($selectedOptions as $option) {
-            if (!is_array($option)) {
+            if (! is_array($option)) {
                 continue;
             }
 
@@ -68,7 +68,7 @@ trait HasCart
                 ->where('product_attribute_id', $attributeId)
                 ->first();
 
-            if (!$realOption || !$realOption->attribute || (int) $realOption->attribute->product_id !== (int) $product->id) {
+            if (! $realOption || ! $realOption->attribute || (int) $realOption->attribute->product_id !== (int) $product->id) {
                 continue;
             }
 
@@ -113,12 +113,12 @@ trait HasCart
     protected function addCartItem(int $productId, string $productName, float $price, array $selectedOptions = [], int $quantity = 1): string
     {
         $product = $this->resolveProductForCart($productId);
-        if (!$product) {
+        if (! $product) {
             return '';
         }
 
         $validatedOptions = $this->validateCartOptions($product, $selectedOptions);
-        $key = $product->id . '-' . md5(json_encode($validatedOptions));
+        $key = $product->id.'-'.md5(json_encode($validatedOptions));
 
         if (isset($this->cartItems[$key])) {
             $this->cartItems[$key]['quantity'] += $quantity;
@@ -146,8 +146,9 @@ trait HasCart
 
         foreach ($this->cartItems as $key => $item) {
             $product = $products->get((int) ($item['product_id'] ?? 0));
-            if (!$product) {
+            if (! $product) {
                 unset($this->cartItems[$key]);
+
                 continue;
             }
 
@@ -183,7 +184,7 @@ trait HasCart
 
     protected function calcCartTotal(): float
     {
-        return collect($this->cartItems)->sum(fn($i) => $i['unit_price'] * $i['quantity']);
+        return collect($this->cartItems)->sum(fn ($i) => $i['unit_price'] * $i['quantity']);
     }
 
     protected function calcCartItemsCount(): int

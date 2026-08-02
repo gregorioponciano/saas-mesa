@@ -1,13 +1,15 @@
 <?php
 
 use App\Livewire\Admin\DeliveryPeopleManager;
+use App\Models\DeliveryPerson;
+use App\Models\Order;
 use Livewire\Livewire;
 
 test('delivery people manager page renders', function () {
     $tenant = createTenant();
     $user = createTenantAdmin($tenant);
 
-    App\Models\DeliveryPerson::create([
+    DeliveryPerson::create([
         'tenant_id' => $tenant->id,
         'name' => 'Entregador Teste',
         'phone' => '(11) 99999-9999',
@@ -23,7 +25,7 @@ test('delivery people page route loads via http', function () {
     $tenant = createTenant();
     $user = createTenantAdmin($tenant);
 
-    App\Models\DeliveryPerson::create([
+    DeliveryPerson::create([
         'tenant_id' => $tenant->id,
         'name' => 'Motoca',
         'phone' => '(11) 99999-9999',
@@ -41,14 +43,14 @@ test('show performance button loads delivery profile', function () {
     $tenant = createTenant();
     $user = createTenantAdmin($tenant);
 
-    $delivery = App\Models\DeliveryPerson::create([
+    $delivery = DeliveryPerson::create([
         'tenant_id' => $tenant->id,
         'name' => 'Motoca',
         'phone' => '(11) 99999-9999',
         'status' => 'active',
     ]);
 
-    App\Models\Order::create([
+    Order::create([
         'tenant_id' => $tenant->id,
         'user_id' => $user->id,
         'delivery_person_id' => $delivery->id,

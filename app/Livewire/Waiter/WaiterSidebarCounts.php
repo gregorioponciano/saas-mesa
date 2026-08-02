@@ -4,15 +4,21 @@ namespace App\Livewire\Waiter;
 
 use App\Models\Order;
 use App\Models\SupportTicket;
-use App\Models\Table;
-use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
+/**
+ * Propriedades computadas ([Computed]) reconhecidas pelo PHPStan.
+ *
+ * @property mixed $pendingOrdersCount
+ * @property mixed $occupiedTablesCount
+ * @property mixed $openTicketsCount
+ */
 class WaiterSidebarCounts extends Component
 {
     public ?int $lastNotifiedOrderId = null;
+
     public ?int $lastNotifiedTicketId = null;
 
     private function activeTicketStatuses(): array
@@ -39,6 +45,7 @@ class WaiterSidebarCounts extends Component
     {
         $tenant = Auth::user()->tenant;
         $q = $tenant->manageableTables();
+
         return (clone $q)->where('status', 'occupied')->count();
     }
 

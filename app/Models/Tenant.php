@@ -2,9 +2,12 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Database\Factories\TenantFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Storage;
 
 class Tenant extends Model
@@ -13,6 +16,7 @@ class Tenant extends Model
     use HasFactory;
 
     public const PLAN_FREE = 'free';
+
     public const PLAN_PAID = 'paid';
 
     public const PLAN_LABELS = [
@@ -87,7 +91,7 @@ class Tenant extends Model
 
     public function deliveryCostForDistance(?float $distanceKm = null): float
     {
-        if (!($this->delivery_cost_enabled ?? true)) {
+        if (! ($this->delivery_cost_enabled ?? true)) {
             return 0.0;
         }
 
@@ -98,44 +102,44 @@ class Tenant extends Model
         return round($fixed + $perKm * $distance, 2);
     }
 
-    public function users()
+    public function users(): HasMany
     {
         return $this->hasMany(User::class);
     }
 
-    public function categories()
+    public function categories(): HasMany
     {
         return $this->hasMany(Category::class);
     }
 
-    public function products()
+    public function products(): HasMany
     {
         return $this->hasMany(Product::class);
     }
 
-    public function orders()
+    public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
     }
 
-    public function tables()
+    public function tables(): HasMany
     {
         return $this->hasMany(Table::class);
     }
 
-    public function deliveryPeople()
+    public function deliveryPeople(): HasMany
     {
         return $this->hasMany(DeliveryPerson::class);
     }
 
-    public function ingredients()
+    public function ingredients(): HasMany
     {
         return $this->hasMany(Ingredient::class);
     }
 
-    public function backups()
+    public function backups(): HasMany
     {
-        return $this->hasMany(\App\Models\TenantBackup::class);
+        return $this->hasMany(TenantBackup::class);
     }
 
     public function isActive(): bool
@@ -160,9 +164,10 @@ class Tenant extends Model
 
     public function logoUrl(): ?string
     {
-        if (!$this->logo) {
+        if (! $this->logo) {
             return null;
         }
+
         return Storage::url($this->logo);
     }
 
@@ -183,11 +188,13 @@ class Tenant extends Model
 
     public function manageableTables()
     {
-        $query = $this->tables()->orderByRaw("CAST(number AS UNSIGNED), number");
+        $query = $this->tables()->orderByRaw('CAST(number AS UNSIGNED), number');
         if ($this->isFree()) {
             $ids = (clone $query)->take($this->maxTablesAllowed())->pluck('id');
+
             return $query->whereIn('id', $ids);
         }
+
         return $query;
     }
 
@@ -196,9 +203,9 @@ class Tenant extends Model
         return self::PLAN_LABELS[$this->plan] ?? 'Gratuito';
     }
 
-    public function activeSubscription()
+    public function activeSubscription(): HasOne
     {
-        return $this->hasOne(\App\Models\SaasSubscription::class)
+        return $this->hasOne(SaasSubscription::class)
             ->whereIn('status', ['active', 'trialing']);
     }
 
@@ -207,26 +214,26 @@ class Tenant extends Model
         return $this->status === 'suspended';
     }
 
-    public function efiCredentials()
+    public function efiCredentials(): HasOne
     {
         return $this->hasOne(TenantEfiCredentials::class);
     }
 
-    public function loyaltyConfig()
+    public function loyaltyConfig(): HasOne
     {
-        return $this->hasOne(\App\Models\LoyaltyConfig::class, 'tenant_id');
+        return $this->hasOne(LoyaltyConfig::class, 'tenant_id');
     }
 
     public function isOpen(): bool
     {
-        if (!$this->opening_time || !$this->closing_time) {
+        if (! $this->opening_time || ! $this->closing_time) {
             return false;
         }
 
-        \Carbon\Carbon::setLocale('pt_BR');
-        $now = \Carbon\Carbon::now('America/Sao_Paulo');
-        $opening = \Carbon\Carbon::createFromTimeString($this->opening_time, 'America/Sao_Paulo');
-        $closing = \Carbon\Carbon::createFromTimeString($this->closing_time, 'America/Sao_Paulo');
+        Carbon::setLocale('pt_BR');
+        $now = Carbon::now('America/Sao_Paulo');
+        $opening = Carbon::createFromTimeString($this->opening_time, 'America/Sao_Paulo');
+        $closing = Carbon::createFromTimeString($this->closing_time, 'America/Sao_Paulo');
 
         // Handle overnight shifts (e.g., opens at 22:00 and closes at 02:00)
         if ($closing->lessThan($opening)) {

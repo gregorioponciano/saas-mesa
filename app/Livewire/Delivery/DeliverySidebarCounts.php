@@ -7,6 +7,12 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
+/**
+ * Propriedades computadas ([Computed]) reconhecidas pelo PHPStan.
+ *
+ * @property int $availableOrdersCount
+ * @property int $activeOrdersCount
+ */
 class DeliverySidebarCounts extends Component
 {
     public function mount(): void
@@ -18,7 +24,9 @@ class DeliverySidebarCounts extends Component
     public function availableOrdersCount(): int
     {
         $delivery = Auth::guard('delivery-web')->user();
-        if (!$delivery) return 0;
+        if (! $delivery) {
+            return 0;
+        }
 
         return Order::where('tenant_id', $delivery->tenant_id)
             ->where('type', 'entrega')
@@ -31,7 +39,9 @@ class DeliverySidebarCounts extends Component
     public function activeOrdersCount(): int
     {
         $delivery = Auth::guard('delivery-web')->user();
-        if (!$delivery) return 0;
+        if (! $delivery) {
+            return 0;
+        }
 
         return Order::where('tenant_id', $delivery->tenant_id)
             ->where('delivery_person_id', $delivery->id)

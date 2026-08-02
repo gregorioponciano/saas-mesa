@@ -14,6 +14,11 @@ class SuperadminPanelController extends Controller
         return view('superadmin.dashboard');
     }
 
+    public function reports(): View
+    {
+        return view('superadmin.reports');
+    }
+
     public function tenants(): View
     {
         return view('superadmin.tenants');

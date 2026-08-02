@@ -45,7 +45,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Model::shouldBeStrict(!$this->app->isProduction());
+        Model::shouldBeStrict(! $this->app->isProduction());
 
         SaasSubscription::observe(SaasSubscriptionObserver::class);
         Tenant::observe(TenantObserver::class);
@@ -54,5 +54,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('auth', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
         RateLimiter::for('delivery', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
         RateLimiter::for('webhook', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));
+
+        // Superadmin (painel web + API): leituras com folga, ações destrutivas com teto baixo.
+        RateLimiter::for('superadmin', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->id ?: $request->ip()));
+        RateLimiter::for('superadmin-sensitive', fn (Request $request) => Limit::perMinute(20)->by($request->user()?->id ?: $request->ip()));
     }
 }

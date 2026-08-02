@@ -7,6 +7,13 @@
         <p class="mt-1 text-sm text-neutral-400">Ativação do programa de pontos por empresa</p>
     </div>
 
+    <template x-if="message">
+        <div class="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-emerald-400 text-sm" x-text="message"></div>
+    </template>
+    <template x-if="error">
+        <div class="rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-red-400 text-sm" x-text="error"></div>
+    </template>
+
     <div class="rounded-2xl bg-neutral-900 border border-neutral-800 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -35,13 +42,16 @@
                                       :class="t.status === 'suspended' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'"
                                       x-text="t.status"></span>
                             </td>
-                            <td class="p-4 text-right">
-                                <button @click="toggle(t)"
-                                        class="relative inline-flex items-center h-6 w-11 rounded-full transition-colors duration-200"
-                                        :class="t.points_enabled ? 'bg-amber-500' : 'bg-neutral-800'">
-                                    <span class="inline-block w-4 h-4 transform rounded-full bg-white transition-transform duration-200"
-                                          :class="t.points_enabled ? 'translate-x-6' : 'translate-x-1'"></span>
-                                </button>
+                            <td class="p-4">
+                                <div class="flex items-center justify-end">
+                                    <button @click="toggle(t)" :disabled="t.toggling"
+                                            class="relative inline-flex items-center h-7 w-12 rounded-full cursor-pointer transition-all duration-300 shrink-0 disabled:opacity-60"
+                                            :class="t.points_enabled ? 'bg-emerald-500 shadow-[0_0_12px_rgba(52,211,153,.45)]' : 'bg-neutral-800 border border-neutral-700'"
+                                            :aria-pressed="t.points_enabled">
+                                        <span class="inline-block w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300"
+                                              :style="switchStyle(t)"></span>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     </template>
@@ -58,24 +68,46 @@
     function superadminLoyalty() {
         return {
             tenants: [],
+            error: '',
+            message: '',
             init() {
                 fetch('/api/superadmin/loyalty', { headers: { 'Accept': 'application/json' } })
                     .then(r => { if (!r.ok) throw new Error('Falha ao carregar loyalty (' + r.status + ')'); return r.json(); })
-                    .then(data => { this.tenants = data; })
+                    .then(data => {
+                        this.tenants = data.map(t => ({ ...t, toggling: false }));
+                    })
                     .catch(() => { this.tenants = []; });
             },
+            switchStyle(t) {
+                return {
+                    transform: t.points_enabled ? 'translateX(1.5rem)' : 'translateX(0.25rem)',
+                    transitionTimingFunction: 'cubic-bezier(.68, -0.55, .27, 1.55)',
+                };
+            },
             async toggle(t) {
-                const r = await fetch('/api/superadmin/loyalty/' + t.id + '/toggle', {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                this.error = '';
+                this.message = '';
+                t.toggling = true;
+                try {
+                    const r = await fetch('/api/superadmin/loyalty/' + t.id + '/toggle', {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                        }
+                    });
+                    const data = await r.json().catch(() => ({}));
+                    if (r.ok && data.points_enabled !== undefined) {
+                        t.points_enabled = data.points_enabled;
+                        this.message = data.message || (t.points_enabled ? 'Pontos habilitados' : 'Pontos desabilitados');
+                    } else {
+                        this.error = data.error || 'Falha ao alternar os pontos.';
                     }
-                });
-                if (r.ok) {
-                    const data = await r.json();
-                    if (data.points_enabled !== undefined) t.points_enabled = data.points_enabled;
+                } catch {
+                    this.error = 'Falha de conexão ao alternar os pontos.';
+                } finally {
+                    t.toggling = false;
                 }
             }
         };

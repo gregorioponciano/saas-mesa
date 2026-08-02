@@ -12,7 +12,7 @@ class OrderTrackingController extends Controller
     {
         $order = Order::withoutTenant()->with(['deliveryPerson', 'items'])->find($id);
 
-        if (!$order || !$order->isEntrega()) {
+        if (! $order || ! $order->isEntrega()) {
             return response()->json(['message' => 'Pedido não encontrado.'], 404);
         }
 
@@ -67,7 +67,7 @@ class OrderTrackingController extends Controller
             'entregue' => $order->delivered_at,
         ];
 
-        return array_map(function (string $status, int $index) use ($currentIndex, $timestamps, $steps) {
+        return array_map(function (string $status, int $index) use ($currentIndex, $timestamps) {
             return [
                 'status' => $status,
                 'label' => Order::STATUS_LABELS[$status] ?? $status,

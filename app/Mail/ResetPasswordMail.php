@@ -24,8 +24,9 @@ class ResetPasswordMail extends Mailable
     public function envelope(): Envelope
     {
         $name = $this->tenant?->name ?? 'BurguerSaaS';
+
         return new Envelope(
-            subject: 'Redefinição de Senha - ' . $name,
+            subject: 'Redefinição de Senha - '.$name,
         );
     }
 

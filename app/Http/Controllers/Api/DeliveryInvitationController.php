@@ -22,7 +22,7 @@ class DeliveryInvitationController extends Controller
             ->where('status', 'active')
             ->first();
 
-        if (!$delivery || !$delivery->hasValidInvite()) {
+        if (! $delivery || ! $delivery->hasValidInvite()) {
             return response()->json(['message' => 'Convite inválido ou expirado'], 404);
         }
 
@@ -40,7 +40,7 @@ class DeliveryInvitationController extends Controller
             ->where('status', 'active')
             ->first();
 
-        if (!$delivery || !$delivery->hasValidInvite()) {
+        if (! $delivery || ! $delivery->hasValidInvite()) {
             return response()->json(['message' => 'Convite inválido ou expirado'], 404);
         }
 
@@ -52,7 +52,7 @@ class DeliveryInvitationController extends Controller
         ];
 
         if ($request->filled('cpf')) {
-            $data['cpf'] = $request->cpf;
+            $data['cpf'] = preg_replace('/\D/', '', $request->cpf);
         }
         if ($request->filled('cnh')) {
             $data['cnh'] = $request->cnh;

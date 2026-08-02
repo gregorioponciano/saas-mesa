@@ -36,7 +36,7 @@ test('same value produces different encrypted outputs', function () {
 test('invalid encrypted payload throws exception', function () {
     $service = app(EncryptedCredentialService::class);
 
-    $this->expectException(\RuntimeException::class);
+    $this->expectException(RuntimeException::class);
 
     $service->decrypt('invalid-base64!');
 });
@@ -45,9 +45,9 @@ test('tampered encrypted payload throws exception', function () {
     $service = app(EncryptedCredentialService::class);
 
     $encrypted = $service->encrypt('important-data');
-    $tampered = substr($encrypted, 0, -3) . 'abc';
+    $tampered = substr($encrypted, 0, -3).'abc';
 
-    $this->expectException(\RuntimeException::class);
+    $this->expectException(RuntimeException::class);
 
     $service->decrypt($tampered);
 });

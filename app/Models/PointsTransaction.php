@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PointsTransaction extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'points_transactions';
 
     protected $fillable = [
@@ -19,9 +23,13 @@ class PointsTransaction extends Model
     ];
 
     public const TYPE_EARNED = 'earned';
+
     public const TYPE_SPENT = 'spent';
+
     public const TYPE_REVERSED = 'reversed';
+
     public const TYPE_EXPIRED = 'expired';
+
     public const TYPE_REFUNDED = 'refunded';
 
     protected function casts(): array
@@ -31,17 +39,17 @@ class PointsTransaction extends Model
         ];
     }
 
-    public function tenant()
+    public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
     }
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function order()
+    public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }

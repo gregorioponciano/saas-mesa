@@ -18,14 +18,16 @@ trait BelongsToTenant
         static::addGlobalScope(new TenantScope);
 
         static::creating(function (Model $model): void {
-            if (Auth::check() && Auth::user()->tenant_id) {
-                $model->tenant_id = Auth::user()->tenant_id;
+            $user = Auth::check() ? Auth::user() : null;
+            if ($user && $user->tenant_id && (! method_exists($user, 'isSuperAdmin') || ! $user->isSuperAdmin())) {
+                $model->tenant_id = $user->tenant_id;
             }
         });
 
         static::saving(function (Model $model): void {
-            if (Auth::check() && Auth::user()->tenant_id) {
-                $currentTenantId = Auth::user()->tenant_id;
+            $user = Auth::check() ? Auth::user() : null;
+            if ($user && $user->tenant_id && (! method_exists($user, 'isSuperAdmin') || ! $user->isSuperAdmin())) {
+                $currentTenantId = $user->tenant_id;
                 if ($model->isDirty('tenant_id') && $model->getOriginal('tenant_id') !== null) {
                     throw new \RuntimeException('Cannot change tenant_id of an existing resource.');
                 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Models\Notification;
 use App\Models\Order;
 use App\Models\Table;
-use App\Models\Tenant;
 use App\Services\DeliveryNotificationService;
 
 test('P7: pedido de mesa gera notificacao para staff do tenant certo', function () {

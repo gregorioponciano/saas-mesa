@@ -7,6 +7,8 @@ use Database\Factories\TableFactory;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 #[ScopedBy([TenantScope::class])]
@@ -68,20 +70,24 @@ class Table extends Model
     public static function tryFreeTable(int $tableId): bool
     {
         $table = static::find($tableId);
-        if (!$table) return false;        
-        if (!$table->hasOpenBillableOrders()) {
+        if (! $table) {
+            return false;
+        }
+        if (! $table->hasOpenBillableOrders()) {
             $table->update(['status' => 'free']);
+
             return true;
         }
+
         return false;
     }
 
-    public function tenant()
+    public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
     }
 
-    public function orders()
+    public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
     }

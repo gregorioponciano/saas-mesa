@@ -32,7 +32,7 @@ class ResolveTenant
             }
         }
 
-        if (!$tenant && Auth::check() && Auth::user()->tenant_id) {
+        if (! $tenant && Auth::check() && Auth::user()->tenant_id) {
             $tenant = Tenant::find(Auth::user()->tenant_id);
         }
 
@@ -56,6 +56,7 @@ class ResolveTenant
                 if ($user) {
                     $user->setRelation('tenant', $tenant);
                 }
+
                 return $user;
             });
         }

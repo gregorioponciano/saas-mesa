@@ -12,6 +12,12 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
+/**
+ * Propriedades computadas ([Computed]) reconhecidas pelo PHPStan.
+ *
+ * @property mixed $categories
+ * @property mixed $products
+ */
 class MenuManager extends Component
 {
     use WithFileUploads;

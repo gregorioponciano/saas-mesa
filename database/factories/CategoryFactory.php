@@ -18,7 +18,7 @@ class CategoryFactory extends Factory
         return [
             'tenant_id' => Tenant::factory(),
             'name' => $name,
-            'slug' => Str::slug($name) . '-' . Str::random(4),
+            'slug' => Str::slug($name).'-'.Str::random(4),
             'position' => fake()->numberBetween(0, 10),
         ];
     }

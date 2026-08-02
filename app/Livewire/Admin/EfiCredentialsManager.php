@@ -15,24 +15,41 @@ class EfiCredentialsManager extends Component
     use WithFileUploads;
 
     public ?string $client_id = null;
+
     public ?string $client_secret = null;
+
     public ?string $pix_key = null;
+
     public ?string $webhook_secret = null;
+
     public string $account_type = 'production';
+
     public $certificate_file = null;
+
     public bool $has_credentials = false;
+
     public ?string $masked_client_id = null;
+
     public ?string $masked_pix_key = null;
+
     public bool $has_webhook_secret = false;
+
     public ?string $account_type_display = null;
+
     public bool $test_result = false;
+
     public ?string $test_message = null;
+
     public bool $testing = false;
+
     public bool $saving = false;
+
     public bool $saved = false;
+
     public ?string $error = null;
 
     private TenantEfiCredentialsService $credentialsService;
+
     private EncryptedCredentialService $encryptionService;
 
     public function boot(
@@ -117,7 +134,7 @@ class EfiCredentialsManager extends Component
             ]);
 
         } catch (\Throwable $e) {
-            $this->error = 'Erro ao salvar: ' . $e->getMessage();
+            $this->error = 'Erro ao salvar: '.$e->getMessage();
         } finally {
             $this->saving = false;
         }
@@ -135,7 +152,7 @@ class EfiCredentialsManager extends Component
 
             $this->test_result = $result['success'];
             $this->test_message = $result['success']
-                ? $result['message'] . ' (' . strtoupper($this->account_type) . ')'
+                ? $result['message'].' ('.strtoupper($this->account_type).')'
                 : $result['message'];
 
             $this->dispatch('notify', [

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProductAttributeOption extends Model
 {
@@ -21,12 +22,12 @@ class ProductAttributeOption extends Model
         ];
     }
 
-    public function attribute()
+    public function attribute(): BelongsTo
     {
         return $this->belongsTo(ProductAttribute::class, 'product_attribute_id');
     }
 
-    public function ingredient()
+    public function ingredient(): BelongsTo
     {
         return $this->belongsTo(Ingredient::class);
     }

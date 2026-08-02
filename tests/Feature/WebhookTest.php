@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Events\OrderPaid;
+use App\Jobs\ProcessEfiBankWebhook;
 use App\Models\Order;
 use App\Models\OrderPayment;
 use App\Models\SaasPlan;
@@ -9,9 +11,10 @@ use App\Models\SaasSubscription;
 use App\Models\Tenant;
 use App\Models\TenantEfiCredentials;
 use App\Models\WebhookLog;
-use App\Jobs\ProcessEfiBankWebhook;
+use App\Services\EfiBank\WebhookValidatorService;
 use App\Services\EncryptedCredentialService;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 
 function createTenantEfiCredentials(Tenant $tenant, string $webhookSecret): TenantEfiCredentials
 {
@@ -91,7 +94,7 @@ test('tenant webhook endpoint processes pix confirmation via job', function () {
         'method' => 'pix',
         'status' => 'pending',
         'efi_pix_txid' => 'test_txid_webhook',
-        'idempotency_key' => \Illuminate\Support\Str::uuid()->toString(),
+        'idempotency_key' => Str::uuid()->toString(),
     ]);
 
     $payload = json_encode([
@@ -215,7 +218,7 @@ test('order paid event broadcasts to tenant channel', function () {
         'total' => 50.00,
     ]);
 
-    $event = new \App\Events\OrderPaid($order);
+    $event = new OrderPaid($order);
 
     $channels = $event->broadcastOn();
     $data = $event->broadcastWith();
@@ -288,7 +291,7 @@ test('tenant can have multiple payments but only one pending per order', functio
         'amount_cents' => 20000,
         'method' => 'pix',
         'status' => 'pending',
-        'idempotency_key' => \Illuminate\Support\Str::uuid()->toString(),
+        'idempotency_key' => Str::uuid()->toString(),
     ]);
 
     $existingPending = OrderPayment::where('order_id', $order->id)
@@ -307,4 +310,120 @@ test('subscription check middleware allows active tenant', function () {
         ->withHeader('Accept', 'application/json')
         ->getJson('/api/financial/summary')
         ->assertStatus(200);
+});
+
+test('pending renewal does not block active paid tenant', function () {
+    seedPlans();
+    $plan = SaasPlan::where('slug', 'premium')->first();
+    $tenant = createTenant(['status' => 'active', 'plan' => 'paid']);
+    $user = createTenantAdmin($tenant);
+
+    SaasSubscription::create([
+        'tenant_id' => $tenant->id,
+        'plan_id' => $plan->id,
+        'status' => 'pending',
+    ]);
+
+    $this->actingAs($user)
+        ->withHeader('Accept', 'application/json')
+        ->getJson('/api/financial/summary')
+        ->assertStatus(200);
+});
+
+test('saas webhook from unknown IP is rejected when IP verification is enabled', function () {
+    Queue::fake();
+
+    config(['efibank.verify_webhook_ip' => true]);
+    config(['efibank.webhook_secret' => 'test_webhook_secret']);
+
+    $payload = json_encode(['event' => 'payment_confirmed', 'charge_id' => 'ch_ip_test']);
+    $signature = base64_encode(hash_hmac('sha256', $payload, 'test_webhook_secret', true));
+
+    $response = $this->postJson('/webhook/efi/saas', json_decode($payload, true), [
+        'x-efi-hmac-sha256' => $signature,
+    ]);
+
+    $response->assertStatus(401);
+    expect(WebhookLog::latest()->first()->error_message)->toBe('Invalid webhook IP');
+    Queue::assertNotPushed(ProcessEfiBankWebhook::class);
+});
+
+test('webhook validator accepts known efi IPs and rejects unknown ones', function () {
+    $validator = app(WebhookValidatorService::class);
+
+    config(['efibank.sandbox' => true]);
+    expect($validator->validateIp('177.71.168.182'))->toBeTrue();
+    expect($validator->validateIp('54.94.56.243'))->toBeTrue();
+
+    config(['efibank.sandbox' => false]);
+    expect($validator->validateIp('54.94.56.243'))->toBeTrue();
+    expect($validator->validateIp('54.94.43.18'))->toBeTrue();
+    expect($validator->validateIp('54.232.206.88'))->toBeTrue();
+    expect($validator->validateIp('203.0.113.10'))->toBeFalse();
+});
+
+test('paid webhook with mismatched amount does not activate subscription', function () {
+    seedPlans();
+    $plan = SaasPlan::where('slug', 'premium')->first();
+    $tenant = createTenant(['status' => 'trial', 'plan' => 'free']);
+
+    $subscription = SaasSubscription::create([
+        'tenant_id' => $tenant->id,
+        'plan_id' => $plan->id,
+        'status' => 'pending',
+        'efi_charge_id' => 'txid_bad_amount',
+        'current_period_start' => now(),
+        'current_period_end' => now()->addMonth(),
+    ]);
+
+    $log = WebhookLog::create([
+        'source' => 'saas',
+        'payload_json' => json_encode([
+            'pix' => [['txid' => 'txid_bad_amount', 'valor' => '10.00']],
+        ]),
+        'signature' => 'test',
+        'is_valid' => true,
+        'processed' => false,
+    ]);
+
+    (new ProcessEfiBankWebhook($log->id, 'saas'))->handle();
+
+    expect($subscription->fresh()->status)->toBe('pending');
+    expect($tenant->fresh()->status)->toBe('trial');
+    expect($log->fresh()->processed)->toBeFalse();
+    expect($log->fresh()->error_message)->toContain('não corresponde');
+});
+
+test('paid webhook activates trial tenant', function () {
+    seedPlans();
+    $plan = SaasPlan::where('slug', 'premium')->first();
+    $tenant = createTenant(['status' => 'trial', 'plan' => 'free', 'max_tables' => 2]);
+
+    $subscription = SaasSubscription::create([
+        'tenant_id' => $tenant->id,
+        'plan_id' => $plan->id,
+        'status' => 'pending',
+        'efi_charge_id' => 'txid_activate_trial',
+        'current_period_start' => now(),
+        'current_period_end' => now()->addMonth(),
+    ]);
+
+    $log = WebhookLog::create([
+        'source' => 'saas',
+        'payload_json' => json_encode([
+            'pix' => [['txid' => 'txid_activate_trial', 'valor' => '97.90']],
+        ]),
+        'signature' => 'test',
+        'is_valid' => true,
+        'processed' => false,
+    ]);
+
+    (new ProcessEfiBankWebhook($log->id, 'saas'))->handle();
+
+    $tenant->refresh();
+    expect($tenant->status)->toBe('active');
+    expect($tenant->plan)->toBe('paid');
+    expect($tenant->max_tables)->toBe(50);
+    expect($subscription->fresh()->status)->toBe('active');
+    expect($log->fresh()->processed)->toBeTrue();
 });

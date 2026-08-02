@@ -5,11 +5,13 @@ namespace App\Models;
 use App\Scopes\TenantScope;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[ScopedBy([TenantScope::class])]
 class DeliveryEarning extends Model
 {
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_PAID = 'paid';
 
     public const STATUS_LABELS = [
@@ -36,12 +38,12 @@ class DeliveryEarning extends Model
         ];
     }
 
-    public function deliveryPerson()
+    public function deliveryPerson(): BelongsTo
     {
         return $this->belongsTo(DeliveryPerson::class);
     }
 
-    public function order()
+    public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }

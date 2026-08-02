@@ -10,7 +10,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('delivery_people', function (Blueprint $table) {
-            if (!Schema::hasColumn('delivery_people', 'is_online')) {
+            if (! Schema::hasColumn('delivery_people', 'is_online')) {
                 $table->boolean('is_online')->default(false);
             }
         });

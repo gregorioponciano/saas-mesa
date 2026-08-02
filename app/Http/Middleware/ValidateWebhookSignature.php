@@ -53,7 +53,7 @@ class ValidateWebhookSignature
 
         $isValid = $this->validator->validate($payload, $signature, $secret);
 
-        if (!$isValid) {
+        if (! $isValid) {
             WebhookLog::create([
                 'source' => $tenantId !== null ? 'tenant' : 'saas',
                 'tenant_id' => $tenantId !== null ? (int) $tenantId : null,
@@ -73,6 +73,26 @@ class ValidateWebhookSignature
             return response()->json(['error' => 'Invalid signature'], 401);
         }
 
+        if (config('efibank.verify_webhook_ip') && ! $this->validator->validateIp($ip)) {
+            WebhookLog::create([
+                'source' => $tenantId !== null ? 'tenant' : 'saas',
+                'tenant_id' => $tenantId !== null ? (int) $tenantId : null,
+                'payload_json' => $payload,
+                'signature' => $signature,
+                'is_valid' => false,
+                'processed' => false,
+                'error_message' => 'Invalid webhook IP',
+            ]);
+
+            Log::warning('Webhook rejected: IP not allowed', [
+                'ip' => $ip,
+                'source' => $tenantId !== null ? 'tenant' : 'saas',
+                'tenant_id' => $tenantId !== null ? (int) $tenantId : null,
+            ]);
+
+            return response()->json(['error' => 'Invalid signature'], 401);
+        }
+
         return $next($request);
     }
 
@@ -80,7 +100,7 @@ class ValidateWebhookSignature
     {
         $credentials = TenantEfiCredentials::where('tenant_id', $tenantId)->first();
 
-        if (!$credentials || empty($credentials->webhook_secret_encrypted)) {
+        if (! $credentials || empty($credentials->webhook_secret_encrypted)) {
             return null;
         }
 

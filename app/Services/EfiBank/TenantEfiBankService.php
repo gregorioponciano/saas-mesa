@@ -7,8 +7,6 @@ namespace App\Services\EfiBank;
 use App\Models\Order;
 use App\Models\OrderPayment;
 use App\Models\Tenant;
-use App\Services\EncryptedCredentialService;
-use App\Services\EfiPixService;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -115,7 +113,7 @@ class TenantEfiBankService
     public function generatePixChargeData(Tenant $tenant, float $amount, string $txid, string $payerName = '', ?string $payerCpf = null): array
     {
         $credentials = $tenant->efiCredentials;
-        if (!$credentials || !$credentials->is_active) {
+        if (! $credentials || ! $credentials->is_active) {
             throw new \RuntimeException('Restaurante ainda não configurou os dados bancários.');
         }
 
@@ -151,8 +149,7 @@ class TenantEfiBankService
         $qrcode = null;
 
         if ($pixCopiaECola) {
-            $efiPix = app(EfiPixService::class);
-            $qrcode = $efiPix->generateQrCodeImage($pixCopiaECola);
+            $qrcode = EfiBankClient::generateQrCodeBase64($pixCopiaECola);
         }
 
         return [
@@ -180,6 +177,7 @@ class TenantEfiBankService
         }
         $r = ($s % 11 < 2) ? 0 : 11 - ($s % 11);
         $n[] = $r;
+
         return implode('', $n);
     }
 
@@ -264,8 +262,9 @@ class TenantEfiBankService
     {
         $txid = $payload['pix'][0]['txid'] ?? $payload['txid'] ?? null;
 
-        if (!$txid) {
+        if (! $txid) {
             Log::warning('Tenant webhook received without txid', ['payload' => $payload]);
+
             return;
         }
 
@@ -275,7 +274,7 @@ class TenantEfiBankService
                 ->lockForUpdate()
                 ->first();
 
-            if (!$payment || $payment->isPaid()) {
+            if (! $payment || $payment->isPaid()) {
                 return;
             }
 
@@ -302,6 +301,7 @@ class TenantEfiBankService
     private function resolveTenantFromTxid(string $txid): Tenant
     {
         $payment = OrderPayment::where('efi_pix_txid', $txid)->firstOrFail();
+
         return $payment->tenant;
     }
 }

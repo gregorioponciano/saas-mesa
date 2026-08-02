@@ -28,7 +28,7 @@ test('delivery order delivers with base64 photo', function () {
     ]);
 
     $pixel = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
-    $dataUrl = 'data:image/jpeg;base64,' . base64_encode($pixel);
+    $dataUrl = 'data:image/jpeg;base64,'.base64_encode($pixel);
 
     $this->actingAs($delivery, 'delivery-web')
         ->post(route('delivery.order.deliver', $order->id), [

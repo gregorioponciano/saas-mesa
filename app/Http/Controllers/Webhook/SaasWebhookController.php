@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Webhook;
 
 use App\Http\Controllers\Controller;
-use App\Models\WebhookLog;
 use App\Jobs\ProcessEfiBankWebhook;
+use App\Models\WebhookLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;

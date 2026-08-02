@@ -23,7 +23,7 @@ class DeliveryInviteController extends Controller
             ->where('status', 'active')
             ->first();
 
-        if (!$delivery || !$delivery->hasValidInvite()) {
+        if (! $delivery || ! $delivery->hasValidInvite()) {
             return view('delivery.invite-expired');
         }
 
@@ -41,14 +41,18 @@ class DeliveryInviteController extends Controller
             ->where('status', 'active')
             ->first();
 
-        if (!$delivery || !$delivery->hasValidInvite()) {
+        if (! $delivery || ! $delivery->hasValidInvite()) {
             return redirect()->route('delivery.invite.show', $token);
         }
 
         $validated = $request->validate([
             'password' => 'required|string|min:6|confirmed',
             'email' => 'required|email|unique:delivery_people,email',
-            'cpf' => 'required|string|max:14|regex:/^\d{3}\.\d{3}\.\d{3}-\d{2}$/',
+            'cpf' => ['required', 'string', 'max:14', function (string $attribute, mixed $value, \Closure $fail): void {
+                if (! isValidCpf($value)) {
+                    $fail('O CPF informado é inválido.');
+                }
+            }],
             'cnh' => 'required|string|max:20',
             'vehicle_plate' => 'required|string|max:10|regex:/^[A-Z]{3}-\d{4}$/',
             'vehicle_model' => 'required|string|max:255',
@@ -58,7 +62,7 @@ class DeliveryInviteController extends Controller
         $data = [
             'password' => bcrypt($validated['password']),
             'email' => $validated['email'],
-            'cpf' => $validated['cpf'],
+            'cpf' => preg_replace('/\D/', '', $validated['cpf']),
             'cnh' => $validated['cnh'],
             'vehicle_plate' => $validated['vehicle_plate'],
             'vehicle_model' => $validated['vehicle_model'],

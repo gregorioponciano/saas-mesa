@@ -10,16 +10,23 @@ use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Table;
 use App\Models\UserAddress;
+use App\Services\DeliveryNotificationService;
+use App\Services\DeliveryService;
+use App\Services\EfiBank\TenantEfiBankService;
+use App\Services\PointsService;
+use App\Services\StockService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
-use App\Services\DeliveryNotificationService;
-use App\Services\EfiBank\TenantEfiBankService;
-use App\Services\PointsService;
-use App\Services\StockService;
 
+/**
+ * Propriedades computadas ([Computed]) reconhecidas pelo PHPStan.
+ *
+ * @property float $cartTotal
+ * @property mixed $tables
+ */
 class TableGrid extends Component
 {
     use HasCart;
@@ -35,44 +42,75 @@ class TableGrid extends Component
     public ?array $orderDetail = null;
 
     public bool $showPaymentModal = false;
+
     public ?int $paymentOrderId = null;
+
     public string $paymentMethod = 'pix';
+
     public float $paymentAmount = 0;
+
     public string $paymentNotes = '';
 
     public bool $showAddItemModal = false;
+
     public ?int $addItemOrderId = null;
+
     public ?int $addItemProductId = null;
+
     public int $addItemQuantity = 1;
 
     public bool $showCloseTableModal = false;
+
     public ?int $closeTableId = null;
+
     public float $closeTableTotal = 0;
+
     public string $closeTablePaymentMethod = 'pix';
+
     public string $closeTablePaymentNotes = '';
 
     public bool $showPixQrModal = false;
+
     public ?string $pixQrCode = null;
+
     public ?string $pixCopiaECola = null;
+
     public bool $generatingPix = false;
+
     public string $pixAction = '';
+
     public float $pixAmount = 0;
 
     public ?int $orderingTableId = null;
+
     public ?string $orderingTableNumber = null;
+
     public ?int $selectedProduct = null;
+
     public string $customerName = '';
+
     public string $customerPhone = '';
+
     public string $orderPaymentMethod = '';
+
     public ?float $cashAmount = null;
+
     public string $orderType = 'mesa';
+
     public string $deliveryCep = '';
+
     public string $deliveryAddress = '';
+
     public string $deliveryReference = '';
+
     public string $deliveryCity = '';
+
     public string $deliveryState = '';
+
     public string $notes = '';
+
     public string $addressSearch = '';
+
     public array $foundAddresses = [];
 
     protected $listeners = [
@@ -120,9 +158,10 @@ class TableGrid extends Component
 
     public function loadOrderDetail(): void
     {
-        if (!$this->selectedTableId) {
+        if (! $this->selectedTableId) {
             $this->selectedOrderId = null;
             $this->orderDetail = null;
+
             return;
         }
 
@@ -134,7 +173,7 @@ class TableGrid extends Component
 
         if ($activeOrders->isNotEmpty()) {
             $this->selectedOrderId = $activeOrders->first()->id;
-            $ordersData = $activeOrders->map(fn($order) => [
+            $ordersData = $activeOrders->map(fn ($order) => [
                 'id' => $order->id,
                 'customer_name' => $order->customer_name,
                 'customer_phone' => $order->customer_phone,
@@ -150,7 +189,7 @@ class TableGrid extends Component
                 'nextStatusLabel' => $order->statusFlowLabels()[$order->status] ?? 'Avançar',
                 'has_payment' => $order->hasPayment(),
                 'pending_payment' => $order->pendingPaymentAmount(),
-                'items' => $order->items->map(fn($item) => [
+                'items' => $order->items->map(fn ($item) => [
                     'id' => $item->id,
                     'product_name' => $item->product_name,
                     'quantity' => $item->quantity,
@@ -162,7 +201,7 @@ class TableGrid extends Component
                 ]),
             ]);
             $grouped = $ordersData->groupBy('customer_name');
-            $this->orderDetail = $grouped->map(fn($orders) => [
+            $this->orderDetail = $grouped->map(fn ($orders) => [
                 'customer_name' => $orders->first()['customer_name'],
                 'customer_phone' => $orders->first()['customer_phone'],
                 'total' => $orders->sum('total'),
@@ -177,7 +216,9 @@ class TableGrid extends Component
 
     public function advanceOrder(int $orderId): void
     {
-        if (!auth()->user()->isAdmin()) { abort(403); }
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
         $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
         $nextStatus = $order->nextStatus();
 
@@ -188,7 +229,9 @@ class TableGrid extends Component
 
     public function updateOrderStatus(int $orderId, string $status): void
     {
-        if (!auth()->user()->isAdmin()) { abort(403); }
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
         $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
         $order->update(['status' => $status]);
 
@@ -197,7 +240,7 @@ class TableGrid extends Component
         }
 
         if ($order->table_id && $status === 'fechado') {
-            $wasFreed = \App\Models\Table::tryFreeTable($order->table_id);
+            $wasFreed = Table::tryFreeTable($order->table_id);
             if ($wasFreed) {
                 $this->dispatch('tableFreed')->to('public.menu');
                 $this->dispatch('tableFreed')->to('public.cart');
@@ -211,7 +254,7 @@ class TableGrid extends Component
         if ($status === 'cancelado') {
             app(PointsService::class)->reversePointsForOrder($order->fresh());
             app(PointsService::class)->refundSpentPointsForOrder($order->fresh());
-            if (!$order->isDelivered()) {
+            if (! $order->isDelivered()) {
                 try {
                     app(StockService::class)->returnOrderStock($order->fresh(), auth()->id());
                 } catch (\Throwable $e) {
@@ -230,26 +273,30 @@ class TableGrid extends Component
 
     public function cancelItem(int $itemId): void
     {
-        if (!auth()->user()->isAdmin()) { abort(403); }
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
 
         $item = OrderItem::with('order')->findOrFail($itemId);
         $order = $item->order;
 
-        if (!$order || $order->tenant_id !== auth()->user()->tenant_id) {
+        if (! $order || $order->tenant_id !== auth()->user()->tenant_id) {
             abort(403);
         }
 
         if ($item->isCancelled()) {
             $this->dispatch('notify', message: 'Item ja cancelado.');
+
             return;
         }
 
         if ($order->isBillClosed()) {
             $this->dispatch('notify', message: 'Conta ja fechada, nao e possivel cancelar itens.');
+
             return;
         }
 
-        if ($order->isDelivered() && !$order->isCancelled()) {
+        if ($order->isDelivered() && ! $order->isCancelled()) {
             $this->dispatch('notify', message: 'Pedido ja entregue. Estoque nao sera devolvido automaticamente. Se necessario, ajuste manualmente.');
         }
 
@@ -262,7 +309,7 @@ class TableGrid extends Component
 
         $order->decrement('total', $deduction);
 
-        if (!$order->isDelivered()) {
+        if (! $order->isDelivered()) {
             try {
                 app(StockService::class)->returnItemStock($item, Auth::id());
             } catch (\Throwable $e) {
@@ -279,7 +326,7 @@ class TableGrid extends Component
                 app(PointsService::class)->refundPointsForItem($item);
                 $order->decrement('points_spent', (int) $item->points_cost);
             } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::error('Erro ao devolver pontos por item cancelado', [
+                Log::error('Erro ao devolver pontos por item cancelado', [
                     'item_id' => $item->id,
                     'order_id' => $order->id,
                     'error' => $e->getMessage(),
@@ -288,7 +335,7 @@ class TableGrid extends Component
         }
 
         $remainingActive = $order->items()->whereNull('cancelled_at')->count();
-        if ($remainingActive === 0 && !$order->isBillClosed()) {
+        if ($remainingActive === 0 && ! $order->isBillClosed()) {
             $order->update(['status' => 'cancelado']);
             app(PointsService::class)->reversePointsForOrder($order->fresh());
             app(PointsService::class)->refundSpentPointsForOrder($order->fresh());
@@ -301,7 +348,9 @@ class TableGrid extends Component
 
     public function openPaymentModal(int $orderId): void
     {
-        if (!auth()->user()->isAdmin()) { abort(403); }
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
         $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
         $this->paymentOrderId = $orderId;
         $this->paymentAmount = $order->pendingPaymentAmount();
@@ -323,12 +372,12 @@ class TableGrid extends Component
         $this->pixCopiaECola = null;
 
         try {
-            $txid = 'pay' . $this->paymentOrderId . now()->format('YmdHis') . rand(100, 999);
+            $txid = 'pay'.$this->paymentOrderId.now()->format('YmdHis').rand(100, 999);
             $charge = app(TenantEfiBankService::class)->generatePixChargeData($this->tenant, $this->paymentAmount, $txid);
             $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
             $this->pixQrCode = $charge['qrcode'] ?? null;
         } catch (\Throwable $e) {
-            $this->dispatch('notify', message: 'Erro ao gerar PIX: ' . $e->getMessage());
+            $this->dispatch('notify', message: 'Erro ao gerar PIX: '.$e->getMessage());
         }
 
         $this->generatingPix = false;
@@ -336,7 +385,9 @@ class TableGrid extends Component
 
     public function registerPayment(): void
     {
-        if (!auth()->user()->isAdmin()) { abort(403); }
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
         $this->validate([
             'paymentAmount' => 'required|numeric|min:0.01',
             'paymentMethod' => 'required|string',
@@ -347,6 +398,7 @@ class TableGrid extends Component
         if ($order->isBillClosed()) {
             $this->dispatch('notify', message: 'Conta ja fechada.');
             $this->showPaymentModal = false;
+
             return;
         }
 
@@ -399,7 +451,9 @@ class TableGrid extends Component
 
     public function addItemToOrder(): void
     {
-        if (!auth()->user()->isAdmin()) { abort(403); }
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
         $this->validate([
             'addItemProductId' => 'required|exists:products,id',
             'addItemQuantity' => 'required|integer|min:1|max:99',
@@ -410,11 +464,13 @@ class TableGrid extends Component
 
         if ($order->isBillClosed()) {
             $this->dispatch('notify', message: 'Conta ja fechada, nao e possivel adicionar itens.');
+
             return;
         }
 
         if ($product->stock < $this->addItemQuantity) {
             $this->dispatch('notify', message: "{$product->name} possui apenas {$product->stock} unidade(s) em estoque.");
+
             return;
         }
 
@@ -454,12 +510,12 @@ class TableGrid extends Component
     {
         $table = Table::where('tenant_id', auth()->user()->tenant_id)->with(['orders' => function ($q) {
             $q->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue'])
-              ->where('status', '!=', 'fechado');
+                ->where('status', '!=', 'fechado');
         }])->findOrFail($tableId);
 
         $total = 0;
         foreach ($table->orders as $order) {
-            if (!$order->isBillClosed()) {
+            if (! $order->isBillClosed()) {
                 $total += (float) $order->total;
             }
         }
@@ -477,6 +533,7 @@ class TableGrid extends Component
     {
         if ($this->closeTableTotal <= 0) {
             $this->dispatch('notify', message: 'Nenhum valor pendente.');
+
             return;
         }
 
@@ -485,12 +542,12 @@ class TableGrid extends Component
         $this->pixCopiaECola = null;
 
         try {
-            $txid = 'mesa' . $this->closeTableId . now()->format('YmdHis') . rand(100, 999);
+            $txid = 'mesa'.$this->closeTableId.now()->format('YmdHis').rand(100, 999);
             $charge = app(TenantEfiBankService::class)->generatePixChargeData($this->tenant, $this->closeTableTotal, $txid);
             $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
             $this->pixQrCode = $charge['qrcode'] ?? null;
         } catch (\Throwable $e) {
-            $this->dispatch('notify', message: 'Erro ao gerar PIX: ' . $e->getMessage());
+            $this->dispatch('notify', message: 'Erro ao gerar PIX: '.$e->getMessage());
         }
 
         $this->generatingPix = false;
@@ -504,13 +561,13 @@ class TableGrid extends Component
 
         $table = Table::where('tenant_id', auth()->user()->tenant_id)->with(['orders' => function ($q) {
             $q->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega', 'entregue'])
-              ->where('status', '!=', 'fechado');
+                ->where('status', '!=', 'fechado');
         }])->findOrFail($this->closeTableId);
 
         $totalPending = 0;
         $closedCount = 0;
         foreach ($table->orders as $order) {
-            if (!$order->isBillClosed()) {
+            if (! $order->isBillClosed()) {
                 $totalPending += $order->pendingPaymentAmount();
                 $order->update([
                     'status' => 'fechado',
@@ -530,14 +587,14 @@ class TableGrid extends Component
                     'payment_method' => $this->closeTablePaymentMethod,
                     'status' => 'paid',
                     'paid_at' => now(),
-                    'notes' => $this->closeTablePaymentNotes ? "Fechamento mesa {$table->number}: " . $this->closeTablePaymentNotes : "Fechamento mesa {$table->number}",
+                    'notes' => $this->closeTablePaymentNotes ? "Fechamento mesa {$table->number}: ".$this->closeTablePaymentNotes : "Fechamento mesa {$table->number}",
                 ]);
             }
 
             $table->update(['status' => 'free']);
             $this->dispatch('tableFreed')->to('public.menu');
             $this->dispatch('tableFreed')->to('public.cart');
-            $this->dispatch('notify', message: "Conta da Mesa {$table->number} fechada! R$ " . number_format($totalPending, 2, ',', '.') . " em {$closedCount} pedido(s). Pagamento: " . ($this->closeTablePaymentMethod === 'pix' ? 'PIX' : ($this->closeTablePaymentMethod === 'credit_card' ? 'Cartao Credito' : ($this->closeTablePaymentMethod === 'debit_card' ? 'Cartao Debito' : 'Dinheiro'))));
+            $this->dispatch('notify', message: "Conta da Mesa {$table->number} fechada! R$ ".number_format($totalPending, 2, ',', '.')." em {$closedCount} pedido(s). Pagamento: ".($this->closeTablePaymentMethod === 'pix' ? 'PIX' : ($this->closeTablePaymentMethod === 'credit_card' ? 'Cartao Credito' : ($this->closeTablePaymentMethod === 'debit_card' ? 'Cartao Debito' : 'Dinheiro'))));
         } else {
             $this->dispatch('notify', message: "Nenhum pedido da Mesa {$table->number} pode ser fechado.");
         }
@@ -557,7 +614,9 @@ class TableGrid extends Component
 
     public function freeTable(int $tableId): void
     {
-        if (!auth()->user()->isAdmin()) { abort(403); }
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
         $table = Table::where('tenant_id', auth()->user()->tenant_id)->findOrFail($tableId);
 
         $activeOrders = Order::where('tenant_id', auth()->user()->tenant_id)->where('table_id', $tableId)
@@ -565,7 +624,7 @@ class TableGrid extends Component
             ->get();
 
         foreach ($activeOrders as $activeOrder) {
-            if (!$activeOrder->hasPayment() || $activeOrder->pendingPaymentAmount() <= 0) {
+            if (! $activeOrder->hasPayment() || $activeOrder->pendingPaymentAmount() <= 0) {
                 $activeOrder->update([
                     'status' => 'fechado',
                     'bill_closed_at' => now(),
@@ -582,12 +641,14 @@ class TableGrid extends Component
         $this->dispatch('tableFreed')->to('public.cart');
         $this->closeDetail();
         $this->dispatch('orderUpdated');
-        $this->dispatch('notify', message: 'Mesa ' . $table->number . ' liberada!');
+        $this->dispatch('notify', message: 'Mesa '.$table->number.' liberada!');
     }
 
     public function setTableReserved(int $tableId): void
     {
-        if (!auth()->user()->isAdmin()) { abort(403); }
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
         Table::where('tenant_id', auth()->user()->tenant_id)->findOrFail($tableId)->update(['status' => 'reserved']);
         $this->dispatch('tableFreed')->to('public.menu');
         $this->dispatch('tableFreed')->to('public.cart');
@@ -719,7 +780,10 @@ class TableGrid extends Component
     #[Computed]
     public function selectedProductModel()
     {
-        if (!$this->selectedProduct) return null;
+        if (! $this->selectedProduct) {
+            return null;
+        }
+
         return Product::where('tenant_id', auth()->user()->tenant_id)->with('attributes.options')->find($this->selectedProduct);
     }
 
@@ -741,43 +805,47 @@ class TableGrid extends Component
             return;
         }
 
-        if ($this->orderType === 'entrega' && !$this->orderPaymentMethod) {
+        if ($this->orderType === 'entrega' && ! $this->orderPaymentMethod) {
             $this->dispatch('notify', message: 'Selecione a forma de pagamento.');
+
             return;
         }
 
         $deliveryCost = 0;
         if ($this->orderType === 'entrega' && $this->deliveryAddress) {
-            $validation = app(\App\Services\DeliveryService::class)->validateDeliveryAddress(
+            $validation = app(DeliveryService::class)->validateDeliveryAddress(
                 $this->tenant,
                 $this->deliveryAddress,
                 $this->deliveryCity ?: $this->tenant->city,
                 $this->deliveryState ?: $this->tenant->state,
                 $this->deliveryCep ?: null
             );
-            if (!$validation['valid']) {
+            if (! $validation['valid']) {
                 $this->dispatch('notify', message: $validation['error']);
+
                 return;
             }
             $deliveryCost = $this->tenant->deliveryCostForDistance($validation['distance'] ?? null);
         }
 
-        if ($this->orderPaymentMethod === 'cash' && (!$this->cashAmount || $this->cashAmount <= 0)) {
+        if ($this->orderPaymentMethod === 'cash' && (! $this->cashAmount || $this->cashAmount <= 0)) {
             $this->dispatch('notify', message: 'Informe o valor para calculo do troco.');
+
             return;
         }
 
         if ($this->orderPaymentMethod === 'cash' && $this->cashAmount < $this->cartTotal + $deliveryCost) {
             $this->dispatch('notify', message: 'O valor informado deve ser maior ou igual ao total do pedido.');
+
             return;
         }
 
         $tableId = $this->orderingTableId;
 
-        if ($this->orderType === 'mesa' && !$tableId) {
+        if ($this->orderType === 'mesa' && ! $tableId) {
             $table = Table::where('tenant_id', $this->tenant->id)
                 ->where('status', 'free')
-                ->orderByRaw("CAST(number AS UNSIGNED), number")
+                ->orderByRaw('CAST(number AS UNSIGNED), number')
                 ->first();
 
             if ($table) {
@@ -787,21 +855,22 @@ class TableGrid extends Component
         }
 
         $stockErrors = app(StockService::class)->validateStockForCartItems($this->cartItems, $this->tenant->id);
-        if (!empty($stockErrors)) {
+        if (! empty($stockErrors)) {
             foreach ($stockErrors as $error) {
                 $this->dispatch('notify', message: $error);
             }
+
             return;
         }
 
         $orderId = null;
 
-        DB::transaction(function () use ($tableId, $deliveryCost, &$orderId) {
+        DB::transaction(function () use ($tableId, $deliveryCost, &$orderId, &$order) {
             if ($tableId) {
                 $wasFree = Table::where('id', $tableId)->where('status', 'free')->exists();
                 Table::where('id', $tableId)->update(['status' => 'occupied']);
                 if ($wasFree) {
-                    $this->dispatch('notify', message: 'Mesa ' . $this->orderingTableNumber . ' ocupada! Compartilhe o cardapio com o cliente.');
+                    $this->dispatch('notify', message: 'Mesa '.$this->orderingTableNumber.' ocupada! Compartilhe o cardapio com o cliente.');
                 }
             }
 
@@ -899,6 +968,7 @@ class TableGrid extends Component
     public function tables()
     {
         $tenant = Auth::user()->tenant;
+
         return $tenant->manageableTables()->with('tenant')->withCount(['orders' => function ($q) {
             $q->whereIn('status', ['novo', 'em_preparo', 'pronto', 'saiu_entrega']);
         }])->get();

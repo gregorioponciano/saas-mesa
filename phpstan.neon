@@ -1,0 +1,20 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 1
+    paths:
+        - app
+    tmpDir: storage/phpstan
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+    excludePaths:
+        - app/helpers.php
+
+    # Nível 1: captura erros de tipo reais (imports, variáveis, relações).
+    # Níveis 2+ exigem @property em todos os models (magia Eloquent) — inviável sem reescrever tudo.
+    ignoreErrors:
+        # `withoutTenant()` é um Builder macro legítimo definido em App\Scopes\TenantScope::extend().
+        # O Larastan não conhece macros de Builder, então este falso positivo é suprimido.
+        - identifier: staticMethod.notFound
+          message: '#withoutTenant\(\)#'

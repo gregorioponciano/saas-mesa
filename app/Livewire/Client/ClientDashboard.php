@@ -12,6 +12,15 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
+/**
+ * Propriedades computadas ([Computed]) reconhecidas pelo PHPStan.
+ *
+ * @property mixed $myOrders
+ * @property mixed $myActiveOrders
+ * @property mixed $orderHistory
+ * @property mixed $myAddresses
+ * @property float $myPointsBalance
+ */
 class ClientDashboard extends Component
 {
     public $tenant;
@@ -31,7 +40,9 @@ class ClientDashboard extends Component
     public string $historyPeriod = 'all';
 
     public bool $showAddressModal = false;
+
     public bool $showDeleteAccountConfirm = false;
+
     public string $deleteConfirmation = '';
 
     public ?int $editingAddressId = null;
@@ -162,10 +173,11 @@ class ClientDashboard extends Component
             'addressReference' => 'nullable|string|max:255',
         ]);
 
-        if (!$this->editingAddressId) {
+        if (! $this->editingAddressId) {
             $existingCount = UserAddress::where('user_id', $userId)->count();
             if ($existingCount >= 5) {
                 $this->dispatch('notify', message: 'Limite maximo de 5 enderecos atingido.');
+
                 return;
             }
         }
@@ -252,7 +264,7 @@ class ClientDashboard extends Component
         $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         $path = tempnam(sys_get_temp_dir(), 'lgpd-');
         file_put_contents($path, $json);
-        $filename = 'dados-lgpd-' . $tenant->slug . '-' . now()->format('Y-m-d') . '.json';
+        $filename = 'dados-lgpd-'.$tenant->slug.'-'.now()->format('Y-m-d').'.json';
 
         return response()->download($path, $filename, ['Content-Type' => 'application/json'])->deleteFileAfterSend();
     }
@@ -296,6 +308,7 @@ class ClientDashboard extends Component
 
         if ($orders->isEmpty()) {
             $this->dispatch('notify', message: 'Nenhuma mesa ativa para liberar.');
+
             return;
         }
 
@@ -375,7 +388,10 @@ class ClientDashboard extends Component
     #[Computed]
     public function myPointsBalance(): int
     {
-        if (!Auth::check()) return 0;
+        if (! Auth::check()) {
+            return 0;
+        }
+
         return app(PointsService::class)->getCustomerBalance($this->tenant, Auth::user());
     }
 

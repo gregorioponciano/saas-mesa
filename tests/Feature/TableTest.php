@@ -3,6 +3,7 @@
 use App\Models\Table;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 
 test('usuario pode criar mesa', function () {
     $tenant = Tenant::factory()->create(['plan' => Tenant::PLAN_PAID, 'max_tables' => 50]);
@@ -60,7 +61,7 @@ test('numero da mesa deve ser unico por tenant', function () {
         'capacity' => 4,
     ]);
 
-    $this->expectException(\Illuminate\Database\QueryException::class);
+    $this->expectException(QueryException::class);
     Table::create([
         'tenant_id' => $tenant->id,
         'number' => '01',

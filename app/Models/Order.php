@@ -7,7 +7,9 @@ use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[ScopedBy([TenantScope::class])]
 class Order extends Model
@@ -120,27 +122,77 @@ class Order extends Model
     ];
 
     public const array STATUS_FINISHED = ['entregue', 'cancelado', 'fechado'];
+
     public const array STATUS_ACTIVE = ['novo', 'em_preparo', 'pronto', 'coletado', 'saiu_entrega'];
 
     public const int CHANGE_REQUEST_MINUTES = 5;
 
-    public function statusLabel(): string { return self::STATUS_LABELS[$this->status] ?? $this->status; }
-    public function statusClasses(): string { return self::STATUS_CLASSES[$this->status] ?? 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20'; }
-    public function statusDotColor(): string { return self::STATUS_DOT_COLORS[$this->status] ?? 'bg-neutral-400'; }
-    public function statusAnimated(): bool { return self::STATUS_ANIMATED[$this->status] ?? false; }
-    public function typeLabel(): string { return self::TYPE_LABELS[$this->type] ?? $this->type; }
-    public function typeClasses(): string { return self::TYPE_CLASSES[$this->type] ?? 'bg-neutral-500/20 text-neutral-600'; }
+    public function statusLabel(): string
+    {
+        return self::STATUS_LABELS[$this->status] ?? $this->status;
+    }
 
-    public function isMesa(): bool { return $this->type === 'mesa'; }
-    public function isEntrega(): bool { return $this->type === 'entrega'; }
-    public function isRetirada(): bool { return $this->type === 'retirada'; }
-    public function isFinished(): bool { return in_array($this->status, ['entregue', 'cancelado', 'fechado']); }
-    public function isActive(): bool { return in_array($this->status, ['novo', 'em_preparo', 'pronto', 'coletado', 'saiu_entrega']); }
-    public function isBillClosed(): bool { return $this->status === 'fechado' || $this->bill_closed_at !== null; }
+    public function statusClasses(): string
+    {
+        return self::STATUS_CLASSES[$this->status] ?? 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20';
+    }
+
+    public function statusDotColor(): string
+    {
+        return self::STATUS_DOT_COLORS[$this->status] ?? 'bg-neutral-400';
+    }
+
+    public function statusAnimated(): bool
+    {
+        return self::STATUS_ANIMATED[$this->status] ?? false;
+    }
+
+    public function typeLabel(): string
+    {
+        return self::TYPE_LABELS[$this->type] ?? $this->type;
+    }
+
+    public function typeClasses(): string
+    {
+        return self::TYPE_CLASSES[$this->type] ?? 'bg-neutral-500/20 text-neutral-600';
+    }
+
+    public function isMesa(): bool
+    {
+        return $this->type === 'mesa';
+    }
+
+    public function isEntrega(): bool
+    {
+        return $this->type === 'entrega';
+    }
+
+    public function isRetirada(): bool
+    {
+        return $this->type === 'retirada';
+    }
+
+    public function isFinished(): bool
+    {
+        return in_array($this->status, ['entregue', 'cancelado', 'fechado']);
+    }
+
+    public function isActive(): bool
+    {
+        return in_array($this->status, ['novo', 'em_preparo', 'pronto', 'coletado', 'saiu_entrega']);
+    }
+
+    public function isBillClosed(): bool
+    {
+        return $this->status === 'fechado' || $this->bill_closed_at !== null;
+    }
 
     public function canRequestChange(): bool
     {
-        if ($this->isFinished() || $this->isBillClosed()) return false;
+        if ($this->isFinished() || $this->isBillClosed()) {
+            return false;
+        }
+
         return $this->created_at->diffInMinutes(now()) < self::CHANGE_REQUEST_MINUTES;
     }
 
@@ -149,7 +201,10 @@ class Order extends Model
         $flow = $this->statusFlow();
         $keys = array_keys($flow);
         $currentIndex = array_search($this->status, $keys);
-        if ($currentIndex !== false && isset($keys[$currentIndex + 1])) return $keys[$currentIndex + 1];
+        if ($currentIndex !== false && isset($keys[$currentIndex + 1])) {
+            return $keys[$currentIndex + 1];
+        }
+
         return null;
     }
 
@@ -158,7 +213,10 @@ class Order extends Model
         $flow = $this->statusFlow();
         $keys = array_keys($flow);
         $currentIndex = array_search($this->status, $keys);
-        if ($currentIndex !== false && isset($keys[$currentIndex - 1])) return $keys[$currentIndex - 1];
+        if ($currentIndex !== false && isset($keys[$currentIndex - 1])) {
+            return $keys[$currentIndex - 1];
+        }
+
         return null;
     }
 
@@ -200,22 +258,70 @@ class Order extends Model
         };
     }
 
-    public function hasPayment(): bool { return $this->payments()->where('status', 'paid')->exists(); }
-    public function pendingPaymentAmount(): float {
+    public function hasPayment(): bool
+    {
+        return $this->payments()->where('status', 'paid')->exists();
+    }
+
+    public function pendingPaymentAmount(): float
+    {
         $paid = (float) $this->payments()->where('status', 'paid')->sum('amount');
+
         return max(0, (float) $this->total - $paid);
     }
 
-    public function tenant() { return $this->belongsTo(Tenant::class); }
-    public function user() { return $this->belongsTo(User::class); }
-    public function table() { return $this->belongsTo(Table::class); }
-    public function items() { return $this->hasMany(OrderItem::class); }
-    public function payments() { return $this->hasMany(Payment::class); }
-    public function pointsTransactions() { return $this->hasMany(PointsTransaction::class); }
-    public function deliveryPerson() { return $this->belongsTo(DeliveryPerson::class); }
-    public function earning() { return $this->hasOne(DeliveryEarning::class); }
-    public function stockMovements() { return $this->hasMany(StockMovement::class); }
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
-    public function isCancelled(): bool { return $this->status === 'cancelado'; }
-    public function isDelivered(): bool { return in_array($this->status, ['entregue', 'fechado']); }
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function table(): BelongsTo
+    {
+        return $this->belongsTo(Table::class);
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function pointsTransactions(): HasMany
+    {
+        return $this->hasMany(PointsTransaction::class);
+    }
+
+    public function deliveryPerson(): BelongsTo
+    {
+        return $this->belongsTo(DeliveryPerson::class);
+    }
+
+    public function earning(): HasOne
+    {
+        return $this->hasOne(DeliveryEarning::class);
+    }
+
+    public function stockMovements(): HasMany
+    {
+        return $this->hasMany(StockMovement::class);
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->status === 'cancelado';
+    }
+
+    public function isDelivered(): bool
+    {
+        return in_array($this->status, ['entregue', 'fechado']);
+    }
 }

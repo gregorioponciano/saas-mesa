@@ -7,13 +7,17 @@ namespace App\Services\EfiBank;
 use App\Exceptions\EfiCredentialsNotConfiguredException;
 use App\Models\Tenant;
 use App\Services\EncryptedCredentialService;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Cache;
+use Endroid\QrCode\QrCode;
+use Endroid\QrCode\Writer\PngWriter;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class EfiBankClient
 {
     private array $config;
+
     private string $accessToken;
 
     public function __construct(array $config)
@@ -38,8 +42,8 @@ class EfiBankClient
     {
         $efiCredentials = $tenant->efiCredentials;
 
-        if (!$efiCredentials) {
-            throw new EfiCredentialsNotConfiguredException();
+        if (! $efiCredentials) {
+            throw new EfiCredentialsNotConfiguredException;
         }
 
         $credentials = app(EncryptedCredentialService::class)
@@ -61,7 +65,7 @@ class EfiBankClient
             return $this->accessToken;
         }
 
-        $cacheKey = 'efi_token_' . md5($this->config['client_id']);
+        $cacheKey = 'efi_token_'.md5($this->config['client_id']);
 
         $this->accessToken = Cache::remember($cacheKey, 3540, function () {
             $response = $this->http()
@@ -72,6 +76,7 @@ class EfiBankClient
                 ]);
 
             $data = $response->throw()->json();
+
             return $data['access_token'] ?? throw new \RuntimeException('Failed to get EfiBank access token');
         });
 
@@ -85,7 +90,7 @@ class EfiBankClient
         $response = $this->http()
             ->withToken($token)
             ->withHeader('Content-Type', 'application/json')
-            ->put($this->url('pix') . 'cob/' . $txid, $body);
+            ->put($this->url('pix').'cob/'.$txid, $body);
 
         return $response->throw()->json();
     }
@@ -96,7 +101,7 @@ class EfiBankClient
 
         $response = $this->http()
             ->withToken($token)
-            ->get($this->url('pix') . 'cob/' . $txid);
+            ->get($this->url('pix').'cob/'.$txid);
 
         return $response->throw()->json();
     }
@@ -107,7 +112,7 @@ class EfiBankClient
 
         $response = $this->http()
             ->withToken($token)
-            ->get($this->url('pix') . 'cob', $params);
+            ->get($this->url('pix').'cob', $params);
 
         return $response->throw()->json();
     }
@@ -119,7 +124,7 @@ class EfiBankClient
         $response = $this->http()
             ->withToken($token)
             ->withHeader('Content-Type', 'application/json')
-            ->post($this->url('charges') . 'charge', $body);
+            ->post($this->url('charges').'charge', $body);
 
         return $response->throw()->json();
     }
@@ -130,7 +135,7 @@ class EfiBankClient
 
         $response = $this->http()
             ->withToken($token)
-            ->get($this->url('charges') . 'charge/' . $chargeId);
+            ->get($this->url('charges').'charge/'.$chargeId);
 
         return $response->throw()->json();
     }
@@ -142,7 +147,7 @@ class EfiBankClient
         $response = $this->http()
             ->withToken($token)
             ->withHeader('Content-Type', 'application/json')
-            ->post($this->url('subscriptions') . 'plan', $body);
+            ->post($this->url('subscriptions').'plan', $body);
 
         return $response->throw()->json();
     }
@@ -154,7 +159,7 @@ class EfiBankClient
         $response = $this->http()
             ->withToken($token)
             ->withHeader('Content-Type', 'application/json')
-            ->post($this->url('subscriptions') . 'subscription', $body);
+            ->post($this->url('subscriptions').'subscription', $body);
 
         return $response->throw()->json();
     }
@@ -165,7 +170,7 @@ class EfiBankClient
 
         $response = $this->http()
             ->withToken($token)
-            ->get($this->url('subscriptions') . 'subscription/' . $subscriptionId);
+            ->get($this->url('subscriptions').'subscription/'.$subscriptionId);
 
         return $response->throw()->json();
     }
@@ -176,7 +181,7 @@ class EfiBankClient
 
         $response = $this->http()
             ->withToken($token)
-            ->put($this->url('subscriptions') . 'subscription/' . $subscriptionId . '/cancel');
+            ->put($this->url('subscriptions').'subscription/'.$subscriptionId.'/cancel');
 
         return $response->throw()->json();
     }
@@ -191,7 +196,7 @@ class EfiBankClient
         $key = null;
         $keyPassword = $this->config['key_password'] ?? null;
 
-        if (!empty($this->config['certificate_content'])) {
+        if (! empty($this->config['certificate_content'])) {
             $content = $this->config['certificate_content'];
 
             if (str_starts_with($content, '-----BEGIN')) {
@@ -200,22 +205,22 @@ class EfiBankClient
                 $cert = $tmpPath;
             } else {
                 $certs = [];
-                if (!openssl_pkcs12_read($content, $certs, '')) {
+                if (! openssl_pkcs12_read($content, $certs, '')) {
                     throw new \RuntimeException('Falha ao ler certificado .p12. Verifique se o arquivo é válido.');
                 }
 
                 $tmpCert = tempnam(sys_get_temp_dir(), 'efi_cert_');
                 $tmpKey = tempnam(sys_get_temp_dir(), 'efi_key_');
-                file_put_contents($tmpCert, $certs['cert'] . "\n" . $certs['pkey']);
+                file_put_contents($tmpCert, $certs['cert']."\n".$certs['pkey']);
                 file_put_contents($tmpKey, $certs['pkey']);
 
                 $cert = $tmpCert;
                 $key = $tmpKey;
             }
-        } elseif (!empty($this->config['certificate_path'])) {
+        } elseif (! empty($this->config['certificate_path'])) {
             $cert = $this->config['certificate_path'];
 
-            if (!empty($this->config['key_path'])) {
+            if (! empty($this->config['key_path'])) {
                 $key = $keyPassword
                     ? [$this->config['key_path'], $keyPassword]
                     : $this->config['key_path'];
@@ -252,7 +257,7 @@ class EfiBankClient
 
         $response = $this->http()
             ->withToken($token)
-            ->get($this->url('pix') . 'loc/' . $locId . '/qrcode');
+            ->get($this->url('pix').'loc/'.$locId.'/qrcode');
 
         return $response->throw()->json();
     }
@@ -260,5 +265,21 @@ class EfiBankClient
     public function getConfig(): array
     {
         return $this->config;
+    }
+
+    public static function generateQrCodeBase64(string $pixCopyPaste): string
+    {
+        try {
+            $qrCode = new QrCode($pixCopyPaste);
+            $writer = new PngWriter;
+
+            return base64_encode($writer->write($qrCode)->getString());
+        } catch (\Throwable $e) {
+            Log::warning('Failed to generate QR code locally', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return '';
     }
 }

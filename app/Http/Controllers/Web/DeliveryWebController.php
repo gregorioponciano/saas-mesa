@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Mail\ResetPasswordMail;
 use App\Models\DeliveryPerson;
-use App\Models\Notification;
 use App\Models\Order;
+use App\Models\Tenant;
 use App\Services\DeliveryNotificationService;
 use App\Services\DeliveryService;
 use Illuminate\Http\JsonResponse;
@@ -40,6 +40,7 @@ class DeliveryWebController extends Controller
 
         if (Auth::guard('delivery-web')->attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
+
             return redirect()->intended(route('delivery.dashboard'));
         }
 
@@ -61,13 +62,13 @@ class DeliveryWebController extends Controller
             ->where('status', 'active')
             ->first();
 
-        if (!$delivery) {
+        if (! $delivery) {
             return back()->withErrors(['email' => 'Email não encontrado.']);
         }
 
         $tenant = $delivery->tenant;
 
-        if (!$tenant->mail_host) {
+        if (! $tenant->mail_host) {
             return back()->withErrors(['email' => 'Restaurante não configurou envio de email. O administrador precisa configurar em Configurar Email.']);
         }
 
@@ -82,7 +83,8 @@ class DeliveryWebController extends Controller
             $this->applyTenantMailConfig($tenant);
             Mail::to($request->email)->send(new ResetPasswordMail($tenant, $token, $request->email, isDelivery: true));
         } catch (\Exception $e) {
-            Log::error('Erro ao enviar email de reset delivery: ' . $e->getMessage());
+            Log::error('Erro ao enviar email de reset delivery: '.$e->getMessage());
+
             return back()->withErrors(['email' => 'Erro ao enviar email. Verifique as configurações de SMTP do restaurante.']);
         }
 
@@ -95,7 +97,7 @@ class DeliveryWebController extends Controller
             ->where('token', $token)
             ->first();
 
-        if (!$reset || now()->diffInMinutes($reset->created_at) > 60) {
+        if (! $reset || now()->diffInMinutes($reset->created_at) > 60) {
             return redirect()->route('delivery.forgot.form')
                 ->withErrors(['email' => 'Link expirado ou inválido. Solicite novamente.']);
         }
@@ -118,7 +120,7 @@ class DeliveryWebController extends Controller
             ->where('token', $token)
             ->first();
 
-        if (!$reset || now()->diffInMinutes($reset->created_at) > 60) {
+        if (! $reset || now()->diffInMinutes($reset->created_at) > 60) {
             return redirect()->route('delivery.forgot.form')
                 ->withErrors(['email' => 'Link expirado ou inválido. Solicite novamente.']);
         }
@@ -127,7 +129,7 @@ class DeliveryWebController extends Controller
             ->where('status', 'active')
             ->first();
 
-        if (!$delivery) {
+        if (! $delivery) {
             return redirect()->route('delivery.forgot.form')
                 ->withErrors(['email' => 'Usuário não encontrado.']);
         }
@@ -172,7 +174,7 @@ class DeliveryWebController extends Controller
             'unreadCount' => $unreadCount,
             'restaurantLat' => $tenant->latitude,
             'restaurantLng' => $tenant->longitude,
-            'restaurantAddress' => $tenant->address ? ($tenant->address . ', ' . ($tenant->number ?: '') . ' - ' . ($tenant->neighborhood ?: '') . ', ' . ($tenant->city ?: '')) : '',
+            'restaurantAddress' => $tenant->address ? ($tenant->address.', '.($tenant->number ?: '').' - '.($tenant->neighborhood ?: '').', '.($tenant->city ?: '')) : '',
         ]);
     }
 
@@ -181,7 +183,7 @@ class DeliveryWebController extends Controller
         $delivery = Auth::guard('delivery-web')->user();
         $order = $this->deliveryService->acceptOrder($delivery, $orderId);
 
-        if (!$order) {
+        if (! $order) {
             return back()->with('error', 'Pedido não encontrado ou já foi aceito.');
         }
 
@@ -193,7 +195,7 @@ class DeliveryWebController extends Controller
         $delivery = Auth::guard('delivery-web')->user();
         $order = $this->deliveryService->markPickedUp($delivery, $orderId);
 
-        if (!$order) {
+        if (! $order) {
             return back()->with('error', 'Pedido não encontrado ou não está como coletado.');
         }
 
@@ -231,7 +233,7 @@ class DeliveryWebController extends Controller
             $request->float('lng')
         );
 
-        if (!$order) {
+        if (! $order) {
             return back()->with('error', 'Pedido não encontrado ou não está em rota de entrega.');
         }
 
@@ -269,7 +271,7 @@ class DeliveryWebController extends Controller
             'vehicle_model' => $validated['vehicle_model'] ?? '',
         ];
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $data['password'] = Hash::make($validated['password']);
         }
 
@@ -336,7 +338,7 @@ class DeliveryWebController extends Controller
         ]);
     }
 
-    private function applyTenantMailConfig(\App\Models\Tenant $tenant): void
+    private function applyTenantMailConfig(Tenant $tenant): void
     {
         if ($tenant->mail_host) {
             config([
@@ -390,6 +392,7 @@ class DeliveryWebController extends Controller
         Auth::guard('delivery-web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect()->route('delivery.login');
     }
 
@@ -397,7 +400,7 @@ class DeliveryWebController extends Controller
     {
         $order = Order::withoutTenant()->with(['items', 'deliveryPerson', 'tenant'])->findOrFail($id);
 
-        if (!$order->isEntrega()) {
+        if (! $order->isEntrega()) {
             abort(404, 'Pedido não encontrado.');
         }
 
@@ -430,7 +433,7 @@ class DeliveryWebController extends Controller
             'entregue' => $order->delivered_at,
         ];
 
-        return array_map(function (string $status, int $index) use ($currentIndex, $timestamps, $steps) {
+        return array_map(function (string $status, int $index) use ($currentIndex, $timestamps) {
             return [
                 'status' => $status,
                 'label' => Order::STATUS_LABELS[$status] ?? $status,

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Webhook;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessEfiBankWebhook;
 use App\Models\Tenant;
 use App\Models\WebhookLog;
-use App\Jobs\ProcessEfiBankWebhook;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -20,10 +20,11 @@ class TenantWebhookController extends Controller
 
         $tenant = Tenant::find($tenantId);
 
-        if (!$tenant) {
+        if (! $tenant) {
             Log::warning('Tenant webhook received for unknown tenant', [
                 'tenant_id' => $tenantId,
             ]);
+
             return response()->json(['error' => 'Tenant not found'], 404);
         }
 

@@ -15,7 +15,7 @@ class SaasPlanFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => 'Plano ' . fake()->words(2, true),
+            'name' => 'Plano '.fake()->words(2, true),
             'slug' => Str::slug(fake()->words(2, true)),
             'price_cents' => fake()->randomElement([0, 4990, 9790, 19990]),
             'interval' => 'month',

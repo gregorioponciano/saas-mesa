@@ -25,21 +25,23 @@ class WebhookValidatorService
 
         if (empty($secret)) {
             Log::warning('Webhook validation skipped: no secret configured');
+
             return false;
         }
 
         if (empty($signature)) {
             Log::warning('Webhook validation failed: no signature header');
+
             return false;
         }
 
         $expected = $this->generateHmac($payload, $secret);
         $isValid = hash_equals($expected, $signature);
 
-        if (!$isValid) {
+        if (! $isValid) {
             Log::warning('Webhook signature mismatch', [
-                'expected' => substr($expected, 0, 16) . '...',
-                'received' => substr($signature, 0, 16) . '...',
+                'expected' => substr($expected, 0, 16).'...',
+                'received' => substr($signature, 0, 16).'...',
             ]);
         }
 

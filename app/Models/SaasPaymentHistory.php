@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
 class SaasPaymentHistory extends Model
@@ -38,12 +39,12 @@ class SaasPaymentHistory extends Model
         return (string) Str::uuid();
     }
 
-    public function subscription()
+    public function subscription(): BelongsTo
     {
         return $this->belongsTo(SaasSubscription::class);
     }
 
-    public function tenant()
+    public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
     }

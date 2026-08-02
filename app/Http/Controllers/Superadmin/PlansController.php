@@ -31,17 +31,29 @@ class PlansController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'price_cents' => ['required', 'integer', 'min:0'],
-            'interval' => ['required', 'string', 'in:month,year'],
-            'features_json' => ['nullable', 'json'],
+            'interval' => ['required', 'string', 'in:month,quarter,semiannual,year'],
+            'features_json' => ['nullable'],
             'is_active' => ['boolean'],
+            'border_color' => ['nullable', 'string', 'max:20'],
+            'background_color' => ['nullable', 'string', 'max:20'],
         ]);
+
+        if (SaasPlan::where('slug', Str::slug($validated['name']))->exists()) {
+            return response()->json(['message' => 'Já existe um plano com este nome.'], 422);
+        }
+
+        if (isset($validated['features_json']) && is_string($validated['features_json'])) {
+            $validated['features_json'] = json_decode($validated['features_json'], true);
+        }
 
         $plan = SaasPlan::create([
             'name' => $validated['name'],
             'slug' => Str::slug($validated['name']),
             'price_cents' => $validated['price_cents'],
             'interval' => $validated['interval'],
-            'features_json' => $validated['features_json'] ? json_decode($validated['features_json'], true) : null,
+            'features_json' => $validated['features_json'] ?? null,
+            'border_color' => $validated['border_color'] ?? null,
+            'background_color' => $validated['background_color'] ?? null,
             'is_active' => $validated['is_active'] ?? true,
         ]);
 
@@ -76,13 +88,19 @@ class PlansController extends Controller
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'price_cents' => ['sometimes', 'integer', 'min:0'],
-            'interval' => ['sometimes', 'string', 'in:month,year'],
-            'features_json' => ['nullable', 'json'],
+            'interval' => ['sometimes', 'string', 'in:month,quarter,semiannual,year'],
+            'features_json' => ['nullable'],
             'is_active' => ['boolean'],
+            'border_color' => ['nullable', 'string', 'max:20'],
+            'background_color' => ['nullable', 'string', 'max:20'],
         ]);
 
         if (isset($validated['name'])) {
             $validated['slug'] = Str::slug($validated['name']);
+
+            if (SaasPlan::where('slug', $validated['slug'])->where('id', '!=', $plan->id)->exists()) {
+                return response()->json(['message' => 'Já existe um plano com este nome.'], 422);
+            }
         }
 
         if (isset($validated['features_json']) && is_string($validated['features_json'])) {

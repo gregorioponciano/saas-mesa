@@ -5,8 +5,9 @@ declare(strict_types=1);
 use App\Models\Order;
 use App\Models\OrderPayment;
 use App\Models\TenantEfiCredentials;
-use App\Services\EncryptedCredentialService;
 use App\Services\EfiBank\TenantEfiBankService;
+use App\Services\EncryptedCredentialService;
+use Illuminate\Support\Str;
 
 test('duplicate payment request returns existing pending charge', function () {
     $tenant = createTenant();
@@ -26,7 +27,7 @@ test('duplicate payment request returns existing pending charge', function () {
         'amount_cents' => 5000,
         'method' => 'pix',
         'status' => 'pending',
-        'idempotency_key' => \Illuminate\Support\Str::uuid()->toString(),
+        'idempotency_key' => Str::uuid()->toString(),
     ]);
 
     expect(OrderPayment::where('order_id', $order->id)->count())->toBe(1);
@@ -48,7 +49,7 @@ test('payment status transitions correctly', function () {
         'amount_cents' => 10000,
         'method' => 'pix',
         'status' => 'pending',
-        'idempotency_key' => \Illuminate\Support\Str::uuid()->toString(),
+        'idempotency_key' => Str::uuid()->toString(),
     ]);
 
     expect($payment->isPending())->toBeTrue();
@@ -79,7 +80,7 @@ test('webhook processes payment idempotently', function () {
         'method' => 'pix',
         'status' => 'pending',
         'efi_pix_txid' => 'testtxid12345',
-        'idempotency_key' => \Illuminate\Support\Str::uuid()->toString(),
+        'idempotency_key' => Str::uuid()->toString(),
     ]);
 
     $payload = [

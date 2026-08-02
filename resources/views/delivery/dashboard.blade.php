@@ -931,7 +931,7 @@
 
                 <div>
                     <label class="block text-xs font-medium text-neutral-400 mb-1">CPF</label>
-                    <input type="text" value="{{ $delivery->cpf ? substr($delivery->cpf, 0, 3).'.'.substr($delivery->cpf, 3, 3).'.'.substr($delivery->cpf, 6, 3).'-'.substr($delivery->cpf, 9, 2) : 'Nao informado' }}"
+                    <input type="text" value="{{ $delivery->cpf ? maskCpf($delivery->cpf) : 'Nao informado' }}"
                            disabled readonly
                            class="w-full px-3.5 py-2.5 rounded-xl bg-neutral-950/50 border border-neutral-800/50 text-neutral-400 text-sm cursor-not-allowed">
                 </div>

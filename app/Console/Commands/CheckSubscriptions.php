@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 class CheckSubscriptions extends Command
 {
     protected $signature = 'saas:check-subscriptions';
+
     protected $description = 'Verifica e gerencia o ciclo de vida das assinaturas';
 
     public function handle(SubscriptionService $subscriptionService, SaasEfiBankService $efiBankService): int
@@ -28,7 +29,7 @@ class CheckSubscriptions extends Command
         $pastDueSubscriptions = SaasSubscription::whereIn('status', ['past_due', 'trial'])
             ->where(function ($q) {
                 $q->whereNull('trial_ends_at')
-                  ->orWhere('trial_ends_at', '<', now());
+                    ->orWhere('trial_ends_at', '<', now());
             })
             ->where('current_period_end', '<', $suspensionCutoff)
             ->whereNull('suspended_at')

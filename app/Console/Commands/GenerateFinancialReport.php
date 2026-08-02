@@ -7,18 +7,20 @@ namespace App\Console\Commands;
 use App\Models\SaasPaymentHistory;
 use App\Models\SaasSubscription;
 use App\Models\Tenant;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
 class GenerateFinancialReport extends Command
 {
     protected $signature = 'saas:financial-report {--month= : Mês para gerar relatório (Y-m)}';
+
     protected $description = 'Gera relatório financeiro mensal do SaaS';
 
     public function handle(): int
     {
         $month = $this->option('month') ?? now()->format('Y-m');
-        $periodStart = \Carbon\Carbon::parse($month . '-01')->startOfMonth();
+        $periodStart = Carbon::parse($month.'-01')->startOfMonth();
         $periodEnd = (clone $periodStart)->endOfMonth();
 
         $this->info("Gerando relatório financeiro para {$month}...");
@@ -51,9 +53,9 @@ class GenerateFinancialReport extends Command
                 'suspended_tenants' => $suspendedTenants,
                 'new_tenants' => $newTenants,
                 'mrr_cents' => $mrr,
-                'mrr_formatted' => 'R$ ' . number_format($mrr / 100, 2, ',', '.'),
+                'mrr_formatted' => 'R$ '.number_format($mrr / 100, 2, ',', '.'),
                 'total_collected_cents' => $totalCollected,
-                'total_collected_formatted' => 'R$ ' . number_format($totalCollected / 100, 2, ',', '.'),
+                'total_collected_formatted' => 'R$ '.number_format($totalCollected / 100, 2, ',', '.'),
                 'payment_count' => $paymentCount,
                 'average_ticket_cents' => $paymentCount > 0 ? (int) ($totalCollected / $paymentCount) : 0,
             ],

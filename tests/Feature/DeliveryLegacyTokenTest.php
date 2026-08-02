@@ -39,7 +39,7 @@ test('new hashed api_token authenticates and is not stored in plain text', funct
         'api_token' => DeliveryPerson::hashToken($token),
     ]);
 
-    $this->withHeaders(['Authorization' => 'Bearer ' . $token])
+    $this->withHeaders(['Authorization' => 'Bearer '.$token])
         ->getJson('/api/delivery/profile')
         ->assertStatus(200);
 

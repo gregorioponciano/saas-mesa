@@ -30,7 +30,7 @@ return new class extends Migration
     private function alterUsers(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            if (!Schema::hasColumn('users', 'tenant_id')) {
+            if (! Schema::hasColumn('users', 'tenant_id')) {
                 $table->foreignId('tenant_id')->nullable()->constrained()->cascadeOnDelete();
                 $table->string('role', 30)->default('cliente');
                 $table->boolean('is_staff')->default(false);
@@ -41,7 +41,7 @@ return new class extends Migration
         if (Schema::hasIndex('users', 'users_email_unique')) {
             Schema::table('users', fn ($t) => $t->dropUnique('users_email_unique'));
         }
-        if (!Schema::hasIndex('users', 'users_tenant_id_email_unique')) {
+        if (! Schema::hasIndex('users', 'users_tenant_id_email_unique')) {
             Schema::table('users', fn ($t) => $t->unique(['tenant_id', 'email'], 'users_tenant_id_email_unique'));
         }
     }
@@ -49,19 +49,19 @@ return new class extends Migration
     private function alterTenants(): void
     {
         Schema::table('tenants', function (Blueprint $table) {
-            if (!Schema::hasColumn('tenants', 'logo')) {
+            if (! Schema::hasColumn('tenants', 'logo')) {
                 $table->string('logo')->nullable();
             }
-            if (!Schema::hasColumn('tenants', 'logo_width')) {
+            if (! Schema::hasColumn('tenants', 'logo_width')) {
                 $table->unsignedSmallInteger('logo_width')->default(44);
                 $table->unsignedSmallInteger('logo_height')->default(44);
             }
-            if (!Schema::hasColumn('tenants', 'opening_time')) {
+            if (! Schema::hasColumn('tenants', 'opening_time')) {
                 $table->string('opening_time', 10)->nullable();
                 $table->string('closing_time', 10)->nullable();
                 $table->decimal('delivery_cost_per_order', 10, 2)->default(0);
             }
-            if (!Schema::hasColumn('tenants', 'mail_host')) {
+            if (! Schema::hasColumn('tenants', 'mail_host')) {
                 $table->string('mail_host')->nullable();
                 $table->string('mail_port')->nullable();
                 $table->string('mail_username')->nullable();
@@ -70,10 +70,10 @@ return new class extends Migration
                 $table->string('mail_from_address')->nullable();
                 $table->string('mail_from_name')->nullable();
             }
-            if (!Schema::hasColumn('tenants', 'coupons_enabled')) {
+            if (! Schema::hasColumn('tenants', 'coupons_enabled')) {
                 $table->boolean('coupons_enabled')->default(true);
             }
-            if (!Schema::hasColumn('tenants', 'uuid')) {
+            if (! Schema::hasColumn('tenants', 'uuid')) {
                 $table->uuid('uuid')->unique()->nullable();
             }
         });
@@ -82,13 +82,13 @@ return new class extends Migration
     private function alterOrders(): void
     {
         Schema::table('orders', function (Blueprint $table) {
-            if (!Schema::hasColumn('orders', 'uuid')) {
+            if (! Schema::hasColumn('orders', 'uuid')) {
                 $table->uuid('uuid')->unique()->nullable();
             }
-            if (!Schema::hasColumn('orders', 'customer_phone')) {
+            if (! Schema::hasColumn('orders', 'customer_phone')) {
                 $table->string('customer_phone', 20)->nullable();
             }
-            if (!Schema::hasColumn('orders', 'type')) {
+            if (! Schema::hasColumn('orders', 'type')) {
                 $table->string('type', 20)->default('mesa');
                 $table->foreignId('table_id')->nullable()->constrained()->nullOnDelete();
                 $table->timestamp('bill_closed_at')->nullable();
@@ -96,17 +96,17 @@ return new class extends Migration
                 $table->decimal('delivery_cost', 10, 2)->default(0);
                 $table->decimal('payment_change', 10, 2)->default(0);
             }
-            if (!Schema::hasColumn('orders', 'payment_status')) {
+            if (! Schema::hasColumn('orders', 'payment_status')) {
                 $table->string('payment_status', 20)->default('pending');
                 $table->string('efi_charge_id')->nullable();
                 $table->timestamp('paid_at')->nullable();
             }
-            if (!Schema::hasColumn('orders', 'points_used')) {
+            if (! Schema::hasColumn('orders', 'points_used')) {
                 $table->boolean('points_used')->default(false);
                 $table->integer('points_spent')->default(0);
                 $table->decimal('points_discount', 10, 2)->default(0);
             }
-            if (!Schema::hasColumn('orders', 'accepted_at')) {
+            if (! Schema::hasColumn('orders', 'accepted_at')) {
                 $table->enum('status', [
                     'novo', 'em_preparo', 'pronto', 'coletado',
                     'saiu_entrega', 'entregue', 'cancelado', 'fechado',
@@ -124,10 +124,10 @@ return new class extends Migration
     private function alterOrderItems(): void
     {
         Schema::table('order_items', function (Blueprint $table) {
-            if (!Schema::hasColumn('order_items', 'change_requested')) {
+            if (! Schema::hasColumn('order_items', 'change_requested')) {
                 $table->boolean('change_requested')->default(false);
             }
-            if (!Schema::hasColumn('order_items', 'cancelled_at')) {
+            if (! Schema::hasColumn('order_items', 'cancelled_at')) {
                 $table->timestamp('cancelled_at')->nullable();
                 $table->foreignId('cancelled_by')->nullable()->constrained('users')->nullOnDelete();
                 $table->boolean('is_points_item')->default(false);
@@ -139,37 +139,37 @@ return new class extends Migration
     private function alterDeliveryPeople(): void
     {
         Schema::table('delivery_people', function (Blueprint $table) {
-            if (!Schema::hasColumn('delivery_people', 'uuid')) {
+            if (! Schema::hasColumn('delivery_people', 'uuid')) {
                 $table->uuid('uuid')->unique()->nullable();
             }
-            if (!Schema::hasColumn('delivery_people', 'cpf')) {
+            if (! Schema::hasColumn('delivery_people', 'cpf')) {
                 $table->string('cpf', 14)->nullable();
             }
-            if (!Schema::hasColumn('delivery_people', 'cnh')) {
+            if (! Schema::hasColumn('delivery_people', 'cnh')) {
                 $table->string('cnh', 20)->nullable();
             }
-            if (!Schema::hasColumn('delivery_people', 'vehicle_plate')) {
+            if (! Schema::hasColumn('delivery_people', 'vehicle_plate')) {
                 $table->string('vehicle_plate', 10)->nullable();
             }
-            if (!Schema::hasColumn('delivery_people', 'vehicle_model')) {
+            if (! Schema::hasColumn('delivery_people', 'vehicle_model')) {
                 $table->string('vehicle_model')->nullable();
             }
-            if (!Schema::hasColumn('delivery_people', 'avatar_path')) {
+            if (! Schema::hasColumn('delivery_people', 'avatar_path')) {
                 $table->string('avatar_path')->nullable();
             }
-            if (!Schema::hasColumn('delivery_people', 'password')) {
+            if (! Schema::hasColumn('delivery_people', 'password')) {
                 $table->string('password')->nullable();
             }
-            if (!Schema::hasColumn('delivery_people', 'invite_token')) {
+            if (! Schema::hasColumn('delivery_people', 'invite_token')) {
                 $table->string('invite_token', 80)->unique()->nullable();
             }
-            if (!Schema::hasColumn('delivery_people', 'invite_expires_at')) {
+            if (! Schema::hasColumn('delivery_people', 'invite_expires_at')) {
                 $table->timestamp('invite_expires_at')->nullable();
             }
-            if (!Schema::hasColumn('delivery_people', 'invited_at')) {
+            if (! Schema::hasColumn('delivery_people', 'invited_at')) {
                 $table->timestamp('invited_at')->nullable();
             }
-            if (!Schema::hasColumn('delivery_people', 'activated_at')) {
+            if (! Schema::hasColumn('delivery_people', 'activated_at')) {
                 $table->timestamp('activated_at')->nullable();
             }
         });
@@ -178,13 +178,13 @@ return new class extends Migration
     private function alterProducts(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            if (!Schema::hasColumn('products', 'uuid')) {
+            if (! Schema::hasColumn('products', 'uuid')) {
                 $table->uuid('uuid')->unique()->nullable();
             }
-            if (!Schema::hasColumn('products', 'points_price')) {
+            if (! Schema::hasColumn('products', 'points_price')) {
                 $table->decimal('points_price', 10, 2)->nullable();
             }
-            if (!Schema::hasColumn('products', 'stock')) {
+            if (! Schema::hasColumn('products', 'stock')) {
                 $table->integer('stock')->default(0)->unsigned();
             }
         });
@@ -193,7 +193,7 @@ return new class extends Migration
     private function alterProductAttributes(): void
     {
         Schema::table('product_attributes', function (Blueprint $table) {
-            if (!Schema::hasColumn('product_attributes', 'price')) {
+            if (! Schema::hasColumn('product_attributes', 'price')) {
                 $table->decimal('price', 10, 2)->default(0);
             }
         });
@@ -202,7 +202,7 @@ return new class extends Migration
     private function alterProductAttributeOptions(): void
     {
         Schema::table('product_attribute_options', function (Blueprint $table) {
-            if (!Schema::hasColumn('product_attribute_options', 'ingredient_id')) {
+            if (! Schema::hasColumn('product_attribute_options', 'ingredient_id')) {
                 $table->foreignId('ingredient_id')->nullable()->constrained()->nullOnDelete();
             }
         });
@@ -211,7 +211,7 @@ return new class extends Migration
     private function alterTables(): void
     {
         Schema::table('tables', function (Blueprint $table) {
-            if (!Schema::hasColumn('tables', 'uuid')) {
+            if (! Schema::hasColumn('tables', 'uuid')) {
                 $table->uuid('uuid')->unique()->nullable();
             }
         });
@@ -220,7 +220,7 @@ return new class extends Migration
     private function alterPayments(): void
     {
         Schema::table('payments', function (Blueprint $table) {
-            if (!Schema::hasColumn('payments', 'uuid')) {
+            if (! Schema::hasColumn('payments', 'uuid')) {
                 $table->uuid('uuid')->unique()->nullable();
                 $table->string('efi_charge_id')->nullable();
                 $table->string('efi_pix_txid')->nullable();
@@ -231,7 +231,7 @@ return new class extends Migration
     private function alterCoupons(): void
     {
         Schema::table('coupons', function (Blueprint $table) {
-            if (!Schema::hasColumn('coupons', 'uuid')) {
+            if (! Schema::hasColumn('coupons', 'uuid')) {
                 $table->uuid('uuid')->unique()->nullable();
             }
         });
@@ -240,7 +240,7 @@ return new class extends Migration
     private function alterCategories(): void
     {
         Schema::table('categories', function (Blueprint $table) {
-            if (!Schema::hasColumn('categories', 'uuid')) {
+            if (! Schema::hasColumn('categories', 'uuid')) {
                 $table->uuid('uuid')->unique()->nullable();
             }
         });
@@ -249,7 +249,7 @@ return new class extends Migration
     private function alterIngredients(): void
     {
         Schema::table('ingredients', function (Blueprint $table) {
-            if (!Schema::hasColumn('ingredients', 'uuid')) {
+            if (! Schema::hasColumn('ingredients', 'uuid')) {
                 $table->uuid('uuid')->unique()->nullable();
             }
         });
@@ -258,10 +258,10 @@ return new class extends Migration
     private function alterLoyaltyConfigs(): void
     {
         Schema::table('tenant_loyalty_configs', function (Blueprint $table) {
-            if (!Schema::hasColumn('tenant_loyalty_configs', 'min_points_order_value')) {
+            if (! Schema::hasColumn('tenant_loyalty_configs', 'min_points_order_value')) {
                 $table->decimal('min_points_order_value', 10, 2)->default(10.00);
             }
-            if (!Schema::hasColumn('tenant_loyalty_configs', 'points_to_money_rate')) {
+            if (! Schema::hasColumn('tenant_loyalty_configs', 'points_to_money_rate')) {
                 $table->decimal('points_to_money_rate', 10, 4)->default(0.01);
             }
         });
@@ -269,7 +269,7 @@ return new class extends Migration
 
     private function createStockMovements(): void
     {
-        if (!Schema::hasTable('stock_movements')) {
+        if (! Schema::hasTable('stock_movements')) {
             Schema::create('stock_movements', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
@@ -291,7 +291,7 @@ return new class extends Migration
 
     private function createPasswordResets(): void
     {
-        if (!Schema::hasTable('password_resets')) {
+        if (! Schema::hasTable('password_resets')) {
             Schema::create('password_resets', function (Blueprint $table) {
                 $table->string('email')->index();
                 $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
@@ -320,7 +320,7 @@ return new class extends Migration
 
     private function createIndex(string $table, string $name, array $columns): void
     {
-        if (!Schema::hasIndex($table, $name)) {
+        if (! Schema::hasIndex($table, $name)) {
             Schema::table($table, fn ($t) => $t->index($columns, $name));
         }
     }

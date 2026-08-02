@@ -7,6 +7,7 @@ use Database\Factories\CouponFactory;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[ScopedBy([TenantScope::class])]
 class Coupon extends Model
@@ -36,14 +37,14 @@ class Coupon extends Model
         ];
     }
 
-    public function tenant()
+    public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
     }
 
     public function isValid(?float $orderTotal = null): bool
     {
-        if (!$this->active) {
+        if (! $this->active) {
             return false;
         }
 

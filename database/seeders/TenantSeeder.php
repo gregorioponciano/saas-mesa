@@ -32,5 +32,15 @@ class TenantSeeder extends Seeder
                 'role' => 'admin',
             ]
         );
+
+        User::updateOrCreate(
+            ['email' => 'gregorio@saasmesa.com.br'],
+            [
+                'tenant_id' => null,
+                'name' => 'Super Admin',
+                'password' => 'saasmesa123',
+                'role' => 'superadmin',
+            ]
+        );
     }
 }

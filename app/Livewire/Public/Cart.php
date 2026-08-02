@@ -4,7 +4,6 @@ namespace App\Livewire\Public;
 
 use App\Livewire\Concerns\HasCart;
 use App\Models\Coupon;
-use App\Models\CustomerPoint;
 use App\Models\LoyaltyConfig;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -13,6 +12,7 @@ use App\Models\Table;
 use App\Models\UserAddress;
 use App\Services\DeliveryNotificationService;
 use App\Services\DeliveryService;
+use App\Services\EfiBank\EfiBankClient;
 use App\Services\EfiBank\TenantEfiBankService;
 use App\Services\GeocodingService;
 use App\Services\PointsService;
@@ -23,6 +23,16 @@ use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
+/**
+ * Propriedades computadas ([Computed]) reconhecidas pelo PHPStan.
+ *
+ * @property float $pointsBalance
+ * @property bool $pointsActive
+ * @property float $maxSpendablePoints
+ * @property float $total
+ * @property int $itemsCount
+ * @property mixed $freeTables
+ */
 class Cart extends Component
 {
     use HasCart;
@@ -58,6 +68,7 @@ class Cart extends Component
     public string $orderType = 'mesa';
 
     public string $paymentMethod = 'pix';
+
     public ?float $cashAmount = null;
 
     public string $deliveryAddress = '';
@@ -83,29 +94,47 @@ class Cart extends Component
     public bool $couponsEnabled = true;
 
     public array $userAddresses = [];
+
     public ?int $selectedAddressId = null;
+
     public ?float $deliveryDistance = null;
 
     public bool $showAddressModal = false;
 
     public bool $showPixCheckoutModal = false;
+
     public ?string $pixQrCode = null;
+
     public ?string $pixCopiaECola = null;
+
     public bool $generatingPix = false;
+
     public ?int $pixOrderId = null;
+
     public ?string $pixTxid = null;
+
     public bool $pixPaymentConfirmed = false;
+
     public bool $pixPaymentError = false;
+
     public string $pixPaymentErrorMsg = '';
 
     public string $newAddressLabel = '';
+
     public string $newAddressStreet = '';
+
     public string $newAddressNumber = '';
+
     public string $newAddressComplement = '';
+
     public string $newAddressNeighborhood = '';
+
     public string $newAddressCity = '';
+
     public string $newAddressState = '';
+
     public string $newAddressZipcode = '';
+
     public string $newAddressReference = '';
 
     protected $listeners = ['addToCart', 'addRedeemedPointsItem', 'tableSelected' => 'onTableSelected', 'tableFreed' => 'clearTable'];
@@ -133,7 +162,7 @@ class Cart extends Component
                 ->first();
         }
 
-        if (!$table) {
+        if (! $table) {
             $sessionToken = Session::get("table_token_{$tenant->id}");
             if ($sessionToken) {
                 $table = Table::where('tenant_id', $tenant->id)
@@ -185,7 +214,7 @@ class Cart extends Component
     {
         $this->deliveryDistance = null;
 
-        if (!$this->deliveryAddress) {
+        if (! $this->deliveryAddress) {
             return;
         }
 
@@ -267,7 +296,7 @@ class Cart extends Component
 
     public function addToCart($productId, $productName, $price, $selectedOptions = [], $quantity = 1): void
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             Session::put('pending_cart_item', [
                 'productId' => $productId,
                 'productName' => $productName,
@@ -275,7 +304,8 @@ class Cart extends Component
                 'selectedOptions' => $selectedOptions,
                 'quantity' => $quantity,
             ]);
-            $this->redirect(route('waiter.login.form', $this->tenant->slug) . '?redirect=' . urlencode(route('menu.show', $this->tenant->slug)));
+            $this->redirect(route('waiter.login.form', $this->tenant->slug).'?redirect='.urlencode(route('menu.show', $this->tenant->slug)));
+
             return;
         }
 
@@ -287,15 +317,16 @@ class Cart extends Component
 
     public function addRedeemedPointsItem($productId, $productName, $pointsPrice, $quantity = 1): void
     {
-        if (!Auth::check()) {
-            $this->redirect(route('waiter.login.form', $this->tenant->slug) . '?redirect=' . urlencode(route('menu.show', $this->tenant->slug)));
+        if (! Auth::check()) {
+            $this->redirect(route('waiter.login.form', $this->tenant->slug).'?redirect='.urlencode(route('menu.show', $this->tenant->slug)));
+
             return;
         }
 
         $product = $this->resolveProductForCart($productId);
         $this->addCartItem($productId, $productName, 0, [], $quantity);
 
-        $key = $productId . '-' . md5(json_encode([]));
+        $key = $productId.'-'.md5(json_encode([]));
         if (isset($this->cartItems[$key])) {
             $this->cartItems[$key]['is_points_item'] = true;
             $this->cartItems[$key]['points_cost'] = $product ? (int) round((float) $product->points_price) : 0;
@@ -332,6 +363,7 @@ class Cart extends Component
         $deliveryCost = $this->orderType === 'entrega' ? $this->tenant->deliveryCostForDistance($this->deliveryDistance) : 0;
         $subtotal = max(0, $cartTotal - $this->discount + $deliveryCost);
         $pointsDiscount = $this->usePoints ? $this->pointsDiscount : 0;
+
         return max(0, $subtotal - $pointsDiscount);
     }
 
@@ -353,13 +385,15 @@ class Cart extends Component
     {
         $this->reset('appliedCoupon', 'discount');
 
-        if (!$this->couponsEnabled) {
+        if (! $this->couponsEnabled) {
             $this->dispatch('notify', message: 'Cupons estao desativados.');
+
             return;
         }
 
-        if (!$this->couponCode) {
+        if (! $this->couponCode) {
             $this->dispatch('notify', message: 'Digite um codigo de cupom.');
+
             return;
         }
 
@@ -367,15 +401,17 @@ class Cart extends Component
             ->where('code', strtoupper($this->couponCode))
             ->first();
 
-        if (!$coupon) {
+        if (! $coupon) {
             $this->dispatch('notify', message: 'Cupom nao encontrado.');
+
             return;
         }
 
         $cartTotal = $this->calcCartTotal();
 
-        if (!$coupon->isValid($cartTotal)) {
+        if (! $coupon->isValid($cartTotal)) {
             $this->dispatch('notify', message: 'Cupom invalido ou expirado.');
+
             return;
         }
 
@@ -387,7 +423,7 @@ class Cart extends Component
             'discount_value' => (float) $coupon->discount_value,
         ];
 
-        $this->dispatch('notify', message: "Cupom {$coupon->code} aplicado! Desconto de R$ " . number_format($this->discount, 2, ',', '.'));
+        $this->dispatch('notify', message: "Cupom {$coupon->code} aplicado! Desconto de R$ ".number_format($this->discount, 2, ',', '.'));
     }
 
     public function removeCoupon(): void
@@ -399,7 +435,10 @@ class Cart extends Component
     #[Computed]
     public function pointsBalance(): int
     {
-        if (!Auth::check()) return 0;
+        if (! Auth::check()) {
+            return 0;
+        }
+
         return app(PointsService::class)->getCustomerBalance($this->tenant, Auth::user());
     }
 
@@ -418,7 +457,10 @@ class Cart extends Component
     #[Computed]
     public function maxSpendablePoints(): int
     {
-        if (!Auth::check() || !$this->pointsActive) return 0;
+        if (! Auth::check() || ! $this->pointsActive) {
+            return 0;
+        }
+
         return app(PointsService::class)->getMaxSpendablePoints(
             $this->tenant, Auth::user(), $this->calcCartTotal()
         );
@@ -426,7 +468,7 @@ class Cart extends Component
 
     public function togglePoints(): void
     {
-        $this->usePoints = !$this->usePoints;
+        $this->usePoints = ! $this->usePoints;
 
         if ($this->usePoints) {
             $cartTotal = $this->calcCartTotal();
@@ -436,7 +478,8 @@ class Cart extends Component
 
             if ($totalBeforePoints < $minOrderValue) {
                 $this->usePoints = false;
-                $this->dispatch('notify', message: 'Valor minimo do pedido para usar pontos: R$ ' . number_format($minOrderValue, 2, ',', '.'));
+                $this->dispatch('notify', message: 'Valor minimo do pedido para usar pontos: R$ '.number_format($minOrderValue, 2, ',', '.'));
+
                 return;
             }
 
@@ -444,6 +487,7 @@ class Cart extends Component
             if ($maxPoints <= 0) {
                 $this->usePoints = false;
                 $this->dispatch('notify', message: 'Voce nao tem pontos suficientes.');
+
                 return;
             }
             $this->pointsDiscount = app(PointsService::class)->pointsToMoney($maxPoints);
@@ -480,12 +524,14 @@ class Cart extends Component
     public function lookupCep(string $cep): void
     {
         $cep = preg_replace('/\D/', '', $cep);
-        if (strlen($cep) !== 8) return;
+        if (strlen($cep) !== 8) {
+            return;
+        }
 
         try {
             $response = file_get_contents("https://viacep.com.br/ws/{$cep}/json/");
             $data = json_decode($response, true);
-            if ($data && !isset($data['erro'])) {
+            if ($data && ! isset($data['erro'])) {
                 $this->newAddressStreet = $data['logradouro'] ?? '';
                 $this->newAddressNeighborhood = $data['bairro'] ?? '';
                 $this->newAddressCity = $data['localidade'] ?? '';
@@ -493,7 +539,8 @@ class Cart extends Component
                 $this->newAddressNumber = '';
                 $this->newAddressComplement = '';
             }
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+        }
     }
 
     public function saveNewAddress(): void
@@ -540,8 +587,9 @@ class Cart extends Component
 
     public function checkout(): void
     {
-        if (!$this->tenant->isOpen()) {
+        if (! $this->tenant->isOpen()) {
             $this->dispatch('notify', message: 'O restaurante está fechado no momento. Não é possível fazer pedidos.');
+
             return;
         }
 
@@ -551,8 +599,9 @@ class Cart extends Component
             'customerName' => 'required|string|max:255',
         ];
 
-        if ($this->orderType === 'mesa' && !$this->tableNumber) {
+        if ($this->orderType === 'mesa' && ! $this->tableNumber) {
             $this->dispatch('notify', message: 'Selecione uma mesa.');
+
             return;
         }
 
@@ -561,7 +610,7 @@ class Cart extends Component
             $rules['deliveryAddress'] = 'required|string';
             $rules['paymentMethod'] = 'required|in:pix,credit_card,cash';
             if ($this->paymentMethod === 'cash') {
-                $rules['cashAmount'] = 'required|numeric|min:' . ($this->calcCartTotal() - $this->discount + ($this->orderType === 'entrega' ? $this->tenant->deliveryCostForDistance($this->deliveryDistance) : 0) + 0.01);
+                $rules['cashAmount'] = 'required|numeric|min:'.($this->calcCartTotal() - $this->discount + ($this->orderType === 'entrega' ? $this->tenant->deliveryCostForDistance($this->deliveryDistance) : 0) + 0.01);
             }
 
             $validation = app(DeliveryService::class)->validateDeliveryAddress(
@@ -571,8 +620,9 @@ class Cart extends Component
                 $this->deliveryState ?: $this->tenant->state,
                 $this->deliveryZipcode ?: null
             );
-            if (!$validation['valid']) {
+            if (! $validation['valid']) {
                 $this->dispatch('notify', message: $validation['error']);
+
                 return;
             }
         }
@@ -598,10 +648,11 @@ class Cart extends Component
         }
 
         $stockErrors = app(StockService::class)->validateStockForCartItems($this->cartItems, $this->tenant->id);
-        if (!empty($stockErrors)) {
+        if (! empty($stockErrors)) {
             foreach ($stockErrors as $error) {
                 $this->dispatch('notify', message: $error);
             }
+
             return;
         }
 
@@ -650,7 +701,7 @@ class Cart extends Component
             $totalBeforePoints = max(0, $cartTotal - $this->discount + $deliveryCost);
             $pointsDiscount = $this->usePoints ? $this->pointsDiscount : 0;
 
-            $redeemPointsSpent = collect($this->cartItems)->sum(fn($i) => $i['points_cost'] ?? 0);
+            $redeemPointsSpent = collect($this->cartItems)->sum(fn ($i) => $i['points_cost'] ?? 0);
             $hasRedeemedItems = $redeemPointsSpent > 0;
 
             if ($hasRedeemedItems) {
@@ -667,7 +718,7 @@ class Cart extends Component
             if ($this->usePoints && $pointsDiscount > 0) {
                 $minOrderValue = (float) (LoyaltyConfig::forTenant($this->tenant)->min_points_order_value ?? 10.00);
                 if ($totalBeforePoints < $minOrderValue) {
-                    throw new \RuntimeException('Valor minimo do pedido para usar pontos: R$ ' . number_format($minOrderValue, 2, ',', '.'));
+                    throw new \RuntimeException('Valor minimo do pedido para usar pontos: R$ '.number_format($minOrderValue, 2, ',', '.'));
                 }
             }
 
@@ -724,7 +775,7 @@ class Cart extends Component
                     "Resgate de {$totalPointsSpent} pontos no Pedido #{$order->id}"
                 );
 
-                if (!$result['success']) {
+                if (! $result['success']) {
                     throw new \RuntimeException($result['message'] ?? 'Erro ao resgatar pontos.');
                 }
             }
@@ -758,7 +809,7 @@ class Cart extends Component
 
         $willGeneratePix = $this->orderType === 'entrega' && $this->paymentMethod === 'pix' && $order;
 
-        if (!$willGeneratePix) {
+        if (! $willGeneratePix) {
             if ($this->orderType === 'entrega' && $order) {
                 app(DeliveryNotificationService::class)->newOrderAvailable($order);
             }
@@ -776,7 +827,7 @@ class Cart extends Component
         $this->resetCart();
         $this->dispatchBrowserCartEvent();
 
-        if (!$this->qrTableNumber) {
+        if (! $this->qrTableNumber) {
             $this->tableNumber = '';
         }
 
@@ -796,10 +847,10 @@ class Cart extends Component
         $this->dispatch('notifyNewOrder');
         $this->dispatch('orderUpdated');
 
-        if (!$willGeneratePix) {
+        if (! $willGeneratePix) {
             $deliveryCostMsg = '';
             if ($this->orderType === 'entrega' && $order && (float) $order->delivery_cost > 0) {
-                $deliveryCostMsg = ' Taxa de entrega: R$ ' . number_format((float) $order->delivery_cost, 2, ',', '.') . '.';
+                $deliveryCostMsg = ' Taxa de entrega: R$ '.number_format((float) $order->delivery_cost, 2, ',', '.').'.';
             }
             $this->dispatch('notify', message: "Pedido enviado com sucesso{$orderTypeLabel}! Acompanhe o status.{$deliveryCostMsg}");
         }
@@ -817,7 +868,7 @@ class Cart extends Component
         $this->pixPaymentErrorMsg = '';
 
         try {
-            $txid = 'ped' . $order->id . now()->format('YmdHis') . rand(100, 999);
+            $txid = 'ped'.$order->id.now()->format('YmdHis').rand(100, 999);
             $charge = app(TenantEfiBankService::class)->generatePixChargeData(
                 $this->tenant, $order->total, $txid, $order->customer_name
             );
@@ -828,7 +879,7 @@ class Cart extends Component
                 $this->showPixCheckoutModal = true;
             }
         } catch (\Throwable $e) {
-            $this->dispatch('notify', message: 'Pedido criado! Erro ao gerar PIX: ' . $e->getMessage());
+            $this->dispatch('notify', message: 'Pedido criado! Erro ao gerar PIX: '.$e->getMessage());
         }
 
         $this->generatingPix = false;
@@ -843,12 +894,12 @@ class Cart extends Component
 
     public function verifyCheckoutPixPayment(): void
     {
-        if (!$this->pixTxid || !$this->pixOrderId || $this->pixPaymentConfirmed) {
+        if (! $this->pixTxid || ! $this->pixOrderId || $this->pixPaymentConfirmed) {
             return;
         }
 
         try {
-            $client = \App\Services\EfiBank\EfiBankClient::forTenant($this->tenant);
+            $client = EfiBankClient::forTenant($this->tenant);
             $charge = $client->pixGetCharge($this->pixTxid);
 
             if (($charge['status'] ?? '') === 'CONCLUIDA') {
@@ -856,7 +907,7 @@ class Cart extends Component
                 $this->pixPaymentError = false;
 
                 $order = Order::where('user_id', Auth::id())->find($this->pixOrderId);
-                if ($order && !$order->hasPayment()) {
+                if ($order && ! $order->hasPayment()) {
                     Payment::create([
                         'order_id' => $order->id,
                         'tenant_id' => $order->tenant_id,
@@ -882,7 +933,7 @@ class Cart extends Component
 
     protected function autoSaveDeliveryAddress(): void
     {
-        if (!$this->deliveryAddress) {
+        if (! $this->deliveryAddress) {
             return;
         }
 
@@ -922,7 +973,7 @@ class Cart extends Component
 
         try {
             $coords = app(GeocodingService::class)->geocode(
-                ($this->newAddressStreet ?: $this->deliveryAddress) . ', ' . ($this->newAddressNumber ? $this->newAddressNumber . ', ' : '') . ($this->newAddressNeighborhood ?: ''),
+                ($this->newAddressStreet ?: $this->deliveryAddress).', '.($this->newAddressNumber ? $this->newAddressNumber.', ' : '').($this->newAddressNeighborhood ?: ''),
                 $this->deliveryCity,
                 $this->deliveryState,
                 $this->deliveryZipcode
@@ -931,7 +982,8 @@ class Cart extends Component
                 $addressData['latitude'] = $coords['lat'];
                 $addressData['longitude'] = $coords['lng'];
             }
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+        }
 
         UserAddress::create($addressData);
     }
@@ -952,6 +1004,7 @@ class Cart extends Component
                 $this->tableNumber = $table->number;
                 $this->qrTableNumber = $table->number;
                 $this->qrTableToken = $table->token;
+
                 return;
             }
             Session::forget("table_token_{$this->tenant->id}");
@@ -965,8 +1018,9 @@ class Cart extends Component
     {
         $this->verifyTableAccess();
 
-        if (!$this->lastOrderId) {
+        if (! $this->lastOrderId) {
             $this->orderTracking = null;
+
             return;
         }
 
@@ -992,7 +1046,7 @@ class Cart extends Component
                 'statusLabel' => $order->statusLabel(),
                 'statusColor' => $order->statusClasses(),
                 'delivery_cost' => (float) ($order->delivery_cost ?? 0),
-                'items' => $order->items->map(fn($item) => [
+                'items' => $order->items->map(fn ($item) => [
                     'id' => $item->id,
                     'product_name' => $item->product_name,
                     'quantity' => $item->quantity,
@@ -1012,17 +1066,19 @@ class Cart extends Component
 
     public function requestItemChange(int $itemId, string $note): void
     {
-        if (!Auth::check() || !Auth::user()->isStaff()) {
+        if (! Auth::check() || ! Auth::user()->isStaff()) {
             $this->dispatch('notify', message: 'Apenas atendentes podem solicitar trocas.');
+
             return;
         }
 
         $item = OrderItem::with('order')->find($itemId);
-        if (!$item || $item->order_id !== $this->lastOrderId) {
+        if (! $item || $item->order_id !== $this->lastOrderId) {
             return;
         }
-        if (!$item->canRequestChange()) {
+        if (! $item->canRequestChange()) {
             $this->dispatch('notify', message: 'Tempo para troca expirou (limite de 5 minutos).');
+
             return;
         }
 
@@ -1042,7 +1098,7 @@ class Cart extends Component
         $this->lastOrderId = null;
         $this->orderTracking = null;
         Session::forget("last_order_{$this->tenant->id}");
-        if (!$this->qrTableNumber) {
+        if (! $this->qrTableNumber) {
             $this->tableNumber = '';
         }
     }
@@ -1068,14 +1124,17 @@ class Cart extends Component
 
     public function verifyTableAccess(): void
     {
-        if (!Auth::check()) return;
+        if (! Auth::check()) {
+            return;
+        }
 
         $sessionToken = Session::get("table_token_{$this->tenant->id}");
 
-        if (!$sessionToken) {
+        if (! $sessionToken) {
             if ($this->tableNumber !== '' && $this->tableNumber !== null) {
                 $this->clearTable();
             }
+
             return;
         }
 
@@ -1083,16 +1142,17 @@ class Cart extends Component
             ->where('token', $sessionToken)
             ->first();
 
-        if (!$table) {
+        if (! $table) {
             $this->clearTable();
             Session::forget("table_token_{$this->tenant->id}");
+
             return;
         }
 
         if ($table->status === 'free') {
             $tableEverHadOrders = Order::where('table_id', $table->id)->exists();
 
-            if ($tableEverHadOrders && !$table->hasOpenBillableOrders()) {
+            if ($tableEverHadOrders && ! $table->hasOpenBillableOrders()) {
                 $this->clearTable();
                 Session::forget("table_token_{$this->tenant->id}");
                 $this->dispatch('tableFreed')->to('public.menu');
@@ -1104,6 +1164,7 @@ class Cart extends Component
     {
         if ($this->hasTableLocked()) {
             $this->dispatch('notify', message: 'Mesa fixa. A mesa so pode ser alterada no painel administrativo.');
+
             return;
         }
         $this->qrTableNumber = null;
@@ -1112,7 +1173,7 @@ class Cart extends Component
 
     public function updatedOrderType($value): void
     {
-        if ($value === 'entrega' && !$this->selectedAddressId && !empty($this->userAddresses)) {
+        if ($value === 'entrega' && ! $this->selectedAddressId && ! empty($this->userAddresses)) {
             $default = collect($this->userAddresses)->firstWhere('is_default', true) ?? $this->userAddresses[0];
             if ($default) {
                 $this->selectAddress($default['id']);
@@ -1122,11 +1183,14 @@ class Cart extends Component
 
     public function updatedTableNumber($value): void
     {
-        if (!Auth::check()) return;
+        if (! Auth::check()) {
+            return;
+        }
 
         if ($this->previousTableNumber && $value !== $this->previousTableNumber) {
             $this->tableNumber = $this->previousTableNumber;
             $this->dispatch('notify', message: 'Mesa fixa. A mesa so pode ser alterada no painel administrativo.');
+
             return;
         }
 
@@ -1172,19 +1236,21 @@ class Cart extends Component
 
     public function getQrCodeUrl(): string
     {
-        if (!$this->qrTableToken) {
+        if (! $this->qrTableToken) {
             return '';
         }
-        $url = route('menu.show', ['slug' => $this->tenant->slug]) . '?token=' . $this->qrTableToken;
-        return 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . urlencode($url);
+        $url = route('menu.show', ['slug' => $this->tenant->slug]).'?token='.$this->qrTableToken;
+
+        return 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data='.urlencode($url);
     }
 
     public function getTableEntryUrl(): string
     {
-        if (!$this->qrTableToken) {
+        if (! $this->qrTableToken) {
             return '';
         }
-        return route('menu.show', ['slug' => $this->tenant->slug]) . '?token=' . $this->qrTableToken;
+
+        return route('menu.show', ['slug' => $this->tenant->slug]).'?token='.$this->qrTableToken;
     }
 
     public function render()

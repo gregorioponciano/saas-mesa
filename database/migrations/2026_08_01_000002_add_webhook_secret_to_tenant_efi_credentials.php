@@ -11,7 +11,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('tenant_efi_credentials', function (Blueprint $table) {
-            if (!Schema::hasColumn('tenant_efi_credentials', 'webhook_secret_encrypted')) {
+            if (! Schema::hasColumn('tenant_efi_credentials', 'webhook_secret_encrypted')) {
                 $table->text('webhook_secret_encrypted')->nullable();
             }
         });

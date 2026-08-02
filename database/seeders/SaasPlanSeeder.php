@@ -49,6 +49,5 @@ class SaasPlanSeeder extends Seeder
             'is_active' => true,
         ]);
 
-
     }
 }

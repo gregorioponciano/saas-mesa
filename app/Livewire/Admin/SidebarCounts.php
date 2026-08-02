@@ -5,15 +5,26 @@ namespace App\Livewire\Admin;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\SupportTicket;
-use App\Models\Table;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
+/**
+ * Propriedades computadas ([Computed]) reconhecidas pelo PHPStan.
+ *
+ * @property int $activeOrdersCount
+ * @property int $usersCount
+ * @property int $activeProductsCount
+ * @property int $disabledProductsCount
+ * @property int $tablesCount
+ * @property int $occupiedTablesCount
+ * @property int $openTicketsCount
+ */
 class SidebarCounts extends Component
 {
     public ?int $lastNotifiedOrderId = null;
+
     public ?int $lastNotifiedTicketId = null;
 
     private function activeTicketStatuses(): array
@@ -44,33 +55,25 @@ class SidebarCounts extends Component
     #[Computed]
     public function activeProductsCount(): int
     {
-        return Product::where('tenant_id', auth()->user()->tenant_id)->active()->count();
+        return $this->productStats()['active'];
     }
 
     #[Computed]
     public function disabledProductsCount(): int
     {
-        return Product::where('tenant_id', auth()->user()->tenant_id)->where('status', '!=', 'active')->count();
+        return $this->productStats()['total'] - $this->productStats()['active'];
     }
 
     #[Computed]
     public function tablesCount(): int
     {
-        $tenant = Auth::user()->tenant;
-
-        return $tenant ? $tenant->manageableTables()->count() : 0;
+        return $this->tableStats()['total'];
     }
 
     #[Computed]
     public function occupiedTablesCount(): int
     {
-        $tenant = Auth::user()->tenant;
-
-        if (! $tenant) {
-            return 0;
-        }
-
-        return (clone $tenant->manageableTables())->where('status', 'occupied')->count();
+        return $this->tableStats()['occupied'];
     }
 
     #[Computed]
@@ -79,9 +82,36 @@ class SidebarCounts extends Component
         return SupportTicket::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', $this->activeTicketStatuses())->count();
     }
 
+    private function tableStats(): array
+    {
+        $tenant = Auth::user()?->tenant;
+
+        if (! $tenant) {
+            return ['total' => 0, 'occupied' => 0];
+        }
+
+        $row = $tenant->manageableTables()
+            ->selectRaw('COUNT(*) as total, COALESCE(SUM(status = "occupied"), 0) as occupied')
+            ->first();
+
+        return ['total' => (int) $row->total, 'occupied' => (int) $row->occupied];
+    }
+
+    private function productStats(): array
+    {
+        $row = Product::where('tenant_id', auth()->user()->tenant_id)
+            ->selectRaw('COUNT(*) as total, COALESCE(SUM(status = "active"), 0) as active')
+            ->first();
+
+        return ['total' => (int) $row->total, 'active' => (int) $row->active];
+    }
+
     public function checkNewOrders(): void
     {
-        $latest = Order::where('tenant_id', auth()->user()->tenant_id)->with('table')->whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])
+        $latest = Order::where('tenant_id', auth()->user()->tenant_id)
+            ->select('id', 'customer_name', 'type', 'table_id')
+            ->with('table:id,number')
+            ->whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])
             ->latest()
             ->first();
 
@@ -96,7 +126,9 @@ class SidebarCounts extends Component
 
     public function checkNewTickets(): void
     {
-        $latest = SupportTicket::where('tenant_id', auth()->user()->tenant_id)->with('user')
+        $latest = SupportTicket::where('tenant_id', auth()->user()->tenant_id)
+            ->select('id', 'subject', 'user_id')
+            ->with('user:id,name')
             ->whereIn('status', $this->activeTicketStatuses())
             ->latest()
             ->first();

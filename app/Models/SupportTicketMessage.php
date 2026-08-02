@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SupportTicketMessage extends Model
 {
@@ -16,6 +17,13 @@ class SupportTicketMessage extends Model
         return ['is_internal' => 'boolean'];
     }
 
-    public function ticket() { return $this->belongsTo(SupportTicket::class); }
-    public function user()   { return $this->belongsTo(User::class); }
+    public function ticket(): BelongsTo
+    {
+        return $this->belongsTo(SupportTicket::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
 }

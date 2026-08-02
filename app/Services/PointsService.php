@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CustomerPoint;
 use App\Models\LoyaltyConfig;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\PointsTransaction;
 use App\Models\Tenant;
 use App\Models\User;
@@ -15,7 +16,7 @@ class PointsService
 {
     public function isPointsActive(Tenant $tenant): bool
     {
-        if (!$tenant->isPaid()) {
+        if (! $tenant->isPaid()) {
             return false;
         }
 
@@ -26,13 +27,13 @@ class PointsService
 
     public function grantPointsForOrder(Order $order): bool
     {
-        if (!$order->user_id) {
+        if (! $order->user_id) {
             return false;
         }
 
         $tenant = $order->tenant;
 
-        if (!$this->isPointsActive($tenant)) {
+        if (! $this->isPointsActive($tenant)) {
             return false;
         }
 
@@ -92,7 +93,7 @@ class PointsService
 
     public function reversePointsForOrder(Order $order): bool
     {
-        if (!$order->user_id) {
+        if (! $order->user_id) {
             return false;
         }
 
@@ -100,7 +101,7 @@ class PointsService
             ->where('type', PointsTransaction::TYPE_EARNED)
             ->first();
 
-        if (!$earnedTransaction) {
+        if (! $earnedTransaction) {
             return false;
         }
 
@@ -144,7 +145,7 @@ class PointsService
 
     public function refundSpentPointsForOrder(Order $order): bool
     {
-        if (!$order->user_id) {
+        if (! $order->user_id) {
             return false;
         }
 
@@ -152,7 +153,7 @@ class PointsService
             ->where('type', PointsTransaction::TYPE_SPENT)
             ->first();
 
-        if (!$spentTransaction) {
+        if (! $spentTransaction) {
             return false;
         }
 
@@ -204,11 +205,11 @@ class PointsService
     {
         $order = $item->order;
 
-        if (!$order || !$order->user_id) {
+        if (! $order || ! $order->user_id) {
             return false;
         }
 
-        if (!$item->is_points_item || !$item->points_cost) {
+        if (! $item->is_points_item || ! $item->points_cost) {
             return false;
         }
 
@@ -292,7 +293,7 @@ class PointsService
         ?Order $order = null,
         string $description = ''
     ): array {
-        if (!$this->isPointsActive($tenant)) {
+        if (! $this->isPointsActive($tenant)) {
             return ['success' => false, 'message' => 'Sistema de pontos inativo.'];
         }
 
@@ -308,7 +309,7 @@ class PointsService
 
         $idempotencyKey = $order
             ? "points_spent_order_{$order->id}_{$user->id}"
-            : "points_spent_{$tenant->id}_{$user->id}_" . now()->timestamp;
+            : "points_spent_{$tenant->id}_{$user->id}_".now()->timestamp;
 
         $alreadyProcessed = $order && PointsTransaction::where('idempotency_key', $idempotencyKey)->exists();
 
@@ -324,15 +325,15 @@ class PointsService
                 ->lockForUpdate()
                 ->first();
 
-            if (!$pointsRecord || $pointsRecord->balance < $pointsToSpend) {
+            if (! $pointsRecord || $pointsRecord->balance < $pointsToSpend) {
                 throw new \RuntimeException('Saldo insuficiente no momento da transacao.');
             }
 
             $pointsRecord->decrement('balance', $pointsToSpend);
 
             $desc = $description ?: ($order
-                ? "Resgate de {$pointsToSpend} pontos no Pedido #{$order->id} (R$ " . number_format($moneyValue, 2, ',', '.') . ")"
-                : "Resgate de {$pointsToSpend} pontos (R$ " . number_format($moneyValue, 2, ',', '.') . ")");
+                ? "Resgate de {$pointsToSpend} pontos no Pedido #{$order->id} (R$ ".number_format($moneyValue, 2, ',', '.').')'
+                : "Resgate de {$pointsToSpend} pontos (R$ ".number_format($moneyValue, 2, ',', '.').')');
 
             PointsTransaction::create([
                 'tenant_id' => $tenant->id,
@@ -355,7 +356,7 @@ class PointsService
 
         return [
             'success' => true,
-            'message' => "{$pointsToSpend} pontos resgatados! R$ " . number_format($moneyValue, 2, ',', '.') . " de desconto.",
+            'message' => "{$pointsToSpend} pontos resgatados! R$ ".number_format($moneyValue, 2, ',', '.').' de desconto.',
             'money_value' => $moneyValue,
         ];
     }
@@ -364,6 +365,7 @@ class PointsService
     {
         $balance = $this->getCustomerBalance($tenant, $user);
         $maxPointsByValue = $this->moneyToPoints($orderValue);
+
         return min($balance, $maxPointsByValue);
     }
 

@@ -10,7 +10,6 @@ use App\Services\EfiBank\TenantEfiCredentialsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 
 class EfiCredentialsController extends Controller
 {
@@ -23,7 +22,7 @@ class EfiCredentialsController extends Controller
         $tenant = request()->get('current_tenant') ?? Auth::user()->tenant;
         $data = $this->credentialsService->show($tenant);
 
-        if (!$data['configured']) {
+        if (! $data['configured']) {
             return response()->json([
                 'configured' => false,
                 'message' => 'Credenciais EfiBank não configuradas.',
@@ -79,7 +78,7 @@ class EfiCredentialsController extends Controller
 
         $credentials = TenantEfiCredentials::where('tenant_id', $tenant->id)->first();
 
-        if (!$credentials) {
+        if (! $credentials) {
             return response()->json([
                 'success' => false,
                 'message' => 'Credenciais não configuradas.',
@@ -88,7 +87,7 @@ class EfiCredentialsController extends Controller
 
         $result = $this->credentialsService->test($tenant);
 
-        if (!$result['success']) {
+        if (! $result['success']) {
             return response()->json($result, 422);
         }
 

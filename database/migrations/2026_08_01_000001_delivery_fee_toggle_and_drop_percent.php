@@ -12,7 +12,7 @@ return new class extends Migration
             if (Schema::hasColumn('tenants', 'delivery_cost_percent')) {
                 $table->dropColumn('delivery_cost_percent');
             }
-            if (!Schema::hasColumn('tenants', 'delivery_cost_enabled')) {
+            if (! Schema::hasColumn('tenants', 'delivery_cost_enabled')) {
                 $table->boolean('delivery_cost_enabled')->default(true)->comment('taxa de entrega ativada/desativada');
             }
         });
@@ -24,7 +24,7 @@ return new class extends Migration
             if (Schema::hasColumn('tenants', 'delivery_cost_enabled')) {
                 $table->dropColumn('delivery_cost_enabled');
             }
-            if (!Schema::hasColumn('tenants', 'delivery_cost_percent')) {
+            if (! Schema::hasColumn('tenants', 'delivery_cost_percent')) {
                 $table->decimal('delivery_cost_percent', 5, 2)->default(0);
             }
         });

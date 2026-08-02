@@ -20,7 +20,7 @@ class TenantEfiCredentialsService
     {
         $credentials = TenantEfiCredentials::where('tenant_id', $tenant->id)->first();
 
-        if (!$credentials) {
+        if (! $credentials) {
             return [
                 'configured' => false,
             ];
@@ -31,9 +31,9 @@ class TenantEfiCredentialsService
             'account_type' => $credentials->account_type,
             'account_type_display' => $credentials->account_type === 'production' ? 'Produção' : 'Sandbox',
             'is_active' => $credentials->is_active,
-            'has_pix_key' => !empty($credentials->pix_key_encrypted),
-            'has_certificate' => !empty($credentials->certificate_content_encrypted),
-            'has_webhook_secret' => !empty($credentials->webhook_secret_encrypted),
+            'has_pix_key' => ! empty($credentials->pix_key_encrypted),
+            'has_certificate' => ! empty($credentials->certificate_content_encrypted),
+            'has_webhook_secret' => ! empty($credentials->webhook_secret_encrypted),
             'client_id_masked' => $this->mask($credentials->decryptClientId()),
             'pix_key_masked' => $credentials->pix_key_encrypted
                 ? $this->mask($credentials->decryptPixKey() ?? '')
@@ -75,8 +75,8 @@ class TenantEfiCredentialsService
     {
         $credentials = TenantEfiCredentials::where('tenant_id', $tenant->id)->first();
 
-        if (!$credentials) {
-            throw new EfiCredentialsNotConfiguredException();
+        if (! $credentials) {
+            throw new EfiCredentialsNotConfiguredException;
         }
 
         try {
@@ -105,7 +105,7 @@ class TenantEfiCredentialsService
 
     public function mask(?string $value): string
     {
-        if (!$value) {
+        if (! $value) {
             return '';
         }
 
@@ -114,6 +114,6 @@ class TenantEfiCredentialsService
             return str_repeat('*', $len);
         }
 
-        return mb_substr($value, 0, 4) . str_repeat('*', $len - 4);
+        return mb_substr($value, 0, 4).str_repeat('*', $len - 4);
     }
 }

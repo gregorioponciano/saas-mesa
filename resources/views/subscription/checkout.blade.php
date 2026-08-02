@@ -104,7 +104,7 @@
                         @if ($isPaid && $diff && !$expired)
                             <div class="flex items-baseline gap-2 mt-2">
                                 <span class="text-sm text-neutral-400">Restam</span>
-                                <span class="text-2xl font-black tracking-tight text-white drop-shadow-sm">{{ $diff->d }}d</span>
+                                <span class="text-2xl font-black tracking-tight text-white drop-shadow-sm">{{ $remainingDays }}d</span>
                                 <span class="text-lg font-bold text-neutral-300">{{ $diff->h }}h</span>
                                 <span class="text-lg font-bold text-neutral-300">{{ $diff->i }}m</span>
                                 <span class="text-sm text-neutral-500 ml-1">· Vence em {{ $endsAt->format('d/m/Y') }}</span>
@@ -120,7 +120,7 @@
                     </div>
                     @if ($isPaid && $isEnding)
                         <span class="px-4 py-2 text-sm font-bold rounded-xl bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/25 animate-pulse">
-                            Expira em {{ $diff->d }}d
+                            Expira em {{ $remainingDays }}d
                         </span>
                     @endif
                 </div>
@@ -153,6 +153,10 @@
     </script>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+        @php
+            $intervalMonths = ['month' => 1, 'quarter' => 3, 'semiannual' => 6, 'year' => 12];
+            $intervalNames = ['month' => 'Mensal', 'quarter' => 'Trimestral', 'semiannual' => 'Semestral', 'year' => 'Anual'];
+        @endphp
         {{-- Free --}}
         <div class="relative p-8 rounded-3xl bg-neutral-900/50 border {{ $tenant->isFree() ? 'border-amber-500/30 ring-2 ring-amber-500/20' : 'border-neutral-800' }} transition-all duration-300">
             @if ($tenant->isFree())
@@ -176,23 +180,37 @@
                 <li class="flex items-center gap-3 text-neutral-500"><svg class="w-5 h-5 text-neutral-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg> Relatórios avançados</li>
                 <li class="flex items-center gap-3 text-neutral-500"><svg class="w-5 h-5 text-neutral-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg> Múltiplos usuários</li>
             </ul>
-            <div class="w-full py-3.5 px-4 rounded-xl text-center font-semibold {{ $tenant->isFree() ? 'bg-neutral-800 text-neutral-400 cursor-not-allowed' : 'bg-neutral-800 text-neutral-500 cursor-not-allowed' }}">{{ $tenant->isFree() ? 'Plano Atual' : 'Premium Ativo' }}</div>
+            @if ($tenant->isFree())
+                <div class="w-full py-3.5 px-4 rounded-xl text-center font-semibold bg-neutral-800 text-neutral-400 cursor-not-allowed">Plano Atual</div>
+            @else
+                <form method="POST" action="{{ route('subscription.checkout.store') }}">
+                    @csrf
+                    <input type="hidden" name="plan" value="gratuito">
+                    <button type="submit" class="w-full py-3.5 px-4 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-semibold rounded-xl transition-all duration-200">Ativar Gratuito</button>
+                </form>
+            @endif
         </div>
 
         {{-- Premium --}}
         @php $plan = $plans->where('slug', 'premium')->first(); @endphp
         @if ($plan)
-        <div class="plan-card relative p-8 rounded-3xl bg-gradient-to-b from-amber-500/10 to-amber-600/5 border-2 border-amber-500/30" data-price-per-month="{{ $plan->price_cents / 100 }}">
-            <span class="absolute -top-3 right-6 px-4 py-1 text-xs font-semibold rounded-full bg-amber-500 text-neutral-950">Popular</span>
+        <div class="plan-card relative p-8 rounded-3xl bg-gradient-to-b from-amber-500/10 to-amber-600/5 border-2 border-amber-500/30" data-price-per-month="{{ $plan->price_cents / 100 }}"
+             style="{{ $plan->border_color ? 'border-color: '.$plan->border_color.';' : '' }}{{ $plan->background_color ? ' background-color: '.$plan->background_color.';' : '' }}">
+            @if ($currentSubscription?->plan_id === $plan->id)
+                <span class="absolute -top-3 right-6 px-4 py-1 text-xs font-semibold rounded-full bg-amber-500 text-neutral-950">Atual</span>
+            @else
+                <span class="absolute -top-3 right-6 px-4 py-1 text-xs font-semibold rounded-full bg-amber-500 text-neutral-950">Popular</span>
+            @endif
             <div class="w-14 h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center mb-5">
                 <svg class="w-7 h-7 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
                 </svg>
             </div>
             <h2 class="text-2xl font-bold mb-2">Premium</h2>
+            @php $defaultMonths = $intervalMonths[$plan->interval] ?? 1; @endphp
             <p class="text-sm text-neutral-500 mb-1">R$ {{ number_format($plan->price_cents / 100, 2, ',', '.') }}/mês</p>
-            <p class="text-3xl font-black mb-2 plan-total">R$ {{ number_format($plan->price_cents / 100, 2, ',', '.') }}</p>
-            <p class="text-xs text-neutral-500 mb-6">à vista</p>
+            <p class="text-3xl font-black mb-2 plan-total">R$ {{ number_format($plan->getTotalForMonths($defaultMonths) / 100, 2, ',', '.') }}</p>
+                <p class="text-xs text-neutral-500 mb-6">{{ $defaultMonths === 1 ? 'Mensal (todos) · à vista' : $intervalNames[$plan->interval].' ('.$defaultMonths.' meses) · '.$defaultMonths.' meses com desconto' }}</p>
             <ul class="space-y-3 mb-8 text-sm">
                 <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Mesas ilimitadas</li>
                 <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Cardápio digital ilimitado</li>
@@ -208,18 +226,18 @@
             <form method="POST" action="{{ route('subscription.checkout.store') }}">
                 @csrf
                 <input type="hidden" name="plan" value="premium">
-                <input type="hidden" name="months" value="1">
+                <input type="hidden" name="months" value="{{ $defaultMonths }}">
 
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-neutral-400 mb-2">Período</label>
+                    <label class="block text-sm font-medium text-neutral-400 mb-2">Período ({{ $defaultMonths === 1 ? 'Mensal (todos)' : $intervalNames[$plan->interval].' ('.$defaultMonths.' meses)' }})</label>
                     <select onchange="updatePrice(this)" class="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm">
-                        @foreach ([1, 3, 6, 12] as $m)
+                        @foreach (($defaultMonths === 1 ? [1, 3, 6, 12] : [$defaultMonths]) as $m)
                             @php
                                 $discountPct = \App\Models\SaasPlan::getDiscountPercent($m);
                                 $full = $plan->price_cents * $m;
                                 $total = (int) round($full * (100 - $discountPct) / 100);
                             @endphp
-                            <option value="{{ $m }}" {{ $m === 1 ? 'selected' : '' }}>
+                            <option value="{{ $m }}" {{ $m === $defaultMonths ? 'selected' : '' }}>
                                 {{ $m }} {{ $m === 1 ? 'mês' : 'meses' }}
                                 @if ($discountPct > 0)
                                     — R$ {{ number_format($total / 100, 2, ',', '.') }}
@@ -232,12 +250,91 @@
                     </select>
                 </div>
 
+                @if ($currentSubscription?->plan_id === $plan->id)
+                    <div class="w-full py-3.5 px-4 rounded-xl text-center font-semibold bg-neutral-800 text-neutral-400 cursor-not-allowed">Plano Atual</div>
+                @else
                 <button type="submit" class="w-full py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200">
                     {{ $tenant->isPaid() ? 'Renovar Premium' : 'Assinar Premium' }}
                 </button>
+                @endif
             </form>
         </div>
         @endif
+
+        {{-- Outros planos ativos --}}
+        @foreach ($plans->whereNotIn('slug', ['free', 'gratuito', 'premium']) as $plan)
+        <div class="plan-card relative p-8 rounded-3xl bg-neutral-900/50 border border-neutral-800 transition-all duration-300"
+             @if ($plan->price_cents > 0) data-price-per-month="{{ $plan->price_cents / 100 }}" @endif
+             style="{{ $plan->border_color ? 'border-color: '.$plan->border_color.';' : '' }}{{ $plan->background_color ? ' background-color: '.$plan->background_color.';' : '' }}">
+            @if ($currentSubscription?->plan_id === $plan->id)
+                <span class="absolute -top-3 right-6 px-4 py-1 text-xs font-semibold rounded-full bg-amber-500 text-neutral-950">Atual</span>
+            @endif
+            <div class="w-14 h-14 rounded-2xl bg-neutral-800 flex items-center justify-center mb-5">
+                <svg class="w-7 h-7 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold mb-2">{{ $plan->name }}</h2>
+            @if ($plan->price_cents > 0)
+                @php $defaultMonths = $intervalMonths[$plan->interval] ?? 1; @endphp
+                <p class="text-sm text-neutral-500 mb-1">R$ {{ number_format($plan->price_cents / 100, 2, ',', '.') }}/mês</p>
+                <p class="text-3xl font-black mb-2 plan-total">R$ {{ number_format($plan->getTotalForMonths($defaultMonths) / 100, 2, ',', '.') }}</p>
+            <p class="text-xs text-neutral-500 mb-6">{{ $defaultMonths === 1 ? 'Mensal (todos) · à vista' : $intervalNames[$plan->interval].' ('.$defaultMonths.' meses) · '.$defaultMonths.' meses com desconto' }}</p>
+            @else
+                <p class="text-4xl font-black mb-6">R$ 0</p>
+            @endif
+            <ul class="space-y-3 mb-8 text-sm">
+                @foreach ($plan->visibleFeatures() as $item)
+                <li class="flex items-center gap-3 {{ $item['value'] === false ? 'text-neutral-500' : 'text-neutral-300' }}">
+                    @if ($item['value'] === true || ! is_bool($item['value']))
+                        <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    @else
+                        <svg class="w-5 h-5 text-neutral-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    @endif
+                    <span>{{ $item['label'] }}@if (! is_bool($item['value'])): {{ $item['value'] }}@endif</span>
+                </li>
+                @endforeach
+            </ul>
+
+            @if ($currentSubscription?->plan_id === $plan->id)
+                <div class="w-full py-3.5 px-4 rounded-xl text-center font-semibold bg-neutral-800 text-neutral-400 cursor-not-allowed">Plano Atual</div>
+            @else
+                <form method="POST" action="{{ route('subscription.checkout.store') }}">
+                    @csrf
+                    <input type="hidden" name="plan" value="{{ $plan->slug }}">
+                    <input type="hidden" name="months" value="{{ $defaultMonths }}">
+
+                    @if ($plan->price_cents > 0)
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-neutral-400 mb-2">Período ({{ $defaultMonths === 1 ? 'Mensal (todos)' : $intervalNames[$plan->interval].' ('.$defaultMonths.' meses)' }})</label>
+                        <select onchange="updatePrice(this)" class="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm">
+                            @foreach (($defaultMonths === 1 ? [1, 3, 6, 12] : [$defaultMonths]) as $m)
+                                @php
+                                    $discountPct = \App\Models\SaasPlan::getDiscountPercent($m);
+                                    $full = $plan->price_cents * $m;
+                                    $total = (int) round($full * (100 - $discountPct) / 100);
+                                @endphp
+                                <option value="{{ $m }}" {{ $m === $defaultMonths ? 'selected' : '' }}>
+                                    {{ $m }} {{ $m === 1 ? 'mês' : 'meses' }}
+                                    @if ($discountPct > 0)
+                                        — R$ {{ number_format($total / 100, 2, ',', '.') }}
+                                        <span class="text-emerald-400">({{ $discountPct }}% off)</span>
+                                    @else
+                                        — R$ {{ number_format($total / 100, 2, ',', '.') }}
+                                    @endif
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
+
+                    <button type="submit" class="w-full py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200">
+                        {{ $tenant->isPaid() ? 'Renovar '.$plan->name : 'Assinar '.$plan->name }}
+                    </button>
+                </form>
+            @endif
+        </div>
+        @endforeach
     </div>
     @endif
 

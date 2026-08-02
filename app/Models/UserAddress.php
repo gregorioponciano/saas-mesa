@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Scopes\TenantScope;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[ScopedBy([TenantScope::class])]
 class UserAddress extends Model
@@ -37,7 +38,7 @@ class UserAddress extends Model
         ];
     }
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
@@ -48,7 +49,7 @@ class UserAddress extends Model
 
         $street = $this->address;
         if ($this->number) {
-            $street .= ', ' . $this->number;
+            $street .= ', '.$this->number;
         }
         $parts[] = $street;
 
@@ -61,7 +62,7 @@ class UserAddress extends Model
 
         $cityState = $this->city;
         if ($this->state) {
-            $cityState .= ' - ' . $this->state;
+            $cityState .= ' - '.$this->state;
         }
         $parts[] = $cityState;
 
@@ -74,7 +75,7 @@ class UserAddress extends Model
 
         $street = $this->address;
         if ($this->number) {
-            $street .= ', ' . $this->number;
+            $street .= ', '.$this->number;
         }
         $parts[] = $street;
 

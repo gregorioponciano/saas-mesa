@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LoyaltyConfig extends Model
 {
+    use BelongsToTenant;
+
     protected $table = 'tenant_loyalty_configs';
 
     protected $fillable = [
@@ -26,7 +30,7 @@ class LoyaltyConfig extends Model
         ];
     }
 
-    public function tenant()
+    public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
     }

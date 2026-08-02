@@ -8,6 +8,10 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -19,8 +23,11 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     public const ROLE_SUPERADMIN = 'superadmin';
+
     public const ROLE_ADMIN = 'admin';
+
     public const ROLE_ATENDENTE = 'atendente';
+
     public const ROLE_CLIENTE = 'cliente';
 
     public const ROLE_LABELS = [
@@ -47,33 +54,33 @@ class User extends Authenticatable
         ];
     }
 
-    public function tenant()
+    public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
     }
 
-    public function orders()
+    public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
     }
 
-    public function addresses()
+    public function addresses(): HasMany
     {
         return $this->hasMany(UserAddress::class);
     }
 
-    public function defaultAddress()
+    public function defaultAddress(): HasOne
     {
         return $this->hasOne(UserAddress::class)->where('is_default', true);
     }
 
-    public function favoriteProducts()
+    public function favoriteProducts(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'user_favorites')
             ->withTimestamps();
     }
 
-    public function favorites()
+    public function favorites(): HasMany
     {
         return $this->hasMany(UserFavorite::class);
     }

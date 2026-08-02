@@ -9,6 +9,7 @@ use App\Models\SaasSubscription;
 use App\Services\EfiBank\SaasEfiBankService;
 use App\Services\EfiBank\TenantEfiBankService;
 use App\Services\EfiBank\WebhookValidatorService;
+use Illuminate\Support\Str;
 
 test('saas webhook process marks subscription active', function () {
     $tenant = createTenant(['status' => 'suspended']);
@@ -42,7 +43,7 @@ test('saas webhook with unknown charge is silently ignored', function () {
     expect(fn () => $service->processSaasWebhook([
         'event' => 'payment_confirmed',
         'charge_id' => 'nonexistent_charge',
-    ]))->not->toThrow(\Exception::class);
+    ]))->not->toThrow(Exception::class);
 });
 
 test('tenant webhook processes pix payment correctly', function () {
@@ -62,7 +63,7 @@ test('tenant webhook processes pix payment correctly', function () {
         'method' => 'pix',
         'status' => 'pending',
         'efi_pix_txid' => 'pix_txid_123',
-        'idempotency_key' => \Illuminate\Support\Str::uuid()->toString(),
+        'idempotency_key' => Str::uuid()->toString(),
     ]);
 
     $service = app(TenantEfiBankService::class);
@@ -107,7 +108,7 @@ test('order payment model enforces idempotency key uniqueness', function () {
         'user_id' => $user->id,
     ]);
 
-    $key = 'unique-key-' . \Illuminate\Support\Str::random(16);
+    $key = 'unique-key-'.Str::random(16);
 
     OrderPayment::create([
         'order_id' => $order->id,

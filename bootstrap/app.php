@@ -46,7 +46,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'block.superadmin.from.tenant.panel' => BlockSuperadminFromTenantPanel::class,
             'check.admin' => CheckAdminRole::class,
             'check.staff' => CheckStaffRole::class,
-            'staff.access' => EnsureStaffAccess::class,
             'resolve.tenant' => ResolveTenant::class,
             'security.headers' => SecurityHeaders::class,
             'validate.webhook.signature' => ValidateWebhookSignature::class,

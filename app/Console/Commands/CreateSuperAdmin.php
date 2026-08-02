@@ -6,7 +6,6 @@ namespace App\Console\Commands;
 
 use App\Models\User;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Hash;
 
 class CreateSuperAdmin extends Command
 {
@@ -25,6 +24,7 @@ class CreateSuperAdmin extends Command
 
         if (User::where('email', $email)->exists()) {
             $this->error('Já existe um usuário com este email.');
+
             return Command::FAILURE;
         }
 

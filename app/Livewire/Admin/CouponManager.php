@@ -3,7 +3,6 @@
 namespace App\Livewire\Admin;
 
 use App\Models\Coupon;
-use App\Models\Tenant;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -17,19 +16,25 @@ class CouponManager extends Component
     public ?int $editingCouponId = null;
 
     public string $code = '';
+
     public string $discountType = 'percentage';
+
     public float $discountValue = 0;
+
     public ?float $minOrderValue = null;
+
     public ?int $maxUses = null;
+
     public bool $active = true;
+
     public ?string $expiresAt = null;
 
     protected function rules(): array
     {
         return [
-            'code' => 'required|string|max:50|unique:coupons,code,' . ($this->editingCouponId ?: 'NULL') . ',id,tenant_id,' . Auth::user()->tenant_id,
+            'code' => 'required|string|max:50|unique:coupons,code,'.($this->editingCouponId ?: 'NULL').',id,tenant_id,'.Auth::user()->tenant_id,
             'discountType' => 'required|in:percentage,fixed',
-            'discountValue' => 'required|numeric|min:0.01|max:' . ($this->discountType === 'percentage' ? 100 : 999999),
+            'discountValue' => 'required|numeric|min:0.01|max:'.($this->discountType === 'percentage' ? 100 : 999999),
             'minOrderValue' => 'nullable|numeric|min:0',
             'maxUses' => 'nullable|integer|min:1',
             'active' => 'boolean',
@@ -103,7 +108,7 @@ class CouponManager extends Component
     {
         $coupon = Coupon::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
         $this->authorize('update', $coupon);
-        $coupon->update(['active' => !$coupon->active]);
+        $coupon->update(['active' => ! $coupon->active]);
     }
 
     public function delete(int $id): void
@@ -117,7 +122,7 @@ class CouponManager extends Component
     public function toggleCouponsEnabled(): void
     {
         $tenant = Auth::user()->tenant;
-        $tenant->update(['coupons_enabled' => !$tenant->coupons_enabled]);
+        $tenant->update(['coupons_enabled' => ! $tenant->coupons_enabled]);
     }
 
     public function render()

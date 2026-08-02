@@ -7,6 +7,8 @@
         <p class="mt-1 text-sm text-neutral-400">Pagamentos, assinaturas e faturas da plataforma</p>
     </div>
 
+    @include('superadmin.partials.subnav')
+
     <div class="flex gap-2 border-b border-neutral-800">
         <template x-for="tab in ['payments', 'subscriptions', 'invoices']" :key="tab">
             <button @click="switchTab(tab)"
@@ -286,7 +288,7 @@
                 this.load();
             },
             formatCents(cents) {
-                return 'R$ ' + Number(cents || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                return 'R$ ' + (Number(cents || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
             },
             formatDate(date) {
                 if (!date) return '—';

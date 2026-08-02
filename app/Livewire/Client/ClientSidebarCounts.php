@@ -7,6 +7,11 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
+/**
+ * Propriedades computadas ([Computed]) reconhecidas pelo PHPStan.
+ *
+ * @property int $myActiveOrdersCount
+ */
 class ClientSidebarCounts extends Component
 {
     #[Computed]

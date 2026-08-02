@@ -14,9 +14,15 @@
         </div>
 
         <form method="POST" action="{{ route('delivery.invite.accept', $token) }}" enctype="multipart/form-data" class="space-y-4" x-data="{
-            cpfMask(e) {
-                let v = e.target.value.replace(/\D/g,'').substring(0,11);
-                e.target.value = v.length<=3 ? v : v.length<=6 ? v.substring(0,3)+'.'+v.substring(3) : v.length<=9 ? v.substring(0,3)+'.'+v.substring(3,6)+'.'+v.substring(6) : v.substring(0,3)+'.'+v.substring(3,6)+'.'+v.substring(6,9)+'-'+v.substring(9);
+            cpf: '',
+            get cpfValid() {
+                return isValidCpf(this.cpf);
+            },
+            get cpfState() {
+                return this.cpf === '' ? 'empty' : (this.cpfValid ? 'ok' : 'err');
+            },
+            onCpfInput(e) {
+                this.cpf = applyCpfMask(e.target.value);
             },
             plateMask(e) {
                 let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').substring(0,7);
@@ -50,9 +56,13 @@
 
             <div>
                 <label class="block text-xs font-medium text-neutral-400 mb-1">CPF *</label>
-                <input type="text" name="cpf" maxlength="14" placeholder="000.000.000-00"
-                       @input="cpfMask"
-                       class="w-full px-3.5 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('cpf') border-red-500 @enderror">
+                <div class="relative">
+                    <input type="text" name="cpf" maxlength="14" placeholder="000.000.000-00" inputmode="numeric" x-model="cpf" @input="onCpfInput"
+                           class="w-full px-3.5 py-2 pr-10 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('cpf') border-red-500 @enderror">
+                    <span x-show="cpfState === 'ok'" class="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400 text-sm font-bold">✓</span>
+                    <span x-show="cpfState === 'err'" class="absolute right-3 top-1/2 -translate-y-1/2 text-red-400 text-sm font-bold">✗</span>
+                </div>
+                <p class="mt-1 text-xs text-neutral-500" x-show="cpfState === 'err'" x-cloak>CPF inválido. Verifique os dígitos.</p>
                 @error('cpf') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
             </div>
 
@@ -92,4 +102,6 @@
         </form>
     </div>
 </div>
+
+@include('partials.cpf-validator')
 @endsection

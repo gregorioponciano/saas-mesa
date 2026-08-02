@@ -6,15 +6,27 @@ use App\Models\CustomerPoint;
 use App\Models\User;
 use Livewire\Component;
 
+/**
+ * Propriedades computadas ([Computed]) reconhecidas pelo PHPStan.
+ *
+ * @property mixed $users
+ */
 class UserManager extends Component
 {
     public bool $showForm = false;
+
     public ?int $editingUserId = null;
+
     public string $name = '';
+
     public string $email = '';
+
     public string $password = '';
+
     public string $passwordConfirmation = '';
+
     public string $role = 'atendente';
+
     public string $phone = '';
 
     public ?int $confirmDeleteUserId = null;
@@ -28,7 +40,7 @@ class UserManager extends Component
             'role' => 'required|in:admin,atendente,cliente',
         ];
 
-        if (!$this->editingUserId) {
+        if (! $this->editingUserId) {
             $rules['password'] = 'required|string|min:6';
             $rules['passwordConfirmation'] = 'required|same:password';
         } else {
@@ -89,6 +101,7 @@ class UserManager extends Component
 
         if ($existing) {
             $this->addError('email', 'Já existe um usuário com este email neste restaurante.');
+
             return;
         }
 
@@ -109,15 +122,16 @@ class UserManager extends Component
             $this->authorize('update', $user);
             if ($user->isAdmin() && $this->role !== 'admin' && $user->id === auth()->id()) {
                 $this->addError('role', 'Você não pode rebaixar seu próprio cargo de administrador.');
+
                 return;
             }
             $user->update($data);
-            $this->dispatch('notify', message: 'Usuário "' . $user->name . '" atualizado!');
+            $this->dispatch('notify', message: 'Usuário "'.$user->name.'" atualizado!');
         } else {
             $this->authorize('create', User::class);
             $data['tenant_id'] = $tenant->id;
             User::create($data);
-            $this->dispatch('notify', message: 'Usuário "' . $this->name . '" criado!');
+            $this->dispatch('notify', message: 'Usuário "'.$this->name.'" criado!');
         }
 
         $this->showForm = false;
@@ -130,14 +144,15 @@ class UserManager extends Component
         $this->authorize('update', $user);
         if ($user->isAdmin()) {
             $this->dispatch('notify', message: 'Administradores não podem ser alterados.');
+
             return;
         }
         $user->update([
-            'is_staff' => !$user->is_staff,
+            'is_staff' => ! $user->is_staff,
             'role' => $user->is_staff ? 'cliente' : 'atendente',
         ]);
         $label = $user->is_staff ? 'atendente' : 'cliente';
-        $this->dispatch('notify', message: '"' . $user->name . '" agora é ' . $label . '.');
+        $this->dispatch('notify', message: '"'.$user->name.'" agora é '.$label.'.');
     }
 
     public function confirmDelete(int $id): void
@@ -152,15 +167,16 @@ class UserManager extends Component
         $name = $user->name;
         $user->delete();
         $this->confirmDeleteUserId = null;
-        $this->dispatch('notify', message: 'Usuário "' . $name . '" excluído!');
+        $this->dispatch('notify', message: 'Usuário "'.$name.'" excluído!');
     }
 
     public function getUsersProperty()
     {
         $tenantId = auth()->user()?->tenant_id;
-        if (!$tenantId) {
+        if (! $tenantId) {
             return collect();
         }
+
         return User::where('tenant_id', $tenantId)
             ->orderByRaw("FIELD(role, 'admin', 'atendente', 'cliente')")
             ->orderBy('name')
@@ -170,9 +186,10 @@ class UserManager extends Component
     public function getUserPointsProperty(): array
     {
         $tenantId = auth()->user()?->tenant_id;
-        if (!$tenantId) {
+        if (! $tenantId) {
             return [];
         }
+
         return CustomerPoint::where('tenant_id', $tenantId)
             ->pluck('balance', 'user_id')
             ->toArray();

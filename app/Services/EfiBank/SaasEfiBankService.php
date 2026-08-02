@@ -8,8 +8,7 @@ use App\Models\SaasPaymentHistory;
 use App\Models\SaasPlan;
 use App\Models\SaasSubscription;
 use App\Models\Tenant;
-use Endroid\QrCode\QrCode;
-use Endroid\QrCode\Writer\PngWriter;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -108,14 +107,14 @@ class SaasEfiBankService
                 'original' => number_format($totalCents / 100, 2, '.', ''),
             ],
             'chave' => $pixKey,
-            'solicitacaoPagador' => 'Assinatura ' . $plan->name . ' - ' . $tenant->slug . ' (' . $months . ' meses)',
+            'solicitacaoPagador' => 'Assinatura '.$plan->name.' - '.$tenant->slug.' ('.$months.' meses)',
         ];
 
         Log::info('Creating PIX charge for subscription', [
             'subscription_id' => $subscription->id,
             'txid' => $txid,
             'value' => $body['valor']['original'],
-            'pix_key' => substr($pixKey, 0, 8) . '...',
+            'pix_key' => substr($pixKey, 0, 8).'...',
         ]);
 
         $response = $this->client->pixCreateImmediateCharge($txid, $body);
@@ -136,7 +135,7 @@ class SaasEfiBankService
             }
         }
 
-        $pixQrCode = !empty($copyPaste) ? $this->generateQRCodeBase64($copyPaste) : null;
+        $pixQrCode = ! empty($copyPaste) ? EfiBankClient::generateQrCodeBase64($copyPaste) : null;
 
         $pixData = [
             'txid' => $txid,
@@ -155,8 +154,8 @@ class SaasEfiBankService
         Log::info('PIX charge created successfully', [
             'subscription_id' => $subscription->id,
             'txid' => $txid,
-            'has_qrcode' => !empty($pixData['pix_qrcode']),
-            'has_copy_paste' => !empty($pixData['pix_copy_paste']),
+            'has_qrcode' => ! empty($pixData['pix_qrcode']),
+            'has_copy_paste' => ! empty($pixData['pix_copy_paste']),
         ]);
     }
 
@@ -164,8 +163,8 @@ class SaasEfiBankService
     {
         $metadata = $subscription->metadata ?? [];
 
-        $expiresAt = !empty($metadata['expires_at'])
-            ? \Illuminate\Support\Carbon::parse($metadata['expires_at'])
+        $expiresAt = ! empty($metadata['expires_at'])
+            ? Carbon::parse($metadata['expires_at'])
             : null;
         $expired = $expiresAt && now()->isAfter($expiresAt);
 
@@ -183,12 +182,12 @@ class SaasEfiBankService
 
         // Se pix_qrcode já é uma imagem PNG (base64), usa direto; senão gera a partir do EMV
         $qrImage = $metadata['pix_qrcode'] ?? null;
-        if ($qrImage && !str_starts_with($qrImage, 'iVBOR')) {
+        if ($qrImage && ! str_starts_with($qrImage, 'iVBOR')) {
             $qrImage = null; // não é PNG, provavelmente é EMV
         }
 
-        if ($emv && !$qrImage) {
-            $qrImage = $this->generateQRCodeBase64($emv);
+        if ($emv && ! $qrImage) {
+            $qrImage = EfiBankClient::generateQrCodeBase64($emv);
             $subscription->update([
                 'metadata' => array_merge($metadata, ['pix_qrcode' => $qrImage]),
             ]);
@@ -205,13 +204,13 @@ class SaasEfiBankService
             ];
         }
 
-        if (!empty($metadata['loc_id'])) {
+        if (! empty($metadata['loc_id'])) {
             try {
                 $response = $this->client->pixGetQRCode((int) $metadata['loc_id']);
                 $emv = $response['qrcode'] ?? null;
 
                 if ($emv) {
-                    $qrImage = $this->generateQRCodeBase64($emv);
+                    $qrImage = EfiBankClient::generateQrCodeBase64($emv);
                     $subscription->update([
                         'metadata' => array_merge($metadata, [
                             'pix_qrcode' => $qrImage,
@@ -239,21 +238,6 @@ class SaasEfiBankService
         return [];
     }
 
-    private function generateQRCodeBase64(string $pixCopyPaste): string
-    {
-        try {
-            $qrCode = new QrCode($pixCopyPaste);
-            $writer = new PngWriter();
-            return base64_encode($writer->write($qrCode)->getString());
-        } catch (\Throwable $e) {
-            Log::warning('Failed to generate QR code locally', [
-                'error' => $e->getMessage(),
-            ]);
-        }
-
-        return '';
-    }
-
     public function cancelSubscription(SaasSubscription $subscription): void
     {
         $subscription->update([
@@ -264,7 +248,7 @@ class SaasEfiBankService
 
     public function verifySubscriptionStatus(SaasSubscription $subscription): string
     {
-        if (!$subscription->efi_charge_id) {
+        if (! $subscription->efi_charge_id) {
             return $subscription->status;
         }
 
@@ -297,15 +281,17 @@ class SaasEfiBankService
 
         $identifier = $txid ?? $chargeId;
 
-        if (!$identifier) {
+        if (! $identifier) {
             Log::warning('Saas webhook received without txid or charge_id', ['payload' => $payload]);
+
             return;
         }
 
         $subscription = SaasSubscription::where('efi_charge_id', $identifier)->first();
 
-        if (!$subscription) {
+        if (! $subscription) {
             Log::warning('Saas webhook: subscription not found', ['identifier' => $identifier]);
+
             return;
         }
 
@@ -387,6 +373,7 @@ class SaasEfiBankService
         }
         $r = ($s % 11 < 2) ? 0 : 11 - ($s % 11);
         $n[] = $r;
+
         return implode('', $n);
     }
 }

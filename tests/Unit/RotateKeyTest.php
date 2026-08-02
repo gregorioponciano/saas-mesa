@@ -6,8 +6,8 @@ use App\Models\TenantEfiCredentials;
 use App\Services\EncryptedCredentialService;
 
 test('rotateKey re-encrypts credentials so only the new key can decrypt them', function () {
-    $oldAppKey = 'base64:' . base64_encode(random_bytes(32));
-    $newAppKey = 'base64:' . base64_encode(random_bytes(32));
+    $oldAppKey = 'base64:'.base64_encode(random_bytes(32));
+    $newAppKey = 'base64:'.base64_encode(random_bytes(32));
 
     $tenant = createTenant();
 
@@ -50,14 +50,14 @@ test('rotateKey re-encrypts credentials so only the new key can decrypt them', f
     $serviceOld = app(EncryptedCredentialService::class);
 
     expect(fn () => $serviceOld->decrypt($fresh->client_id_encrypted))
-        ->toThrow(\RuntimeException::class, 'Decryption failed');
+        ->toThrow(RuntimeException::class, 'Decryption failed');
     expect(fn () => $serviceOld->decrypt($fresh->webhook_secret_encrypted))
-        ->toThrow(\RuntimeException::class, 'Decryption failed');
+        ->toThrow(RuntimeException::class, 'Decryption failed');
 });
 
 test('rotateKey decrypts with the old key even when the instance key differs from the old key', function () {
-    $oldAppKey = 'base64:' . base64_encode(random_bytes(32));
-    $newAppKey = 'base64:' . base64_encode(random_bytes(32));
+    $oldAppKey = 'base64:'.base64_encode(random_bytes(32));
+    $newAppKey = 'base64:'.base64_encode(random_bytes(32));
 
     $tenant = createTenant();
 

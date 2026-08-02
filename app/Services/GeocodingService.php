@@ -16,17 +16,23 @@ class GeocodingService
         // 1. Try CEP first — most accurate for Brazilian delivery radius checks
         if ($zipcode) {
             $result = $this->geocodeByCep($zipcode);
-            if ($result) return $result;
+            if ($result) {
+                return $result;
+            }
         }
 
         // 2. Try full address with Nominatim
         $result = $this->nominatimSearch($address, $city, $state);
-        if ($result) return $result;
+        if ($result) {
+            return $result;
+        }
 
         // 3. Try just the city center
         if ($city) {
             $result = $this->nominatimSearch($city, $state, 'Brasil');
-            if ($result) return $result;
+            if ($result) {
+                return $result;
+            }
         }
 
         return null;
@@ -36,11 +42,15 @@ class GeocodingService
     {
         // Check local map first
         $local = $this->localCityCoords($city, $state);
-        if ($local) return $local;
+        if ($local) {
+            return $local;
+        }
 
         // Try Nominatim with city + state
         $result = $this->nominatimSearch($city, $state, 'Brasil');
-        if ($result) return $result;
+        if ($result) {
+            return $result;
+        }
 
         return null;
     }
@@ -48,7 +58,9 @@ class GeocodingService
     private function nominatimSearch(string ...$parts): ?array
     {
         $parts = array_filter($parts);
-        if (empty($parts)) return null;
+        if (empty($parts)) {
+            return null;
+        }
         $query = implode(', ', $parts);
 
         try {
@@ -63,7 +75,7 @@ class GeocodingService
             ]);
 
             $data = $response->json();
-            if (!empty($data)) {
+            if (! empty($data)) {
                 foreach ($data as $place) {
                     if (isset($place['lat'], $place['lon'])) {
                         $lat = (float) $place['lat'];
@@ -78,14 +90,18 @@ class GeocodingService
                                 'lng' => $lng,
                                 'display_name' => $place['display_name'] ?? null,
                             ];
-                            if ($type === 'city') break;
+                            if ($type === 'city') {
+                                break;
+                            }
                         }
                     }
                 }
-                if (!empty($result)) return $result;
+                if (! empty($result)) {
+                    return $result;
+                }
             }
         } catch (\Throwable $e) {
-            Log::warning('Nominatim failed: ' . $e->getMessage(), ['query' => $query]);
+            Log::warning('Nominatim failed: '.$e->getMessage(), ['query' => $query]);
         }
 
         return null;
@@ -94,29 +110,38 @@ class GeocodingService
     public function geocodeByCep(string $cep): ?array
     {
         $cep = preg_replace('/\D/', '', $cep);
-        if (strlen($cep) !== 8) return null;
+        if (strlen($cep) !== 8) {
+            return null;
+        }
 
         // 1. Try API with coordinates direct (exact CEP point)
         $result = $this->cepWithCoordinates($cep);
-        if ($result) return $result;
+        if ($result) {
+            return $result;
+        }
 
         // 2. ViaCEP + Nominatim address lookup
         try {
             $response = file_get_contents("https://viacep.com.br/ws/{$cep}/json/");
             $data = json_decode($response, true);
-            if (!$data || isset($data['erro'])) return null;
+            if (! $data || isset($data['erro'])) {
+                return null;
+            }
 
             $result = $this->nominatimSearch(
-                $data['logradouro'] . ', ' . $data['bairro'],
+                $data['logradouro'].', '.$data['bairro'],
                 $data['localidade'],
                 $data['uf']
             );
-            if ($result) return $result;
+            if ($result) {
+                return $result;
+            }
 
             // 3. City center fallback (small cities)
             return $this->geocodeCity($data['localidade'], $data['uf']);
         } catch (\Throwable $e) {
-            Log::warning('ViaCEP geocoding failed: ' . $e->getMessage(), ['cep' => $cep]);
+            Log::warning('ViaCEP geocoding failed: '.$e->getMessage(), ['cep' => $cep]);
+
             return null;
         }
     }
@@ -124,27 +149,32 @@ class GeocodingService
     public function cepWithCoordinates(string $cep): ?array
     {
         $cep = preg_replace('/\D/', '', $cep);
-        if (strlen($cep) !== 8) return null;
+        if (strlen($cep) !== 8) {
+            return null;
+        }
 
         try {
             $response = file_get_contents("https://cep.awesomeapi.com.br/json/{$cep}");
             $data = json_decode($response, true);
-            if (!$data || isset($data['code']) || empty($data['lat']) || empty($data['lng'])) return null;
+            if (! $data || isset($data['code']) || empty($data['lat']) || empty($data['lng'])) {
+                return null;
+            }
 
             return [
                 'lat' => (float) $data['lat'],
                 'lng' => (float) $data['lng'],
-                'display_name' => trim(($data['address'] ?? '') . ', ' . ($data['city'] ?? '')),
+                'display_name' => trim(($data['address'] ?? '').', '.($data['city'] ?? '')),
             ];
         } catch (\Throwable $e) {
-            Log::warning('CepCoordinates geocoding failed: ' . $e->getMessage(), ['cep' => $cep]);
+            Log::warning('CepCoordinates geocoding failed: '.$e->getMessage(), ['cep' => $cep]);
+
             return null;
         }
     }
 
     private function localCityCoords(string $city, ?string $state = null): ?array
     {
-        $key = strtolower(trim($city . '-' . ($state ?? '')));
+        $key = strtolower(trim($city.'-'.($state ?? '')));
         $map = [
             'guaiçara-sp' => ['lat' => -21.6869, 'lng' => -49.7989],
             'presidente prudente-sp' => ['lat' => -22.1250, 'lng' => -51.3889],
@@ -179,6 +209,7 @@ class GeocodingService
            + cos(deg2rad($lat1)) * cos(deg2rad($lat2))
            * sin($dLng / 2) * sin($dLng / 2);
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
         return $earthRadius * $c;
     }
 

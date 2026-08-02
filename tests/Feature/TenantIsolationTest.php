@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 use App\Models\Category;
 use App\Models\Coupon;
-use App\Models\DeliveryPerson;
-use App\Models\Ingredient;
 use App\Models\Order;
-use App\Models\OrderPayment;
 use App\Models\Product;
 use App\Models\Table;
+use Illuminate\Database\Eloquent\Collection;
 
 test('tenant A cannot access tenant B categories', function () {
     $tenantA = createTenant(['name' => 'A']);
@@ -115,5 +113,5 @@ test('unauthenticated requests have no tenant scope', function () {
 
     // Without auth, scope may still apply depending on implementation
     // This test verifies no exception is thrown
-    expect($orders)->toBeInstanceOf(\Illuminate\Database\Eloquent\Collection::class);
+    expect($orders)->toBeInstanceOf(Collection::class);
 });

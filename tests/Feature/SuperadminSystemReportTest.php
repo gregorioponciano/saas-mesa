@@ -113,12 +113,29 @@ it('nega o relatório do sistema para usuário sem permissão', function () {
     $this->getJson('/api/superadmin/system/report')->assertForbidden();
 });
 
-it('renderiza o dashboard do superadmin com o relatório', function () {
+it('renderiza o dashboard do superadmin com visão geral', function () {
     $superadmin = createSuperAdmin();
     $this->actingAs($superadmin);
 
     $this->get(route('superadmin.dashboard'))
         ->assertOk()
+        ->assertSee('Visão Geral')
+        ->assertSee('Relatórios')
+        ->assertSee('Financeiro')
+        ->assertSee('Empresas ativas')
+        ->assertSee('Alertas em tempo real')
+        ->assertSee('Ao vivo')
+        ->assertSee('Empresas recentes')
+        ->assertSee('Auditoria recente');
+});
+
+it('renderiza a página de relatórios do superadmin', function () {
+    $superadmin = createSuperAdmin();
+    $this->actingAs($superadmin);
+
+    $this->get(route('superadmin.reports'))
+        ->assertOk()
+        ->assertSee('Relatórios')
         ->assertSee('Integridade do sistema')
         ->assertSee('Tarefas agendadas')
         ->assertSee('Alertas e erros')

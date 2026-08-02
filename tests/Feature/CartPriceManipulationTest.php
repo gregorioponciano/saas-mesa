@@ -12,6 +12,7 @@ use App\Models\ProductAttribute;
 use App\Models\ProductAttributeOption;
 use App\Models\Tenant;
 use App\Services\GeocodingService;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
 function createP0Tenant(): Tenant
@@ -56,7 +57,7 @@ function deliveryDistanceKm(): float
     return GeocodingService::haversineDistance(-21.6869, -49.7989, -21.7769, -49.7989);
 }
 
-function firstCartItem(\Livewire\Features\SupportTesting\Testable $test): array
+function firstCartItem(Testable $test): array
 {
     $items = $test->get('cartItems');
     expect($items)->not->toBeEmpty();

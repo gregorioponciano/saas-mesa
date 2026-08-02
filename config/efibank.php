@@ -17,6 +17,8 @@ return [
 
     'webhook_secret' => env('EFI_WEBHOOK_SECRET'),
 
+    'verify_webhook_ip' => (bool) env('EFI_VERIFY_WEBHOOK_IP', false),
+
     'urls' => [
         'pix' => 'https://pix.api.efipay.com.br/v2/',
         'oauth' => 'https://pix.api.efipay.com.br/oauth/token',

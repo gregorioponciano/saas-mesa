@@ -16,7 +16,7 @@ class TenantScope implements Scope
         $tenantId = $this->resolveTenantId();
 
         if ($tenantId !== null) {
-            $builder->where($model->getTable() . '.tenant_id', $tenantId);
+            $builder->where($model->getTable().'.tenant_id', $tenantId);
         }
     }
 
@@ -30,7 +30,13 @@ class TenantScope implements Scope
     private function resolveTenantId(): ?int
     {
         if (Auth::check() && Auth::user()->tenant_id) {
-            return Auth::user()->tenant_id;
+            $user = Auth::user();
+
+            if (method_exists($user, 'isSuperAdmin') && $user->isSuperAdmin()) {
+                return null;
+            }
+
+            return $user->tenant_id;
         }
 
         $request = request();

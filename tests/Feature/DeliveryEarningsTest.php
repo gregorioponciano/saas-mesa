@@ -28,7 +28,7 @@ function deliverOrderViaHttp($delivery, $order): void
 
     test()->actingAs($delivery, 'delivery-web')
         ->post(route('delivery.order.deliver', $order->id), [
-            'photo_data' => 'data:image/jpeg;base64,' . base64_encode($pixel),
+            'photo_data' => 'data:image/jpeg;base64,'.base64_encode($pixel),
         ])
         ->assertRedirect();
 }

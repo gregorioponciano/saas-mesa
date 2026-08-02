@@ -43,33 +43,37 @@ class TenantEfiCredentials extends Model
 
     public function decryptPixKey(): ?string
     {
-        if (!$this->pix_key_encrypted) {
+        if (! $this->pix_key_encrypted) {
             return null;
         }
+
         return app(EncryptedCredentialService::class)->decrypt($this->pix_key_encrypted);
     }
 
     public function decryptCertificatePath(): ?string
     {
-        if (!$this->certificate_path_encrypted) {
+        if (! $this->certificate_path_encrypted) {
             return null;
         }
+
         return app(EncryptedCredentialService::class)->decrypt($this->certificate_path_encrypted);
     }
 
     public function decryptCertificateContent(): ?string
     {
-        if (!$this->certificate_content_encrypted) {
+        if (! $this->certificate_content_encrypted) {
             return null;
         }
+
         return app(EncryptedCredentialService::class)->decrypt($this->certificate_content_encrypted);
     }
 
     public function decryptWebhookSecret(): ?string
     {
-        if (!$this->webhook_secret_encrypted) {
+        if (! $this->webhook_secret_encrypted) {
             return null;
         }
+
         return app(EncryptedCredentialService::class)->decrypt($this->webhook_secret_encrypted);
     }
 

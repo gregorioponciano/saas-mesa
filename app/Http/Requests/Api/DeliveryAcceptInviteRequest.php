@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Api;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class DeliveryAcceptInviteRequest extends FormRequest
 {
@@ -16,7 +15,11 @@ class DeliveryAcceptInviteRequest extends FormRequest
     {
         return [
             'password' => 'required|string|min:6|confirmed',
-            'cpf' => 'nullable|string|max:14|regex:/^\d{3}\.\d{3}\.\d{3}-\d{2}$/',
+            'cpf' => ['nullable', 'string', 'max:14', function (string $attribute, mixed $value, \Closure $fail): void {
+                if (! isValidCpf($value)) {
+                    $fail('O CPF informado é inválido.');
+                }
+            }],
             'cnh' => 'nullable|string|max:20',
             'vehicle_plate' => 'nullable|string|max:10|regex:/^[A-Z]{3}-\d{4}$/',
             'vehicle_model' => 'nullable|string|max:255',
@@ -30,7 +33,6 @@ class DeliveryAcceptInviteRequest extends FormRequest
             'password.required' => 'A senha é obrigatória.',
             'password.min' => 'A senha deve ter no mínimo 6 caracteres.',
             'password.confirmed' => 'A confirmação de senha não coincide.',
-            'cpf.regex' => 'O CPF deve estar no formato 000.000.000-00.',
             'vehicle_plate.regex' => 'A placa deve estar no formato AAA-0000.',
             'avatar.image' => 'A foto deve ser uma imagem.',
             'avatar.mimes' => 'A foto deve ser JPEG, PNG ou WebP.',

@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\Table;
 use App\Models\Tenant;
 use App\Models\User;
 

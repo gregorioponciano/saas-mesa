@@ -64,9 +64,9 @@ Route::get('/pedido/{id}/status', [OrderTrackingController::class, 'status'])
     ->name('api.order.tracking.status')
     ->whereNumber('id');
 
-// SUPERADMIN
+// SUPERADMIN (rate-limited: leituras 120/min, ações sensíveis 20/min)
 Route::prefix('superadmin')
-    ->middleware(['auth', 'role:superadmin'])
+    ->middleware(['auth', 'role:superadmin', 'throttle:superadmin'])
     ->group(function () {
         Route::apiResource('plans', PlansController::class);
         Route::apiResource('tenants', TenantsController::class)->only(['index', 'show', 'store', 'destroy']);
@@ -78,21 +78,25 @@ Route::prefix('superadmin')
         Route::get('financial/subscriptions', [FinancialController::class, 'subscriptions']);
         Route::get('financial/invoices', [FinancialController::class, 'invoices']);
         Route::get('financial/tenant/{tenant}', [FinancialController::class, 'tenant']);
-        Route::post('tenants/{tenant}/suspend', [TenantsController::class, 'suspend']);
-        Route::post('tenants/{tenant}/reactivate', [TenantsController::class, 'reactivate']);
-        Route::put('tenants/{tenant}/plan', [TenantsController::class, 'changePlan']);
-        Route::post('tenants/{tenant}/force-charge', [TenantsController::class, 'forceCharge']);
-        Route::get('tenants/{tenant}/export', [TenantsController::class, 'export']);
         Route::get('loyalty', [LoyaltyController::class, 'index']);
-        Route::post('loyalty/{tenant}/toggle', [LoyaltyController::class, 'toggle']);
         Route::get('backups', [BackupsController::class, 'index']);
-        Route::post('backups', [BackupsController::class, 'store']);
-        Route::delete('backups/{backup}', [BackupsController::class, 'destroy']);
         Route::get('tenants/{tenant}/settings', [TenantSettingsController::class, 'show']);
-        Route::put('tenants/{tenant}/settings', [TenantSettingsController::class, 'update']);
         Route::get('webhook-logs', [WebhookLogsController::class, 'index']);
         Route::get('webhook-logs/{log}', [WebhookLogsController::class, 'show']);
         Route::get('audit-logs', [AuditLogsController::class, 'index']);
+
+        // Ações sensíveis/destrutivas: teto mais baixo (20/min por usuário/IP)
+        Route::middleware('throttle:superadmin-sensitive')->group(function () {
+            Route::post('tenants/{tenant}/suspend', [TenantsController::class, 'suspend']);
+            Route::post('tenants/{tenant}/reactivate', [TenantsController::class, 'reactivate']);
+            Route::put('tenants/{tenant}/plan', [TenantsController::class, 'changePlan']);
+            Route::post('tenants/{tenant}/force-charge', [TenantsController::class, 'forceCharge']);
+            Route::get('tenants/{tenant}/export', [TenantsController::class, 'export']);
+            Route::delete('backups/{backup}', [BackupsController::class, 'destroy']);
+            Route::post('backups', [BackupsController::class, 'store']);
+            Route::post('loyalty/{tenant}/toggle', [LoyaltyController::class, 'toggle']);
+            Route::put('tenants/{tenant}/settings', [TenantSettingsController::class, 'update']);
+        });
     });
 
 // TENANT API

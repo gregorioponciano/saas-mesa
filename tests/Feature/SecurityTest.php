@@ -3,11 +3,15 @@
 declare(strict_types=1);
 
 use App\Models\Category;
+use App\Models\Order;
 use App\Models\OrderPayment;
 use App\Services\EfiBank\WebhookValidatorService;
+use Illuminate\Database\Eloquent\MassAssignmentException;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Str;
 
 test('mass assignment is blocked on all models', function () {
-    $this->expectException(\Illuminate\Database\Eloquent\MassAssignmentException::class);
+    $this->expectException(MassAssignmentException::class);
 
     Category::create(['not_a_column' => 'test']);
 });
@@ -48,8 +52,38 @@ test('SQL injection attempt is blocked by Eloquent', function () {
     expect(Category::count())->toBe(1);
 });
 
+test('security headers are present on web responses', function () {
+    $tenant = createTenant();
+    $this->actingAs(createTenantAdmin($tenant));
+
+    $response = $this->get('/');
+
+    $response->assertHeader('X-Frame-Options', 'DENY')
+        ->assertHeader('X-Content-Type-Options', 'nosniff')
+        ->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+        ->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+
+    $csp = $response->headers->get('Content-Security-Policy');
+
+    expect($csp)->toContain("object-src 'none'")
+        ->toContain("base-uri 'self'")
+        ->toContain("form-action 'self'");
+});
+
+test('csp allows unsafe-eval only outside production', function () {
+    config()->set('app.env', 'production');
+
+    $tenant = createTenant();
+    $this->actingAs(createTenantAdmin($tenant));
+
+    $response = $this->get('/');
+    $csp = $response->headers->get('Content-Security-Policy');
+
+    expect($csp)->not->toContain('unsafe-eval');
+});
+
 test('order payment model has fillable attributes', function () {
-    $payment = new OrderPayment();
+    $payment = new OrderPayment;
 
     expect($payment->getFillable())->toContain('order_id');
     expect($payment->getFillable())->toContain('tenant_id');
@@ -60,13 +94,13 @@ test('order payment model has fillable attributes', function () {
 test('idempotency key is unique', function () {
     $tenant = createTenant();
     $user = createTenantAdmin($tenant);
-    $order = \App\Models\Order::factory()->create([
+    $order = Order::factory()->create([
         'tenant_id' => $tenant->id,
         'user_id' => $user->id,
         'total' => 100.00,
     ]);
 
-    $key = \Illuminate\Support\Str::uuid()->toString();
+    $key = Str::uuid()->toString();
 
     OrderPayment::create([
         'order_id' => $order->id,
@@ -77,7 +111,7 @@ test('idempotency key is unique', function () {
         'idempotency_key' => $key,
     ]);
 
-    $this->expectException(\Illuminate\Database\QueryException::class);
+    $this->expectException(QueryException::class);
 
     OrderPayment::create([
         'order_id' => $order->id,

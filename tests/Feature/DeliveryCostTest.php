@@ -2,6 +2,7 @@
 
 use App\Livewire\Admin\Settings;
 use App\Livewire\Public\Cart;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\Tenant;
 use App\Services\GeocodingService;
@@ -10,7 +11,7 @@ use Livewire\Livewire;
 function createFeeTenant(array $overrides = []): Tenant
 {
     return Tenant::factory()->create(array_merge([
-        'slug' => 'fee-' . Str::random(8),
+        'slug' => 'fee-'.Str::random(8),
         'delivery_cost_per_order' => 10,
         'delivery_cost_per_km' => 5,
         'delivery_cost_enabled' => true,
@@ -135,7 +136,7 @@ test('cart checkout stores delivery cost as fixed plus per km', function () {
         ->set('cashAmount', '100')
         ->call('checkout');
 
-    $order = App\Models\Order::where('tenant_id', $tenant->id)->first();
+    $order = Order::where('tenant_id', $tenant->id)->first();
 
     expect($order)->not->toBeNull();
     expect((float) $order->delivery_cost)->toBeGreaterThanOrEqual(24.0);

@@ -128,7 +128,9 @@ class TenantBackupService
 
     public function pruneOverLimit(Tenant $tenant, int $maxBackups): void
     {
-        $oldest = TenantBackup::with('tenant')->where('tenant_id', $tenant->id)
+        // `with('tenant')` é necessário: deleteBackup() acessa $backup->tenant.
+        // Coleção é pequena (retenção por plano); SQLite não aceita OFFSET sem LIMIT.
+        $oldest = TenantBackup::with('tenant')->where('tenant_id', $tenant->id) // @phpstan-ignore larastan.noUnnecessaryCollectionCall
             ->orderBy('created_at', 'desc')
             ->get()
             ->slice($maxBackups);

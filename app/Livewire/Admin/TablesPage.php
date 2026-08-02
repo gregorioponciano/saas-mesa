@@ -7,33 +7,54 @@ use App\Models\Table;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Encoding\Encoding;
 use Endroid\QrCode\Writer\PngWriter;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
 
+/**
+ * Propriedades computadas ([Computed]) reconhecidas pelo PHPStan.
+ *
+ * @property mixed $stats
+ */
 class TablesPage extends Component
 {
     use WithPagination;
 
     public string $search = '';
+
     public string $statusFilter = '';
+
     public int $editingTableId = 0;
+
     public string $number = '';
+
     public int $capacity = 4;
+
     public string $status = 'free';
+
     public string $observation = '';
+
     public bool $showForm = false;
+
     public string $formMode = 'single';
 
     public string $bulkPrefix = 'Mesa ';
+
     public int $bulkStart = 1;
+
     public int $bulkEnd = 10;
+
     public int $bulkCapacity = 4;
 
     public bool $showQr = false;
+
     public ?int $qrTableId = null;
+
     public ?string $qrTableNumber = null;
+
     public string $qrUrl = '';
+
     public string $qrImage = '';
 
     protected function rules(): array
@@ -106,6 +127,7 @@ class TablesPage extends Component
     {
         if ($this->formMode === 'bulk') {
             $this->saveBulk();
+
             return;
         }
 
@@ -113,8 +135,9 @@ class TablesPage extends Component
 
         $tenant = auth()->user()->tenant;
 
-        if (!$this->editingTableId && !$tenant->canAddTable()) {
-            $this->addError('number', 'Seu plano gratuito permite apenas ' . $tenant->maxTablesAllowed() . ' mesas. Faca upgrade para Premium.');
+        if (! $this->editingTableId && ! $tenant->canAddTable()) {
+            $this->addError('number', 'Seu plano gratuito permite apenas '.$tenant->maxTablesAllowed().' mesas. Faca upgrade para Premium.');
+
             return;
         }
 
@@ -124,6 +147,7 @@ class TablesPage extends Component
 
         if ($existing) {
             $this->addError('number', 'Ja existe uma mesa com este numero.');
+
             return;
         }
 
@@ -138,6 +162,7 @@ class TablesPage extends Component
 
                 if ($activeOrders) {
                     $this->addError('status', 'Mesa com pedidos ativos. Use "Fechar Conta" ou "Liberar Mesa".');
+
                     return;
                 }
             }
@@ -155,7 +180,7 @@ class TablesPage extends Component
                 $this->dispatch('tableFreed')->to('public.cart');
             }
 
-            $this->dispatch('notify', message: 'Mesa ' . $this->number . ' atualizada!');
+            $this->dispatch('notify', message: 'Mesa '.$this->number.' atualizada!');
         } else {
             $this->authorize('create', Table::class);
             Table::create([
@@ -165,7 +190,7 @@ class TablesPage extends Component
                 'status' => $this->status,
                 'observation' => $this->observation ?: null,
             ]);
-            $this->dispatch('notify', message: 'Mesa ' . $this->number . ' criada!');
+            $this->dispatch('notify', message: 'Mesa '.$this->number.' criada!');
         }
 
         $this->resetForm();
@@ -183,8 +208,9 @@ class TablesPage extends Component
 
         $qty = $this->bulkEnd - $this->bulkStart + 1;
 
-        if (!$tenant->canAddTable() && $tenant->tables()->count() + $qty > $tenant->maxTablesAllowed()) {
-            $this->addError('bulkEnd', 'Limite de ' . $tenant->maxTablesAllowed() . ' mesas excedido. Faca upgrade para Premium.');
+        if (! $tenant->canAddTable() && $tenant->tables()->count() + $qty > $tenant->maxTablesAllowed()) {
+            $this->addError('bulkEnd', 'Limite de '.$tenant->maxTablesAllowed().' mesas excedido. Faca upgrade para Premium.');
+
             return;
         }
 
@@ -194,13 +220,13 @@ class TablesPage extends Component
             ->toArray();
 
         for ($i = $this->bulkStart; $i <= $this->bulkEnd; $i++) {
-            $number = $this->bulkPrefix ? $this->bulkPrefix . $i : (string) $i;
+            $number = $this->bulkPrefix ? $this->bulkPrefix.$i : (string) $i;
 
             if (in_array($number, $existing)) {
                 continue;
             }
 
-            if (!$tenant->canAddTable()) {
+            if (! $tenant->canAddTable()) {
                 break;
             }
 
@@ -216,7 +242,7 @@ class TablesPage extends Component
         $this->showForm = false;
 
         if ($created > 0) {
-            $this->dispatch('notify', message: $created . ' mesas criadas com sucesso!');
+            $this->dispatch('notify', message: $created.' mesas criadas com sucesso!');
         } else {
             $this->dispatch('notify', message: 'Nenhuma mesa foi criada (todas ja existem ou limite atingido).');
         }
@@ -229,12 +255,13 @@ class TablesPage extends Component
         $number = $table->number;
 
         if ($table->orders()->whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])->exists()) {
-            $this->dispatch('notify', message: 'Nao e possivel excluir a mesa ' . $number . ' com pedidos em andamento.');
+            $this->dispatch('notify', message: 'Nao e possivel excluir a mesa '.$number.' com pedidos em andamento.');
+
             return;
         }
 
         $table->delete();
-        $this->dispatch('notify', message: 'Mesa ' . $number . ' excluida!');
+        $this->dispatch('notify', message: 'Mesa '.$number.' excluida!');
     }
 
     public function toggleStatus(int $id): void
@@ -255,6 +282,7 @@ class TablesPage extends Component
 
             if ($activeOrders) {
                 $this->dispatch('notify', message: 'Use "Fechar Conta" ou "Liberar Mesa" para mesas com pedidos ativos.');
+
                 return;
             }
         }
@@ -266,7 +294,9 @@ class TablesPage extends Component
             $this->dispatch('tableFreed')->to('public.cart');
         }
 
-        $this->dispatch('notify', message: 'Mesa alterada para ' . match($newStatus) { 'free' => 'Livre', 'occupied' => 'Ocupada', 'reserved' => 'Reservada' });
+        $this->dispatch('notify', message: 'Mesa alterada para '.match ($newStatus) {
+            'free' => 'Livre', 'occupied' => 'Ocupada', 'reserved' => 'Reservada'
+        });
     }
 
     public function showQrCode(int $id): void
@@ -288,7 +318,7 @@ class TablesPage extends Component
             margin: 10,
         );
 
-        $this->qrImage = 'data:image/png;base64,' . base64_encode($result->build()->getString());
+        $this->qrImage = 'data:image/png;base64,'.base64_encode($result->build()->getString());
 
         $this->showQr = true;
     }
@@ -307,8 +337,8 @@ class TablesPage extends Component
     {
         $tenant = auth()->user()->tenant;
 
-        if (!$tenant) {
-            return new \Illuminate\Pagination\LengthAwarePaginator([], 0, 12, 1);
+        if (! $tenant) {
+            return new LengthAwarePaginator([], 0, 12, 1);
         }
 
         $query = $tenant->manageableTables()->with('tenant');
@@ -329,7 +359,7 @@ class TablesPage extends Component
     {
         $tenant = auth()->user()->tenant;
 
-        if (!$tenant) {
+        if (! $tenant) {
             return ['total' => 0, 'free' => 0, 'occupied' => 0, 'reserved' => 0];
         }
 

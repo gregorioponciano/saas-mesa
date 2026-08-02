@@ -25,7 +25,7 @@ class DeliveryController extends Controller
             $request->password
         );
 
-        if (!$delivery) {
+        if (! $delivery) {
             return response()->json(['message' => 'Credenciais inválidas'], 401);
         }
 
@@ -42,7 +42,7 @@ class DeliveryController extends Controller
     public function logout(Request $request): JsonResponse
     {
         $delivery = $this->getDeliveryPerson($request);
-        if (!$delivery) {
+        if (! $delivery) {
             return response()->json(['message' => 'Não autorizado'], 401);
         }
 
@@ -54,7 +54,7 @@ class DeliveryController extends Controller
     public function orders(Request $request): JsonResponse
     {
         $delivery = $this->getDeliveryPerson($request);
-        if (!$delivery) {
+        if (! $delivery) {
             return response()->json(['message' => 'Não autorizado'], 401);
         }
 
@@ -66,7 +66,7 @@ class DeliveryController extends Controller
     public function myOrders(Request $request): JsonResponse
     {
         $delivery = $this->getDeliveryPerson($request);
-        if (!$delivery) {
+        if (! $delivery) {
             return response()->json(['message' => 'Não autorizado'], 401);
         }
 
@@ -78,13 +78,13 @@ class DeliveryController extends Controller
     public function acceptOrder(Request $request, int $orderId): JsonResponse
     {
         $delivery = $this->getDeliveryPerson($request);
-        if (!$delivery) {
+        if (! $delivery) {
             return response()->json(['message' => 'Não autorizado'], 401);
         }
 
         $order = $this->deliveryService->acceptOrder($delivery, $orderId);
 
-        if (!$order) {
+        if (! $order) {
             return response()->json(['message' => 'Pedido não encontrado ou já foi aceito'], 404);
         }
 
@@ -98,13 +98,13 @@ class DeliveryController extends Controller
     public function refuseOrder(Request $request, int $orderId): JsonResponse
     {
         $delivery = $this->getDeliveryPerson($request);
-        if (!$delivery) {
+        if (! $delivery) {
             return response()->json(['message' => 'Não autorizado'], 401);
         }
 
         $refused = $this->deliveryService->refuseOrder($delivery, $orderId);
 
-        if (!$refused) {
+        if (! $refused) {
             return response()->json(['message' => 'Pedido não encontrado ou não está disponível'], 404);
         }
 
@@ -114,13 +114,13 @@ class DeliveryController extends Controller
     public function pickupOrder(Request $request, int $orderId): JsonResponse
     {
         $delivery = $this->getDeliveryPerson($request);
-        if (!$delivery) {
+        if (! $delivery) {
             return response()->json(['message' => 'Não autorizado'], 401);
         }
 
         $order = $this->deliveryService->markPickedUp($delivery, $orderId);
 
-        if (!$order) {
+        if (! $order) {
             return response()->json(['message' => 'Pedido não encontrado ou não está no status coletado'], 404);
         }
 
@@ -134,7 +134,7 @@ class DeliveryController extends Controller
     public function updateStatus(DeliveryUpdateStatusRequest $request, int $orderId): JsonResponse
     {
         $delivery = $this->getDeliveryPerson($request);
-        if (!$delivery) {
+        if (! $delivery) {
             return response()->json(['message' => 'Não autorizado'], 401);
         }
 
@@ -158,7 +158,7 @@ class DeliveryController extends Controller
                 $request->float('lng')
             );
 
-            if (!$order) {
+            if (! $order) {
                 return response()->json(['message' => 'Pedido não encontrado ou não está em rota de entrega'], 404);
             }
 
@@ -171,7 +171,7 @@ class DeliveryController extends Controller
         if ($status === 'cancelado') {
             $order = $this->deliveryService->cancelOrder($delivery, $orderId);
 
-            if (!$order) {
+            if (! $order) {
                 return response()->json(['message' => 'Pedido não encontrado ou já foi finalizado'], 404);
             }
 
@@ -187,7 +187,7 @@ class DeliveryController extends Controller
     public function profile(Request $request): JsonResponse
     {
         $delivery = $this->getDeliveryPerson($request);
-        if (!$delivery) {
+        if (! $delivery) {
             return response()->json(['message' => 'Não autorizado'], 401);
         }
 
@@ -195,7 +195,7 @@ class DeliveryController extends Controller
         $endDate = $request->query('end_date');
         $period = $request->query('period');
 
-        if ($period && !$startDate && !$endDate) {
+        if ($period && ! $startDate && ! $endDate) {
             $dates = $this->resolvePeriod($period);
             $startDate = $dates['start'];
             $endDate = $dates['end'];
@@ -209,7 +209,7 @@ class DeliveryController extends Controller
     private function getDeliveryPerson(Request $request): ?DeliveryPerson
     {
         $token = $request->bearerToken();
-        if (!$token) {
+        if (! $token) {
             return null;
         }
 
@@ -226,7 +226,7 @@ class DeliveryController extends Controller
             ->where('status', 'active')
             ->first();
 
-        if (!$delivery) {
+        if (! $delivery) {
             $delivery = DeliveryPerson::where('api_token', $token)
                 ->where('status', 'active')
                 ->first();

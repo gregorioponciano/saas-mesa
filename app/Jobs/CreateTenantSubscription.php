@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\SaasPlan;
-use App\Models\SaasSubscription;
 use App\Models\Tenant;
-use App\Services\EfiBank\SaasEfiBankService;
 use App\Services\SubscriptionService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -21,6 +19,7 @@ class CreateTenantSubscription implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
+
     public int $backoff = 60;
 
     public function __construct(

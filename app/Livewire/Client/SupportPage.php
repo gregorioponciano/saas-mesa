@@ -15,13 +15,19 @@ class SupportPage extends Component
     public string $tab = 'meus_tickets';
 
     public string $newSubject = '';
+
     public string $newCategory = 'outro';
+
     public string $newPriority = 'media';
+
     public string $newBody = '';
+
     public ?string $newOrderRef = null;
 
     public ?int $viewingTicketId = null;
+
     public ?array $viewingTicket = null;
+
     public bool $showTicketDetail = false;
 
     public string $replyBody = '';
@@ -43,27 +49,27 @@ class SupportPage extends Component
     public function openTicket(): void
     {
         $this->validate([
-            'newSubject'  => 'required|string|max:200',
+            'newSubject' => 'required|string|max:200',
             'newCategory' => 'required|in:pedido,pagamento,cardapio,entrega,conta,outro',
             'newPriority' => 'required|in:baixa,media,alta',
-            'newBody'     => 'required|string|min:10|max:2000',
+            'newBody' => 'required|string|min:10|max:2000',
             'newOrderRef' => 'nullable|string|max:50',
         ]);
 
         $ticket = SupportTicket::create([
-            'tenant_id'  => $this->tenant->id,
-            'user_id'    => Auth::id(),
-            'subject'    => $this->newSubject,
-            'category'   => $this->newCategory,
-            'priority'   => $this->newPriority,
-            'status'     => 'aberto',
-            'order_id'   => $this->newOrderRef ?: null,
+            'tenant_id' => $this->tenant->id,
+            'user_id' => Auth::id(),
+            'subject' => $this->newSubject,
+            'category' => $this->newCategory,
+            'priority' => $this->newPriority,
+            'status' => 'aberto',
+            'order_id' => $this->newOrderRef ?: null,
         ]);
 
         SupportTicketMessage::create([
-            'ticket_id'   => $ticket->id,
-            'user_id'     => Auth::id(),
-            'body'        => $this->newBody,
+            'ticket_id' => $ticket->id,
+            'user_id' => Auth::id(),
+            'body' => $this->newBody,
             'author_role' => 'cliente',
             'author_name' => Auth::user()->name,
         ]);
@@ -76,32 +82,32 @@ class SupportPage extends Component
     public function viewTicket(int $ticketId): void
     {
         $ticket = SupportTicket::with([
-            'messages' => fn($q) => $q->where('is_internal', false)->oldest(),
+            'messages' => fn ($q) => $q->where('is_internal', false)->oldest(),
             'assignedTo',
         ])->where('user_id', Auth::id())->findOrFail($ticketId);
 
         $this->viewingTicketId = $ticketId;
         $this->viewingTicket = [
-            'id'          => $ticket->id,
-            'subject'     => $ticket->subject,
-            'category'    => $ticket->category,
+            'id' => $ticket->id,
+            'subject' => $ticket->subject,
+            'category' => $ticket->category,
             'categoryLabel' => $ticket->categoryLabel(),
-            'priority'    => $ticket->priority,
+            'priority' => $ticket->priority,
             'priorityLabel' => $ticket->priorityLabel(),
             'priorityClasses' => $ticket->priorityClasses(),
-            'status'      => $ticket->status,
+            'status' => $ticket->status,
             'statusLabel' => $ticket->statusLabel(),
             'statusClasses' => $ticket->statusClasses(),
-            'created_at'  => $ticket->created_at->format('d/m/Y H:i'),
-            'updated_at'  => $ticket->updated_at->format('d/m/Y H:i'),
+            'created_at' => $ticket->created_at->format('d/m/Y H:i'),
+            'updated_at' => $ticket->updated_at->format('d/m/Y H:i'),
             'assigned_to' => $ticket->assignedTo?->name,
-            'order_id'    => $ticket->order_id,
-            'messages'    => $ticket->messages->map(fn($m) => [
-                'id'          => $m->id,
-                'body'        => $m->body,
+            'order_id' => $ticket->order_id,
+            'messages' => $ticket->messages->map(fn ($m) => [
+                'id' => $m->id,
+                'body' => $m->body,
                 'author_role' => $m->author_role,
                 'author_name' => $m->author_name,
-                'created_at'  => $m->created_at->format('d/m/Y H:i'),
+                'created_at' => $m->created_at->format('d/m/Y H:i'),
             ])->toArray(),
         ];
         $this->showTicketDetail = true;
@@ -115,9 +121,9 @@ class SupportPage extends Component
         $ticket = SupportTicket::where('user_id', Auth::id())->findOrFail($this->viewingTicketId);
 
         SupportTicketMessage::create([
-            'ticket_id'   => $ticket->id,
-            'user_id'     => Auth::id(),
-            'body'        => $this->replyBody,
+            'ticket_id' => $ticket->id,
+            'user_id' => Auth::id(),
+            'body' => $this->replyBody,
             'author_role' => 'cliente',
             'author_name' => Auth::user()->name,
         ]);

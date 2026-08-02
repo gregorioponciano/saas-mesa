@@ -2,18 +2,23 @@
 
 namespace App\Livewire\Admin;
 
-use App\Models\Tenant;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class SmtpSettings extends Component
 {
     public string $mailHost = '';
+
     public string $mailPort = '';
+
     public string $mailUsername = '';
+
     public string $mailPassword = '';
+
     public string $mailEncryption = '';
+
     public string $mailFromAddress = '';
+
     public string $mailFromName = '';
 
     protected function rules(): array

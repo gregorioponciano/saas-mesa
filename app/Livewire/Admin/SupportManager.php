@@ -13,26 +13,35 @@ use Livewire\Component;
 class SupportManager extends Component
 {
     public string $statusFilter = 'all';
+
     public string $categoryFilter = 'all';
+
     public string $priorityFilter = 'all';
+
     public string $search = '';
+
     public string $tab = 'tickets';
 
     public ?int $viewingTicketId = null;
+
     public ?array $viewingTicket = null;
+
     public bool $showDetail = false;
+
     public string $replyBody = '';
+
     public bool $replyIsInternal = false;
+
     public ?int $reassignToUserId = null;
 
     #[Computed]
     public function tickets()
     {
         return SupportTicket::where('tenant_id', auth()->user()->tenant_id)->with(['user', 'lastMessage', 'assignedTo'])
-            ->when($this->statusFilter !== 'all', fn($q) => $q->where('status', $this->statusFilter))
-            ->when($this->categoryFilter !== 'all', fn($q) => $q->where('category', $this->categoryFilter))
-            ->when($this->priorityFilter !== 'all', fn($q) => $q->where('priority', $this->priorityFilter))
-            ->when($this->search, fn($q) => $q->where('subject', 'like', "%{$this->search}%"))
+            ->when($this->statusFilter !== 'all', fn ($q) => $q->where('status', $this->statusFilter))
+            ->when($this->categoryFilter !== 'all', fn ($q) => $q->where('category', $this->categoryFilter))
+            ->when($this->priorityFilter !== 'all', fn ($q) => $q->where('priority', $this->priorityFilter))
+            ->when($this->search, fn ($q) => $q->where('subject', 'like', "%{$this->search}%"))
             ->latest('updated_at')
             ->take(100)
             ->get();
@@ -42,15 +51,16 @@ class SupportManager extends Component
     public function metrics(): array
     {
         $tenantId = auth()->user()->tenant_id;
+
         return [
-            'total'              => SupportTicket::where('tenant_id', $tenantId)->count(),
-            'abertos'            => SupportTicket::where('tenant_id', $tenantId)->where('status', 'aberto')->count(),
-            'em_atendimento'     => SupportTicket::where('tenant_id', $tenantId)->where('status', 'em_atendimento')->count(),
+            'total' => SupportTicket::where('tenant_id', $tenantId)->count(),
+            'abertos' => SupportTicket::where('tenant_id', $tenantId)->where('status', 'aberto')->count(),
+            'em_atendimento' => SupportTicket::where('tenant_id', $tenantId)->where('status', 'em_atendimento')->count(),
             'aguardando_cliente' => SupportTicket::where('tenant_id', $tenantId)->where('status', 'aguardando_cliente')->count(),
-            'resolvidos_hoje'    => SupportTicket::where('tenant_id', $tenantId)->where('status', 'resolvido')->whereDate('updated_at', today())->count(),
-            'tempo_medio_dias'   => round(SupportTicket::where('tenant_id', $tenantId)->whereIn('status', ['resolvido', 'fechado'])
+            'resolvidos_hoje' => SupportTicket::where('tenant_id', $tenantId)->where('status', 'resolvido')->whereDate('updated_at', today())->count(),
+            'tempo_medio_dias' => round(SupportTicket::where('tenant_id', $tenantId)->whereIn('status', ['resolvido', 'fechado'])
                 ->avg(DB::raw('TIMESTAMPDIFF(HOUR, created_at, updated_at)')) / 24, 1),
-            'por_categoria'      => SupportTicket::where('tenant_id', $tenantId)->selectRaw('category, count(*) as total')
+            'por_categoria' => SupportTicket::where('tenant_id', $tenantId)->selectRaw('category, count(*) as total')
                 ->groupBy('category')->pluck('total', 'category'),
         ];
     }
@@ -66,34 +76,34 @@ class SupportManager extends Component
 
     public function viewTicket(int $ticketId): void
     {
-        $ticket = SupportTicket::where('tenant_id', auth()->user()->tenant_id)->with(['messages' => fn($q) => $q->oldest(), 'user', 'assignedTo'])
+        $ticket = SupportTicket::where('tenant_id', auth()->user()->tenant_id)->with(['messages' => fn ($q) => $q->oldest(), 'user', 'assignedTo'])
             ->findOrFail($ticketId);
 
         $this->viewingTicketId = $ticketId;
         $this->viewingTicket = [
-            'id'          => $ticket->id,
-            'subject'     => $ticket->subject,
-            'category'    => $ticket->category,
+            'id' => $ticket->id,
+            'subject' => $ticket->subject,
+            'category' => $ticket->category,
             'categoryLabel' => $ticket->categoryLabel(),
-            'priority'    => $ticket->priority,
+            'priority' => $ticket->priority,
             'priorityLabel' => $ticket->priorityLabel(),
             'priorityClasses' => $ticket->priorityClasses(),
-            'status'      => $ticket->status,
+            'status' => $ticket->status,
             'statusLabel' => $ticket->statusLabel(),
             'statusClasses' => $ticket->statusClasses(),
-            'created_at'  => $ticket->created_at->format('d/m/Y H:i'),
-            'updated_at'  => $ticket->updated_at->format('d/m/Y H:i'),
-            'user_name'   => $ticket->user?->name ?? '—',
+            'created_at' => $ticket->created_at->format('d/m/Y H:i'),
+            'updated_at' => $ticket->updated_at->format('d/m/Y H:i'),
+            'user_name' => $ticket->user?->name ?? '—',
             'assigned_to' => $ticket->assignedTo?->name,
             'assigned_to_id' => $ticket->assigned_to,
-            'order_id'    => $ticket->order_id,
-            'messages'    => $ticket->messages->map(fn($m) => [
-                'id'          => $m->id,
-                'body'        => $m->body,
+            'order_id' => $ticket->order_id,
+            'messages' => $ticket->messages->map(fn ($m) => [
+                'id' => $m->id,
+                'body' => $m->body,
                 'author_role' => $m->author_role,
                 'author_name' => $m->author_name,
                 'is_internal' => $m->is_internal,
-                'created_at'  => $m->created_at->format('d/m/Y H:i'),
+                'created_at' => $m->created_at->format('d/m/Y H:i'),
             ])->toArray(),
         ];
         $this->showDetail = true;
@@ -110,15 +120,15 @@ class SupportManager extends Component
         $user = Auth::user();
 
         SupportTicketMessage::create([
-            'ticket_id'   => $ticket->id,
-            'user_id'     => $user->id,
-            'body'        => $this->replyBody,
+            'ticket_id' => $ticket->id,
+            'user_id' => $user->id,
+            'body' => $this->replyBody,
             'is_internal' => $this->replyIsInternal,
             'author_role' => 'admin',
             'author_name' => $user->name,
         ]);
 
-        if (!$this->replyIsInternal) {
+        if (! $this->replyIsInternal) {
             if ($ticket->status === 'aberto') {
                 $ticket->update(['status' => 'em_atendimento']);
             }

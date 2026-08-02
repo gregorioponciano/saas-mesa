@@ -23,7 +23,7 @@ class SubscriptionService
         $subscription = $this->efiBankService->createSubscription($tenant, $plan);
 
         $tenant->update([
-            'plan' => $plan->slug === 'premium' ? 'paid' : 'free',
+            'plan' => $plan->price_cents > 0 ? Tenant::PLAN_PAID : Tenant::PLAN_FREE,
             'max_tables' => $plan->features_json['max_tables'] ?? 10,
             'status' => 'active',
             'subscription_id' => $subscription->id,
@@ -92,9 +92,9 @@ class SubscriptionService
         $suspendedCount = 0;
 
         $pastDueSubscriptions = SaasSubscription::whereIn('status', ['past_due', 'trial'])
-            ->where(function ($q) use ($cutoff) {
+            ->where(function ($q) {
                 $q->whereNull('trial_ends_at')
-                  ->orWhere('trial_ends_at', '<', now());
+                    ->orWhere('trial_ends_at', '<', now());
             })
             ->where('current_period_end', '<', $cutoff)
             ->get();

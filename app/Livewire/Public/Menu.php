@@ -5,11 +5,14 @@ namespace App\Livewire\Public;
 use App\Models\Category;
 use App\Models\LoyaltyConfig;
 use App\Models\Order;
-use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Models\SupportTicket;
+use App\Models\SupportTicketMessage;
 use App\Models\Table;
 use App\Models\UserAddress;
+use App\Models\UserFavorite;
+use App\Services\EfiBank\EfiBankClient;
 use App\Services\EfiBank\TenantEfiBankService;
 use App\Services\PointsService;
 use Illuminate\Support\Facades\Auth;
@@ -18,38 +21,84 @@ use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
+/**
+ * Propriedades computadas ([Computed]) reconhecidas pelo PHPStan.
+ *
+ * @property mixed $cartItems
+ */
+/**
+ * Propriedades computadas ([Computed]) reconhecidas pelo PHPStan.
+ *
+ * @property mixed $categories
+ * @property mixed $selectedProduct
+ * @property mixed $supportMyTickets
+ * @property mixed $myOrders
+ * @property mixed $myOrdersCount
+ * @property mixed $myActiveOrders
+ * @property mixed $myUnpaidOrders
+ * @property mixed $cartItemsCount
+ * @property mixed $cartItems
+ * @property mixed $pointsBalance
+ * @property mixed $pointsVisible
+ * @property mixed $pointsProducts
+ * @property mixed $favoriteProducts
+ * @property mixed $availableTables
+ */
 class Menu extends Component
 {
     public $tenant;
+
     public ?int $selectedProductId = null;
+
     public ?string $token = null;
 
     public string $clientTab = 'menu';
+
     public string $orderHistoryFilter = 'all';
+
     public string $historyPeriod = 'all';
+
     public string $historySearch = '';
+
     public string $profileName = '';
+
     public string $profileEmail = '';
+
     public string $profilePassword = '';
+
     public string $profilePasswordConfirmation = '';
+
     public string $profilePhone = '';
+
     public array $favoriteProductIds = [];
 
     // Support
     public string $supportTab = 'my_tickets';
+
     public string $supportNewSubject = '';
+
     public string $supportNewCategory = 'outro';
+
     public string $supportNewPriority = 'media';
+
     public string $supportNewBody = '';
+
     public ?int $supportViewingTicketId = null;
+
     public ?array $supportViewingTicket = null;
+
     public string $supportReplyBody = '';
 
     public ?int $selectedTableId = null;
+
     public ?string $selectedTableNumber = null;
+
     public ?string $selectedTableToken = null;
+
     public bool $showQrModal = false;
+
     public bool $showTablePicker = false;
+
     public ?int $pickingTableId = null;
 
     protected $listeners = [
@@ -100,7 +149,7 @@ class Menu extends Component
 
     protected function restoreTableFromToken(): void
     {
-        if ($this->token && !$this->selectedTableToken) {
+        if ($this->token && ! $this->selectedTableToken) {
             $table = Table::where('tenant_id', $this->tenant->id)
                 ->where('token', $this->token)
                 ->first();
@@ -128,14 +177,16 @@ class Menu extends Component
 
     public function verifyTableAccess(): void
     {
-        if (!$this->selectedTableId || !Auth::check()) return;
+        if (! $this->selectedTableId || ! Auth::check()) {
+            return;
+        }
 
         $table = Table::where('tenant_id', $this->tenant->id)->find($this->selectedTableId);
 
         if ($table && $table->status === 'free') {
             $tableEverHadOrders = Order::where('table_id', $table->id)->exists();
 
-            if ($tableEverHadOrders && !$table->hasOpenBillableOrders()) {
+            if ($tableEverHadOrders && ! $table->hasOpenBillableOrders()) {
                 $this->clearTableSession();
                 $this->dispatch('notify', message: 'Voce foi liberado da mesa.');
             }
@@ -156,9 +207,10 @@ class Menu extends Component
     #[Computed]
     public function selectedProduct()
     {
-        if (!$this->selectedProductId) {
+        if (! $this->selectedProductId) {
             return null;
         }
+
         return Product::with('attributes.options.ingredient')
             ->where('tenant_id', $this->tenant->id)
             ->findOrFail($this->selectedProductId);
@@ -191,29 +243,33 @@ class Menu extends Component
 
     public function loadFavorites(): void
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             $this->favoriteProductIds = [];
+
             return;
         }
-        $this->favoriteProductIds = Auth::user()->favoriteProducts()->pluck('product_id')->map(fn($id) => (int) $id)->toArray();
+        $this->favoriteProductIds = Auth::user()->favoriteProducts()->pluck('product_id')->map(fn ($id) => (int) $id)->toArray();
     }
 
     public function toggleFavorite(int $productId): void
     {
-        if (!Auth::check()) {
-            $this->redirect(route('waiter.login.form', $this->tenant->slug) . '?redirect=' . urlencode(route('menu.show', $this->tenant->slug)));
+        if (! Auth::check()) {
+            $this->redirect(route('waiter.login.form', $this->tenant->slug).'?redirect='.urlencode(route('menu.show', $this->tenant->slug)));
+
             return;
         }
 
         $product = Product::where('tenant_id', $this->tenant->id)->find($productId);
-        if (!$product) return;
+        if (! $product) {
+            return;
+        }
 
         $user = Auth::user();
         $existing = UserFavorite::where('user_id', $user->id)->where('product_id', $productId)->first();
 
         if ($existing) {
             $existing->delete();
-            $this->favoriteProductIds = array_values(array_filter($this->favoriteProductIds, fn($id) => $id !== $productId));
+            $this->favoriteProductIds = array_values(array_filter($this->favoriteProductIds, fn ($id) => $id !== $productId));
             $this->dispatch('notify', message: 'Produto removido dos favoritos.');
         } else {
             UserFavorite::create(['user_id' => $user->id, 'product_id' => $productId]);
@@ -224,7 +280,7 @@ class Menu extends Component
 
     public function saveProfile(): void
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return;
         }
 
@@ -252,8 +308,11 @@ class Menu extends Component
     #[Computed]
     public function supportMyTickets()
     {
-        if (!Auth::check()) return collect();
-        return \App\Models\SupportTicket::with('lastMessage')
+        if (! Auth::check()) {
+            return collect();
+        }
+
+        return SupportTicket::with('lastMessage')
             ->where('user_id', Auth::id())
             ->latest('updated_at')
             ->get();
@@ -261,28 +320,30 @@ class Menu extends Component
 
     public function supportOpenTicket(): void
     {
-        if (!Auth::check()) return;
+        if (! Auth::check()) {
+            return;
+        }
 
         $this->validate([
-            'supportNewSubject'  => 'required|string|max:200',
+            'supportNewSubject' => 'required|string|max:200',
             'supportNewCategory' => 'required|in:pedido,pagamento,cardapio,entrega,conta,outro',
             'supportNewPriority' => 'required|in:baixa,media,alta',
-            'supportNewBody'     => 'required|string|min:10|max:2000',
+            'supportNewBody' => 'required|string|min:10|max:2000',
         ]);
 
-        $ticket = \App\Models\SupportTicket::create([
+        $ticket = SupportTicket::create([
             'tenant_id' => $this->tenant->id,
-            'user_id'   => Auth::id(),
-            'subject'   => $this->supportNewSubject,
-            'category'  => $this->supportNewCategory,
-            'priority'  => $this->supportNewPriority,
-            'status'    => 'aberto',
+            'user_id' => Auth::id(),
+            'subject' => $this->supportNewSubject,
+            'category' => $this->supportNewCategory,
+            'priority' => $this->supportNewPriority,
+            'status' => 'aberto',
         ]);
 
-        \App\Models\SupportTicketMessage::create([
-            'ticket_id'   => $ticket->id,
-            'user_id'     => Auth::id(),
-            'body'        => $this->supportNewBody,
+        SupportTicketMessage::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => Auth::id(),
+            'body' => $this->supportNewBody,
             'author_role' => 'cliente',
             'author_name' => Auth::user()->name,
         ]);
@@ -294,30 +355,32 @@ class Menu extends Component
 
     public function supportViewTicket(int $ticketId): void
     {
-        if (!Auth::check()) return;
+        if (! Auth::check()) {
+            return;
+        }
 
-        $ticket = \App\Models\SupportTicket::with([
-            'messages' => fn($q) => $q->where('is_internal', false)->oldest(),
+        $ticket = SupportTicket::with([
+            'messages' => fn ($q) => $q->where('is_internal', false)->oldest(),
             'assignedTo',
         ])->where('user_id', Auth::id())->findOrFail($ticketId);
 
         $this->supportViewingTicketId = $ticketId;
         $this->supportViewingTicket = [
-            'id'              => $ticket->id,
-            'subject'         => $ticket->subject,
-            'categoryLabel'   => $ticket->categoryLabel(),
-            'priorityLabel'   => $ticket->priorityLabel(),
+            'id' => $ticket->id,
+            'subject' => $ticket->subject,
+            'categoryLabel' => $ticket->categoryLabel(),
+            'priorityLabel' => $ticket->priorityLabel(),
             'priorityClasses' => $ticket->priorityClasses(),
-            'status'          => $ticket->status,
-            'statusLabel'     => $ticket->statusLabel(),
-            'statusClasses'   => $ticket->statusClasses(),
-            'created_at'      => $ticket->created_at->format('d/m/Y H:i'),
-            'assigned_to'     => $ticket->assignedTo?->name,
-            'messages'        => $ticket->messages->map(fn($m) => [
-                'body'        => $m->body,
+            'status' => $ticket->status,
+            'statusLabel' => $ticket->statusLabel(),
+            'statusClasses' => $ticket->statusClasses(),
+            'created_at' => $ticket->created_at->format('d/m/Y H:i'),
+            'assigned_to' => $ticket->assignedTo?->name,
+            'messages' => $ticket->messages->map(fn ($m) => [
+                'body' => $m->body,
                 'author_role' => $m->author_role,
                 'author_name' => $m->author_name,
-                'created_at'  => $m->created_at->format('d/m/Y H:i'),
+                'created_at' => $m->created_at->format('d/m/Y H:i'),
             ])->toArray(),
         ];
         $this->supportReplyBody = '';
@@ -325,17 +388,19 @@ class Menu extends Component
 
     public function supportSendReply(): void
     {
-        if (!Auth::check() || !$this->supportViewingTicketId) return;
+        if (! Auth::check() || ! $this->supportViewingTicketId) {
+            return;
+        }
 
         $this->validate(['supportReplyBody' => 'required|string|min:1|max:2000']);
 
-        $ticket = \App\Models\SupportTicket::where('user_id', Auth::id())
+        $ticket = SupportTicket::where('user_id', Auth::id())
             ->findOrFail($this->supportViewingTicketId);
 
-        \App\Models\SupportTicketMessage::create([
-            'ticket_id'   => $ticket->id,
-            'user_id'     => Auth::id(),
-            'body'        => $this->supportReplyBody,
+        SupportTicketMessage::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => Auth::id(),
+            'body' => $this->supportReplyBody,
             'author_role' => 'cliente',
             'author_name' => Auth::user()->name,
         ]);
@@ -351,8 +416,10 @@ class Menu extends Component
 
     public function supportCloseTicket(int $ticketId): void
     {
-        if (!Auth::check()) return;
-        \App\Models\SupportTicket::where('user_id', Auth::id())
+        if (! Auth::check()) {
+            return;
+        }
+        SupportTicket::where('user_id', Auth::id())
             ->findOrFail($ticketId)->update(['status' => 'fechado']);
         $this->supportViewingTicketId = null;
         $this->supportViewingTicket = null;
@@ -368,34 +435,37 @@ class Menu extends Component
     #[Computed]
     public function myOrders()
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return collect();
         }
-    return Order::where('user_id', Auth::id())
-        ->whereIn('status', ['fechado', 'entregue', 'cancelado'])
-        ->with('items', 'table', 'payments')
-        ->latest()
-        ->take(50)
-        ->get();
+
+        return Order::where('user_id', Auth::id())
+            ->whereIn('status', ['fechado', 'entregue', 'cancelado'])
+            ->with('items', 'table', 'payments')
+            ->latest()
+            ->take(50)
+            ->get();
     }
 
     #[Computed]
     public function myOrdersCount(): int
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return 0;
         }
-    return Order::where('user_id', Auth::id())
-        ->whereIn('status', ['fechado', 'entregue', 'cancelado'])
-        ->count();
+
+        return Order::where('user_id', Auth::id())
+            ->whereIn('status', ['fechado', 'entregue', 'cancelado'])
+            ->count();
     }
 
     #[Computed]
     public function myActiveOrders()
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return collect();
         }
+
         return Order::where('user_id', Auth::id())
             ->whereNotIn('status', ['fechado', 'cancelado', 'entregue'])
             ->with('items', 'table', 'payments')
@@ -406,20 +476,29 @@ class Menu extends Component
     public string $ordersFilter = 'mesa';
 
     public bool $showPixModal = false;
+
     public ?string $pixQrCode = null;
+
     public ?string $pixCopiaECola = null;
+
     public bool $generatingPix = false;
+
     public ?int $pixOrderId = null;
+
     public ?string $pixTxid = null;
+
     public bool $pixPaymentConfirmed = false;
+
     public bool $pixPaymentError = false;
+
     public string $pixPaymentErrorMsg = '';
+
     public int $pixExpiresIn = 3600;
 
     #[Computed]
     public function myUnpaidOrders()
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return collect();
         }
         $userId = Auth::id();
@@ -431,6 +510,7 @@ class Menu extends Component
 
         return $orders->filter(function ($order) {
             $paid = $order->payments->where('status', 'paid')->sum('amount');
+
             return $paid < (float) $order->total;
         })->values();
     }
@@ -449,7 +529,7 @@ class Menu extends Component
         $this->pixPaymentErrorMsg = '';
 
         try {
-            $txid = 'ord' . $order->id . now()->format('YmdHis') . rand(100, 999);
+            $txid = 'ord'.$order->id.now()->format('YmdHis').rand(100, 999);
             $charge = app(TenantEfiBankService::class)->generatePixChargeData(
                 $this->tenant, $order->total, $txid, $order->customer_name ?: Auth::user()->name
             );
@@ -460,7 +540,7 @@ class Menu extends Component
                 $this->showPixModal = true;
             }
         } catch (\Throwable $e) {
-            $this->dispatch('notify', message: 'Erro ao gerar PIX: ' . $e->getMessage());
+            $this->dispatch('notify', message: 'Erro ao gerar PIX: '.$e->getMessage());
         }
 
         $this->generatingPix = false;
@@ -479,12 +559,12 @@ class Menu extends Component
 
     public function verifyPixPayment(): void
     {
-        if (!$this->pixTxid || !$this->pixOrderId || $this->pixPaymentConfirmed) {
+        if (! $this->pixTxid || ! $this->pixOrderId || $this->pixPaymentConfirmed) {
             return;
         }
 
         try {
-            $client = \App\Services\EfiBank\EfiBankClient::forTenant($this->tenant);
+            $client = EfiBankClient::forTenant($this->tenant);
             $charge = $client->pixGetCharge($this->pixTxid);
 
             if (($charge['status'] ?? '') === 'CONCLUIDA') {
@@ -492,7 +572,7 @@ class Menu extends Component
                 $this->pixPaymentError = false;
 
                 $order = Order::where('user_id', Auth::id())->find($this->pixOrderId);
-                if ($order && !$order->payments->where('status', 'paid')->count()) {
+                if ($order && ! $order->payments->where('status', 'paid')->count()) {
                     Payment::create([
                         'order_id' => $order->id,
                         'tenant_id' => $order->tenant_id,
@@ -521,9 +601,10 @@ class Menu extends Component
 
     public function getCanceledOrders()
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return collect();
         }
+
         return Order::where('user_id', Auth::id())
             ->where('status', 'cancelado')
             ->with('items', 'table', 'payments')
@@ -533,33 +614,54 @@ class Menu extends Component
     }
 
     public bool $showAddressModal = false;
+
     public ?int $editingAddressId = null;
+
     public string $addrLabel = 'Casa';
+
     public string $addrAddress = '';
+
     public string $addrNumber = '';
+
     public string $addrComplement = '';
+
     public string $addrNeighborhood = '';
+
     public string $addrCity = '';
+
     public string $addrState = '';
+
     public string $addrZipcode = '';
+
     public string $addrReference = '';
+
     public bool $addrIsDefault = false;
+
     public ?int $confirmDeleteAddressId = null;
+
     public bool $showDeleteAccountConfirm = false;
+
     public string $deleteConfirmation = '';
 
     public bool $showCloseTablePix = false;
+
     public ?string $closeTablePixQr = null;
+
     public ?string $closeTablePixCopia = null;
+
     public bool $generatingTablePix = false;
+
     public float $tableBillTotal = 0;
 
     public function closeMyTableBill(): void
     {
-        if (!Auth::check()) return;
+        if (! Auth::check()) {
+            return;
+        }
 
         if ($this->closeTablePixCopia && $this->closeTablePixQr) {
             $this->showCloseTablePix = true;
+
             return;
         }
 
@@ -571,16 +673,18 @@ class Menu extends Component
 
         if ($orders->isEmpty()) {
             $this->dispatch('notify', message: 'Nenhuma conta de mesa ativa.');
+
             return;
         }
 
         $tableId = $orders->first()->table_id;
-        $total = $orders->sum(fn($o) => (float) $o->total);
-        $paid = $orders->sum(fn($o) => (float) $o->payments->where('status', 'paid')->sum('amount'));
+        $total = $orders->sum(fn ($o) => (float) $o->total);
+        $paid = $orders->sum(fn ($o) => (float) $o->payments->where('status', 'paid')->sum('amount'));
         $pending = max(0, $total - $paid);
 
         if ($pending <= 0) {
             $this->dispatch('notify', message: 'Conta ja esta paga.');
+
             return;
         }
 
@@ -590,7 +694,7 @@ class Menu extends Component
         $this->closeTablePixCopia = null;
 
         try {
-            $txid = 'clt' . $tableId . now()->format('YmdHis') . rand(100, 999);
+            $txid = 'clt'.$tableId.now()->format('YmdHis').rand(100, 999);
             $charge = app(TenantEfiBankService::class)->generatePixChargeData(
                 $this->tenant, $pending, $txid, Auth::user()->name
             );
@@ -600,7 +704,7 @@ class Menu extends Component
                 $this->showCloseTablePix = true;
             }
         } catch (\Throwable $e) {
-            $this->dispatch('notify', message: 'Erro ao gerar PIX: ' . $e->getMessage());
+            $this->dispatch('notify', message: 'Erro ao gerar PIX: '.$e->getMessage());
         }
 
         $this->generatingTablePix = false;
@@ -608,7 +712,9 @@ class Menu extends Component
 
     public function confirmTablePixPayment(): void
     {
-        if (!Auth::check()) return;
+        if (! Auth::check()) {
+            return;
+        }
 
         $orders = Order::where('user_id', Auth::id())
             ->whereNotNull('table_id')
@@ -616,7 +722,9 @@ class Menu extends Component
             ->with('payments')
             ->get();
 
-        if ($orders->isEmpty()) return;
+        if ($orders->isEmpty()) {
+            return;
+        }
 
         $tableId = $orders->first()->table_id;
         DB::transaction(function () use ($orders, $tableId) {
@@ -684,12 +792,14 @@ class Menu extends Component
     public function lookupCep(string $cep): void
     {
         $cep = preg_replace('/\D/', '', $cep);
-        if (strlen($cep) !== 8) return;
+        if (strlen($cep) !== 8) {
+            return;
+        }
 
         try {
             $response = file_get_contents("https://viacep.com.br/ws/{$cep}/json/");
             $data = json_decode($response, true);
-            if ($data && !isset($data['erro'])) {
+            if ($data && ! isset($data['erro'])) {
                 $this->addrAddress = $data['logradouro'] ?? '';
                 $this->addrNeighborhood = $data['bairro'] ?? '';
                 $this->addrCity = $data['localidade'] ?? '';
@@ -697,7 +807,8 @@ class Menu extends Component
                 $this->addrNumber = '';
                 $this->addrComplement = '';
             }
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+        }
     }
 
     public function resetAddressForm(): void
@@ -731,10 +842,11 @@ class Menu extends Component
             'addrReference' => 'nullable|string|max:255',
         ]);
 
-        if (!$this->editingAddressId) {
+        if (! $this->editingAddressId) {
             $existingCount = UserAddress::where('user_id', $userId)->count();
             if ($existingCount >= 5) {
                 $this->dispatch('notify', message: 'Limite maximo de 5 enderecos atingido.');
+
                 return;
             }
         }
@@ -821,7 +933,7 @@ class Menu extends Component
         $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         $path = tempnam(sys_get_temp_dir(), 'lgpd-');
         file_put_contents($path, $json);
-        $filename = 'dados-lgpd-' . $tenant->slug . '-' . now()->format('Y-m-d') . '.json';
+        $filename = 'dados-lgpd-'.$tenant->slug.'-'.now()->format('Y-m-d').'.json';
 
         return response()->download($path, $filename, ['Content-Type' => 'application/json'])->deleteFileAfterSend();
     }
@@ -873,15 +985,16 @@ class Menu extends Component
     #[Computed]
     public function cartItems(): array
     {
-        return \Illuminate\Support\Facades\Session::get("cart_{$this->tenant->id}", []);
+        return Session::get("cart_{$this->tenant->id}", []);
     }
 
     #[Computed]
     public function pointsBalance(): int
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return 0;
         }
+
         return app(PointsService::class)->getCustomerBalance($this->tenant, Auth::user());
     }
 
@@ -907,9 +1020,10 @@ class Menu extends Component
     #[Computed]
     public function favoriteProducts()
     {
-        if (!Auth::check() || empty($this->favoriteProductIds)) {
+        if (! Auth::check() || empty($this->favoriteProductIds)) {
             return collect();
         }
+
         return Product::where('tenant_id', $this->tenant->id)
             ->whereIn('id', $this->favoriteProductIds)
             ->active()
@@ -919,8 +1033,9 @@ class Menu extends Component
 
     public function redeemProductWithPoints(int $productId): void
     {
-        if (!Auth::check()) {
-            $this->redirect(route('waiter.login.form', $this->tenant->slug) . '?redirect=' . urlencode(route('menu.show', $this->tenant->slug)));
+        if (! Auth::check()) {
+            $this->redirect(route('waiter.login.form', $this->tenant->slug).'?redirect='.urlencode(route('menu.show', $this->tenant->slug)));
+
             return;
         }
 
@@ -930,6 +1045,7 @@ class Menu extends Component
 
         if ($product->isOutOfStock()) {
             $this->dispatch('notify', message: "{$product->name} esta sem estoque no momento.");
+
             return;
         }
 
@@ -937,20 +1053,23 @@ class Menu extends Component
 
         if ($pointsPrice <= 0) {
             $this->dispatch('notify', message: 'Este produto ainda nao tem um custo em pontos definido.');
+
             return;
         }
 
         $pointsService = app(PointsService::class);
 
-        if (!$pointsService->isPointsActive($this->tenant)) {
+        if (! $pointsService->isPointsActive($this->tenant)) {
             $this->dispatch('notify', message: 'Sistema de pontos inativo.');
+
             return;
         }
 
         $balance = $pointsService->getCustomerBalance($this->tenant, Auth::user());
 
         if ($balance < $pointsPrice) {
-            $this->dispatch('notify', message: 'Saldo de pontos insuficiente. Voce tem ' . number_format($balance, 0, ',', '.') . ' pontos, mas precisa de ' . number_format($pointsPrice, 0, ',', '.') . '.');
+            $this->dispatch('notify', message: 'Saldo de pontos insuficiente. Voce tem '.number_format($balance, 0, ',', '.').' pontos, mas precisa de '.number_format($pointsPrice, 0, ',', '.').'.');
+
             return;
         }
 
@@ -968,13 +1087,15 @@ class Menu extends Component
     {
         return $this->tenant->manageableTables()
             ->where('status', 'free')
-            ->orderByRaw("CAST(number AS UNSIGNED), number")
+            ->orderByRaw('CAST(number AS UNSIGNED), number')
             ->get();
     }
 
     public function userHasPendingPaymentOnTable(): bool
     {
-        if (!Auth::check() || !$this->selectedTableId) return false;
+        if (! Auth::check() || ! $this->selectedTableId) {
+            return false;
+        }
 
         return Order::where('user_id', Auth::id())
             ->where('table_id', $this->selectedTableId)
@@ -987,13 +1108,14 @@ class Menu extends Component
         if ($this->selectedTableId && $this->selectedTableId !== $tableId) {
             if ($this->userHasPendingPaymentOnTable()) {
                 $this->dispatch('notify', message: "Voce ja esta na Mesa {$this->selectedTableNumber}. Finalize os pedidos pendentes antes de trocar.");
+
                 return;
             }
             $this->clearTableSession();
         }
 
         $table = Table::where('tenant_id', $this->tenant->id)->find($tableId);
-        if (!$table) {
+        if (! $table) {
             return;
         }
 
@@ -1021,10 +1143,13 @@ class Menu extends Component
 
     public function leaveTable(): void
     {
-        if (!Auth::check()) return;
+        if (! Auth::check()) {
+            return;
+        }
 
         if ($this->userHasPendingPaymentOnTable()) {
             $this->dispatch('notify', message: 'Existem pedidos pendentes de pagamento nesta mesa. Quite-os antes de sair ou solicite ao atendente.');
+
             return;
         }
 
@@ -1060,19 +1185,21 @@ class Menu extends Component
 
     public function getQrCodeUrl(): string
     {
-        if (!$this->selectedTableToken) {
+        if (! $this->selectedTableToken) {
             return '';
         }
-        $url = route('menu.show', ['slug' => $this->tenant->slug]) . '?token=' . $this->selectedTableToken;
-        return 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . urlencode($url);
+        $url = route('menu.show', ['slug' => $this->tenant->slug]).'?token='.$this->selectedTableToken;
+
+        return 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data='.urlencode($url);
     }
 
     public function getTableEntryUrl(): string
     {
-        if (!$this->selectedTableToken) {
+        if (! $this->selectedTableToken) {
             return '';
         }
-        return route('menu.show', ['slug' => $this->tenant->slug]) . '?token=' . $this->selectedTableToken;
+
+        return route('menu.show', ['slug' => $this->tenant->slug]).'?token='.$this->selectedTableToken;
     }
 
     public function render()

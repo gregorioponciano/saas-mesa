@@ -29,7 +29,11 @@ class PaymentController extends Controller
         $validated = $request->validate([
             'method' => ['sometimes', 'string', 'in:pix,billet'],
             'payer_name' => ['sometimes', 'string', 'max:255'],
-            'payer_cpf' => ['sometimes', 'string', 'max:14'],
+            'payer_cpf' => ['sometimes', 'string', 'max:14', function (string $attribute, mixed $value, \Closure $fail): void {
+                if (! isValidCpf($value)) {
+                    $fail('O CPF do pagador é inválido.');
+                }
+            }],
         ]);
 
         try {
@@ -44,7 +48,7 @@ class PaymentController extends Controller
                 'payment' => [
                     'id' => $payment->id,
                     'amount_cents' => $payment->amount_cents,
-                    'amount_formatted' => 'R$ ' . number_format($payment->amount_cents / 100, 2, ',', '.'),
+                    'amount_formatted' => 'R$ '.number_format($payment->amount_cents / 100, 2, ',', '.'),
                     'method' => $payment->method,
                     'status' => $payment->status,
                     'qrcode' => $payment->qrcode,
@@ -71,7 +75,7 @@ class PaymentController extends Controller
             ->latest()
             ->first();
 
-        if (!$payment) {
+        if (! $payment) {
             return response()->json([
                 'error' => 'no_payment',
                 'message' => 'Nenhum pagamento encontrado para este pedido.',
@@ -106,7 +110,7 @@ class PaymentController extends Controller
             ->latest()
             ->first();
 
-        if (!$payment) {
+        if (! $payment) {
             return response()->json([
                 'error' => 'no_qrcode',
                 'message' => 'Nenhum QR Code disponível para este pedido.',

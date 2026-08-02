@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Models\SaasSubscription;
+use App\Models\Tenant;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,14 +17,16 @@ class CheckTenantSubscription
     {
         $tenant = $request->get('current_tenant');
 
-        if (!$tenant && Auth::check() && Auth::user()->tenant_id) {
+        if (! $tenant && Auth::check() && Auth::user()->tenant_id) {
             $tenant = Auth::user()->tenant;
         }
 
         if ($tenant) {
             $subscription = SaasSubscription::where('tenant_id', $tenant->id)->first();
 
-            if ($subscription && $subscription->status === 'pending') {
+            $hasPaidActiveAccess = $tenant->status === 'active' && $tenant->plan === Tenant::PLAN_PAID;
+
+            if ($subscription && $subscription->status === 'pending' && ! $hasPaidActiveAccess) {
                 if ($request->expectsJson() || $request->is('api/*') || $request->wantsJson()) {
                     return response()->json([
                         'error' => 'payment_pending',

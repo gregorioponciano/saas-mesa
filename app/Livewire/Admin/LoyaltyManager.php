@@ -5,26 +5,36 @@ namespace App\Livewire\Admin;
 use App\Models\CustomerPoint;
 use App\Models\LoyaltyConfig;
 use App\Models\Tenant;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
 
+/**
+ * Propriedades computadas ([Computed]) reconhecidas pelo PHPStan.
+ *
+ * @property mixed $customerRanking
+ */
 class LoyaltyManager extends Component
 {
     use WithPagination;
 
     public ?Tenant $tenant;
+
     public bool $points_enabled;
+
     public int $points_percentage;
+
     public ?string $points_to_money_rate = null;
+
     public float $min_points_order_value;
 
     public function mount(): void
     {
         $this->tenant = Auth::user()->tenant;
 
-        if (!$this->tenant || !$this->tenant->isPaid()) {
+        if (! $this->tenant || ! $this->tenant->isPaid()) {
             $this->points_enabled = false;
             $this->points_percentage = 5;
             $this->points_to_money_rate = '0.01';
@@ -40,8 +50,9 @@ class LoyaltyManager extends Component
 
     public function saveLoyaltyConfig(): void
     {
-        if (!$this->tenant || !$this->tenant->isPaid()) {
+        if (! $this->tenant || ! $this->tenant->isPaid()) {
             $this->dispatch('notify', message: 'O programa de fidelidade é um recurso exclusivo do plano Premium.', type: 'alert');
+
             return;
         }
 
@@ -65,8 +76,8 @@ class LoyaltyManager extends Component
     #[Computed]
     public function customerRanking()
     {
-        if (!$this->tenant) {
-            return new \Illuminate\Pagination\LengthAwarePaginator([], 0, 15, 1);
+        if (! $this->tenant) {
+            return new LengthAwarePaginator([], 0, 15, 1);
         }
 
         return CustomerPoint::where('tenant_id', $this->tenant->id)
