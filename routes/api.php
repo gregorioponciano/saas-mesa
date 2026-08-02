@@ -2,12 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\DeliveryController;
+use App\Http\Controllers\Api\DeliveryInvitationController;
+use App\Http\Controllers\Api\OrderTrackingController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Superadmin\AuditLogsController;
 use App\Http\Controllers\Superadmin\BackupsController;
 use App\Http\Controllers\Superadmin\FinancialController;
 use App\Http\Controllers\Superadmin\LoyaltyController;
 use App\Http\Controllers\Superadmin\PlansController;
+use App\Http\Controllers\Superadmin\SystemReportController;
 use App\Http\Controllers\Superadmin\TenantsController;
 use App\Http\Controllers\Superadmin\TenantSettingsController;
 use App\Http\Controllers\Superadmin\UsersController;
@@ -15,8 +19,6 @@ use App\Http\Controllers\Superadmin\WebhookLogsController;
 use App\Http\Controllers\Tenant\EfiCredentialsController;
 use App\Http\Controllers\Tenant\FinancialController as TenantFinancialController;
 use App\Http\Controllers\Tenant\PaymentController;
-use App\Http\Controllers\Api\DeliveryController;
-use App\Http\Controllers\Api\DeliveryInvitationController;
 use Illuminate\Support\Facades\Route;
 
 // AUTH
@@ -51,13 +53,14 @@ Route::prefix('delivery')->group(function () {
         if (request()->expectsJson()) {
             return response()->json(['message' => 'Use POST para autenticar'], 405);
         }
+
         return redirect()->route('delivery.login');
     })->middleware('throttle:10,1');
     Route::post('login', [DeliveryController::class, 'login'])->middleware('throttle:10,1');
 });
 
 // Public Order Tracking API (no auth)
-Route::get('/pedido/{id}/status', [\App\Http\Controllers\Api\OrderTrackingController::class, 'status'])
+Route::get('/pedido/{id}/status', [OrderTrackingController::class, 'status'])
     ->name('api.order.tracking.status')
     ->whereNumber('id');
 
@@ -70,6 +73,7 @@ Route::prefix('superadmin')
         Route::apiResource('users', UsersController::class)->only(['index', 'store']);
         Route::post('users/{user}/revoke', [UsersController::class, 'revoke']);
         Route::get('financial/overview', [FinancialController::class, 'overview']);
+        Route::get('system/report', [SystemReportController::class, 'report']);
         Route::get('financial/payments', [FinancialController::class, 'payments']);
         Route::get('financial/subscriptions', [FinancialController::class, 'subscriptions']);
         Route::get('financial/invoices', [FinancialController::class, 'invoices']);
