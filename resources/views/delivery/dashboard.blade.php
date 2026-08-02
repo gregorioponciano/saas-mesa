@@ -777,9 +777,14 @@
             {{-- Profile Card --}}
             <div class="bg-gradient-to-br from-neutral-900 to-neutral-950 rounded-xl border border-neutral-800 p-5">
                 <div class="flex items-center gap-4 mb-4">
-                    <div class="w-16 h-16 rounded-full bg-gradient-to-br from-violet-400 to-violet-600 flex items-center justify-center text-2xl font-bold text-neutral-950 shadow-lg shadow-violet-500/20">
-                        {{ strtoupper(substr($profile['name'], 0, 1)) }}
-                    </div>
+                    @if ($profile['avatar_url'])
+                        <img src="{{ $profile['avatar_url'] }}" alt="{{ $profile['name'] }}"
+                             class="w-16 h-16 rounded-full object-cover shadow-lg shadow-violet-500/20 border border-neutral-700">
+                    @else
+                        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-violet-400 to-violet-600 flex items-center justify-center text-2xl font-bold text-neutral-950 shadow-lg shadow-violet-500/20">
+                            {{ strtoupper(substr($profile['name'], 0, 1)) }}
+                        </div>
+                    @endif
                     <div>
                         <h3 class="font-bold text-white text-lg">{{ $profile['name'] }}</h3>
                         <p class="text-xs text-neutral-400">{{ maskPhone($profile['phone'] ?? '') }}</p>

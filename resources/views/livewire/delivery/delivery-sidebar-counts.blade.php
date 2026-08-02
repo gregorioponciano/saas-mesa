@@ -24,9 +24,14 @@
     {{-- Delivery Person Info --}}
     <div class="px-4 py-4 border-b border-neutral-800">
         <div class="flex items-center gap-3 px-3 py-2 rounded-xl bg-neutral-800/50">
-            <div class="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400 font-bold text-xs">
-                {{ substr($delivery?->name ?? 'E', 0, 2) }}
-            </div>
+            @if ($delivery?->avatar_path)
+                <img src="{{ Storage::disk('public')->url($delivery->avatar_path) }}" alt="{{ $delivery->name }}"
+                     class="w-8 h-8 rounded-full object-cover border border-neutral-700 shrink-0">
+            @else
+                <div class="w-8 h-8 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400 font-bold text-xs shrink-0">
+                    {{ substr($delivery?->name ?? 'E', 0, 2) }}
+                </div>
+            @endif
             <div class="min-w-0 flex-1">
                 <p class="text-sm font-medium truncate">{{ $delivery?->name }}</p>
                 <p class="text-xs text-neutral-400">{{ $tenant?->name }}</p>

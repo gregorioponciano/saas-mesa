@@ -265,6 +265,7 @@ class DeliveryService
             'cancel_rate' => $cancelRate,
             'has_password' => $delivery->hasPassword(),
             'activated_at' => $delivery->activated_at?->toIso8601String(),
+            'avatar_url' => $delivery->avatar_path ? Storage::disk('public')->url($delivery->avatar_path) : null,
         ];
     }
 

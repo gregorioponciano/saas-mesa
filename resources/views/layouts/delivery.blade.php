@@ -48,6 +48,10 @@
                     <div class="flex items-center gap-3 ml-auto">
                         @php $deliveryUser = Auth::guard('delivery-web')->user(); @endphp
                         <span class="text-xs text-neutral-400 hidden sm:block">{{ $deliveryUser->name }}</span>
+                        @if ($deliveryUser->avatar_path)
+                            <img src="{{ Storage::disk('public')->url($deliveryUser->avatar_path) }}" alt="{{ $deliveryUser->name }}"
+                                 class="w-9 h-9 rounded-full object-cover border border-neutral-700">
+                        @endif
                         <form method="POST" action="{{ route('delivery.toggle.availability') }}">
                             @csrf
                             <button type="submit"
