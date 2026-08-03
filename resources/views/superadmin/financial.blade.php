@@ -10,11 +10,11 @@
     @include('superadmin.partials.subnav')
 
     <div class="flex gap-2 border-b border-neutral-800">
-        <template x-for="tab in ['payments', 'subscriptions', 'invoices']" :key="tab">
+        <template x-for="tab in ['payments', 'pix', 'subscriptions', 'invoices']" :key="tab">
             <button @click="switchTab(tab)"
                     class="px-4 py-3 text-sm font-semibold transition-colors border-b-2"
                     :class="activeTab === tab ? 'text-amber-400 border-amber-500' : 'text-neutral-500 hover:text-white border-transparent'"
-                    x-text="tab === 'payments' ? 'Pagamentos' : (tab === 'subscriptions' ? 'Assinaturas' : 'Faturas')"></button>
+                    x-text="tab === 'payments' ? 'Pagamentos' : (tab === 'subscriptions' ? 'Assinaturas' : (tab === 'invoices' ? 'Faturas' : 'PIX pendentes'))"></button>
         </template>
     </div>
 
@@ -88,6 +88,22 @@
         </template>
     </div>
 
+    {{-- STATS PIX --}}
+    <div x-show="activeTab === 'pix'" class="grid grid-cols-3 gap-4">
+        <div class="rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
+            <p class="text-xs text-neutral-500">Pendentes</p>
+            <p class="mt-1 text-xl font-bold text-amber-400" x-text="pixStats.pending ?? 0"></p>
+        </div>
+        <div class="rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
+            <p class="text-xs text-neutral-500">Pagos</p>
+            <p class="mt-1 text-xl font-bold text-emerald-400" x-text="pixStats.paid ?? 0"></p>
+        </div>
+        <div class="rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
+            <p class="text-xs text-neutral-500">Expirados</p>
+            <p class="mt-1 text-xl font-bold text-red-400" x-text="pixStats.expired ?? 0"></p>
+        </div>
+    </div>
+
     {{-- TABELA PAGAMENTOS --}}
     <div x-show="activeTab === 'payments'" class="rounded-2xl bg-neutral-900 border border-neutral-800 overflow-hidden">
         <div class="overflow-x-auto">
@@ -123,6 +139,21 @@
                 </tbody>
             </table>
         </div>
+    </div>
+
+    {{-- FILTROS PIX --}}
+    <div x-show="activeTab === 'pix'" class="flex flex-wrap gap-3">
+        <button @click="setPixFilter('')"
+                class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                :class="pixFilter === '' ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'">
+            Todos
+        </button>
+        <template x-for="s in ['pending', 'paid', 'expired']" :key="s">
+            <button @click="setPixFilter(s)"
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize"
+                    :class="pixFilter === s ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-900 text-neutral-400 hover:text-white border border-neutral-800'"
+                    x-text="s"></button>
+        </template>
     </div>
 
     {{-- TABELA ASSINATURAS --}}
@@ -202,6 +233,62 @@
         </div>
     </div>
 
+    {{-- TABELA PIX --}}
+    <div x-show="activeTab === 'pix'" class="rounded-2xl bg-neutral-900 border border-neutral-800 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-left text-xs text-neutral-500 uppercase tracking-wide border-b border-neutral-800">
+                        <th class="p-4 font-medium">Empresa</th>
+                        <th class="p-4 font-medium">Plano</th>
+                        <th class="p-4 font-medium">Meses</th>
+                        <th class="p-4 font-medium">Criado em</th>
+                        <th class="p-4 font-medium">Status</th>
+                        <th class="p-4 text-right font-medium">Valor</th>
+                        <th class="p-4 font-medium"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="c in pixCharges" :key="c.id">
+                        <tr class="border-b border-neutral-800/60 last:border-0" :class="c.status === 'pending' ? 'bg-amber-500/5' : ''">
+                            <td class="p-4 text-white" x-text="c.tenant_name || '—'"></td>
+                            <td class="p-4 text-neutral-300" x-text="c.plan_name || '—'"></td>
+                            <td class="p-4 text-neutral-400" x-text="c.months"></td>
+                            <td class="p-4 text-neutral-400" x-text="formatDate(c.created_at)"></td>
+                            <td class="p-4">
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide"
+                                      :class="c.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                            : c.status === 'pending' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                            : 'bg-neutral-700/30 text-neutral-400 border border-neutral-700'"
+                                      x-text="c.status"></span>
+                            </td>
+                            <td class="p-4 text-right font-semibold text-white" x-text="formatCents(c.amount_cents)"></td>
+                            <td class="p-4 text-right">
+                                <template x-if="c.status === 'pending'">
+                                    <button @click="confirmPix(c.id)"
+                                            :disabled="confirming === c.id"
+                                            class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-neutral-950 bg-emerald-500 hover:bg-emerald-400 transition-all duration-200 disabled:opacity-50 active:scale-95">
+                                        <svg x-show="confirming !== c.id" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                        <svg x-show="confirming === c.id" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                        </svg>
+                                        <span x-text="confirming === c.id ? 'Confirmando…' : 'Confirmar'"></span>
+                                    </button>
+                                </template>
+                            </td>
+                        </tr>
+                    </template>
+                    <tr x-show="pixCharges.length === 0">
+                        <td colspan="7" class="p-10 text-center text-neutral-500">Nenhum PIX encontrado.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <div class="flex items-center justify-between text-sm text-neutral-400">
         <p class="text-xs text-neutral-500" x-text="'Página ' + (meta.current_page || 1) + ' de ' + (meta.last_page || 1)"></p>
         <div class="flex gap-2">
@@ -222,16 +309,21 @@
         return {
             activeTab: 'payments',
             payments: [],
+            pixCharges: [],
             subscriptions: [],
             invoices: [],
             subStats: {},
             invoiceStats: {},
+            pixStats: {},
             meta: {},
             filters: { status: '', method: '' },
             subFilter: '',
             invoiceFilter: '',
+            pixFilter: '',
+            confirming: null,
             load() {
                 if (this.activeTab === 'payments') this.loadPayments();
+                if (this.activeTab === 'pix') this.loadPix();
                 if (this.activeTab === 'subscriptions') this.loadSubscriptions();
                 if (this.activeTab === 'invoices') this.loadInvoices();
             },
@@ -245,6 +337,37 @@
                 const data = await r.json();
                 this.payments = data.data || [];
                 this.meta = data.meta || {};
+            },
+            async loadPix() {
+                const params = new URLSearchParams();
+                if (this.pixFilter) params.set('status', this.pixFilter);
+                if (this.meta.current_page) params.set('page', this.meta.current_page);
+                const r = await fetch('/api/superadmin/financial/pix?' + params.toString(), { headers: { 'Accept': 'application/json' } });
+                if (!r.ok) return;
+                const data = await r.json();
+                this.pixCharges = data.charges.data || [];
+                this.pixStats = data.stats || {};
+                this.meta = data.charges.meta || {};
+            },
+            async confirmPix(chargeId) {
+                if (!await saasConfirm('Confirmar este pagamento PIX? A assinatura será ativada imediatamente.')) return;
+                this.confirming = chargeId;
+                try {
+                    const r = await fetch('/api/superadmin/financial/pix/' + chargeId + '/confirm', {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' }
+                    });
+                    const data = await r.json().catch(() => ({}));
+                    if (!r.ok) {
+                        saasAlert(data.message || 'Falha ao confirmar o pagamento.', { title: 'Erro' });
+                    } else {
+                        saasAlert(data.message || 'Pagamento confirmado.', { title: 'Sucesso', confirmLabel: 'OK' });
+                    }
+                    await this.loadPix();
+                    await this.loadSubscriptions();
+                } finally {
+                    this.confirming = null;
+                }
             },
             async loadSubscriptions() {
                 const params = new URLSearchParams();
@@ -282,6 +405,7 @@
             clearFilters() { this.filters = { status: '', method: '' }; this.meta.current_page = 1; this.load(); },
             setSubFilter(s) { this.subFilter = s === this.subFilter ? '' : s; this.meta.current_page = 1; this.load(); },
             setInvoiceFilter(s) { this.invoiceFilter = s === this.invoiceFilter ? '' : s; this.meta.current_page = 1; this.load(); },
+            setPixFilter(s) { this.pixFilter = s === this.pixFilter ? '' : s; this.meta.current_page = 1; this.load(); },
             go(page) {
                 if (page < 1 || (this.meta.last_page && page > this.meta.last_page)) return;
                 this.meta.current_page = page;

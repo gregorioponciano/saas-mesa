@@ -11,6 +11,7 @@ use App\Services\AuditService;
 use App\Services\GeocodingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class TenantSettingsController extends Controller
 {
@@ -21,7 +22,18 @@ class TenantSettingsController extends Controller
 
     public function show(Tenant $tenant): JsonResponse
     {
-        $subscription = SaasSubscription::where('tenant_id', $tenant->id)->first();
+        $subscription = ! empty($tenant->subscription_id)
+            ? SaasSubscription::with('plan')->find($tenant->subscription_id)
+            : SaasSubscription::with('plan')->where('tenant_id', $tenant->id)->latest()->first();
+
+        $plannedSubscription = $subscription ?: SaasSubscription::with('plan')
+            ->where('tenant_id', $tenant->id)
+            ->latest()
+            ->first();
+
+        $currentPlan = $plannedSubscription?->plan;
+        $planName = $currentPlan?->name
+            ?? ($tenant->isPaid() ? 'Premium' : 'Gratuito');
 
         return response()->json([
             'tenant' => [
@@ -47,8 +59,13 @@ class TenantSettingsController extends Controller
                 'logo_url' => $tenant->logoUrl(),
                 'plan' => $tenant->plan,
                 'plan_label' => $tenant->planLabel(),
+                'plan_name' => $planName,
+                'plan_slug' => $currentPlan?->slug,
                 'status' => $tenant->status,
-                'subscription_status' => $subscription?->status,
+                'subscription_status' => $subscription?->status ?? $plannedSubscription?->status,
+                'subscription_ends_at' => $plannedSubscription?->current_period_end
+                    ? Carbon::parse($plannedSubscription->current_period_end)->format('d/m/Y')
+                    : null,
                 'created_at' => $tenant->created_at,
             ],
         ]);

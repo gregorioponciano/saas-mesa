@@ -148,10 +148,23 @@
             <div class="md:col-span-2">
                 <div class="flex items-center justify-between mb-2">
                     <label class="block text-sm font-medium text-neutral-300">Cobranca da Taxa de Entrega</label>
-                    <button type="button" wire:click="$toggle('deliveryCostEnabled')"
-                            class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors {{ $deliveryCostEnabled ? 'bg-amber-500' : 'bg-neutral-700' }}">
-                        <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform {{ $deliveryCostEnabled ? 'translate-x-6' : 'translate-x-1' }}"></span>
-                    </button>
+                    <div wire:ignore>
+                        <button type="button"
+                                x-data="{ on: @js($deliveryCostEnabled) }"
+                                x-on:click="on = !on; $wire.set('deliveryCostEnabled', on)"
+                                x-bind:style="`background-color: ${on ? '#16a34a' : '#3f3f46'}`"
+                                class="relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-300 ease-in-out cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500">
+                            <span x-bind:style="`transform: translateX(${on ? 26 : 2}px)`"
+                                  class="inline-flex items-center justify-center h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-300 ease-in-out">
+                                <svg x-show="on" class="w-3 h-3 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <svg x-show="!on" class="w-3 h-3 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </span>
+                        </button>
+                    </div>
                 </div>
                 @if ($deliveryCostEnabled)
                 <p class="text-xs text-neutral-500 mb-3">A taxa final do cliente e a soma: valor fixo + (custo por km x distancia). Deixe R$ 0,00 no campo que nao quiser cobrar.</p>

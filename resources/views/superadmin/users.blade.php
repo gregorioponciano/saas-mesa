@@ -164,14 +164,14 @@
                 this.load();
             },
             async revoke(u) {
-                if (!confirm('Revogar o acesso de superadmin de "' + u.name + '"?')) return;
+                if (!await saasConfirm('Revogar o acesso de superadmin de "' + u.name + '"?')) return;
                 const r = await fetch('/api/superadmin/users/' + u.id + '/revoke', {
                     method: 'POST',
                     headers: { 'Accept': 'application/json' }
                 });
                 const data = await r.json().catch(() => ({}));
                 if (r.ok) this.load();
-                else alert(data.error || 'Falha ao revogar.');
+                else saasAlert(data.error || 'Falha ao revogar.', { title: 'Erro' });
             },
             formatDate(d) {
                 return d ? new Date(d).toLocaleDateString('pt-BR') : '—';

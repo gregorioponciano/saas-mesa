@@ -1,5 +1,9 @@
 @extends('layouts.admin')
 
+@section('title')
+    {{ $currentSubscription?->plan?->name ?? (($currentSubscription ?? null) && ! empty($currentSubscription->plan_id) ? 'Premium' : 'Gratuito') }} - {{ config('app.name') }}
+@endsection
+
 @section('content')
 <div class="p-4 lg:p-8 max-w-5xl mx-auto">
 
@@ -96,7 +100,7 @@
                     <div>
                         <div class="flex items-center gap-3">
                             <h3 class="text-xl font-black tracking-tight {{ $isPendingPayment ? 'text-amber-400' : (! $isPaid ? 'text-neutral-300' : ($expired ? 'text-red-400' : ($isEnding ? 'text-amber-400' : 'text-emerald-400'))) }}">
-                                {{ $isPaid ? 'Premium' : 'Gratuito' }}
+                                {{ $currentSubscription->plan?->name ?? ($isPaid ? 'Premium' : 'Gratuito') }}
                             </h3>
                             <span class="px-3 py-1 text-xs font-bold rounded-full {{ $isPendingPayment ? 'bg-amber-500/20 text-amber-400' : (! $isPaid ? 'bg-neutral-700/50 text-neutral-400' : ($expired ? 'bg-red-500/20 text-red-400' : ($isEnding ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'))) }}">
                                 {{ $isPendingPayment ? 'Pagamento Pendente' : (! $isPaid ? 'Ativo' : ($expired ? 'Expirado' : ($isEnding ? 'Vencendo' : 'Ativo'))) }}
@@ -145,6 +149,12 @@
         $currentPlanActive = ($currentSubscription && $currentSubscription->status === 'active')
             ? $currentSubscription->plan_id
             : null;
+        $currentPlanPrice = ($currentPlanActive && $currentSubscription?->plan)
+            ? $currentSubscription->plan->price_cents
+            : 0;
+        $currentPlanConfirm = ($currentPlanPrice > 0)
+            ? 'Você está em um plano pago. Ao fazer upgrade, os dias restantes do seu plano atual serão RESETADOS. Deseja continuar?'
+            : 'Ao trocar de plano, a nova assinatura começa de hoje e os dias restantes do seu plano atual não serão aproveitados. Deseja continuar?';
     @endphp
     <script>
         const discounts = {1:0, 3:15, 6:23, 12:32};
@@ -164,32 +174,37 @@
         @php
             $intervalMonths = ['month' => 1, 'quarter' => 3, 'semiannual' => 6, 'year' => 12];
             $intervalNames = ['month' => 'Mensal', 'quarter' => 'Trimestral', 'semiannual' => 'Semestral', 'year' => 'Anual'];
+            $intervalOptions = ['month' => [1, 3, 6, 12], 'quarter' => [3, 6, 12], 'semiannual' => [6, 12], 'year' => [12]];
+            $freePlan = $plans->where('slug', 'gratuito')->first() ?? $plans->where('slug', 'free')->first();
+            $freeItems = $freePlan?->featureItems() ?? [];
         @endphp
         {{-- Free --}}
         <div class="relative p-8 rounded-3xl bg-neutral-900/50 border {{ $tenant->isFree() ? 'border-amber-500/30 ring-2 ring-amber-500/20' : 'border-neutral-800' }} transition-all duration-300">
             @if ($tenant->isFree())
                 <span class="absolute -top-3 right-6 px-4 py-1 text-xs font-semibold rounded-full bg-amber-500 text-neutral-950">Atual</span>
+            @elseif ($freePlan?->badge)
+                <span class="absolute -top-3 right-6 px-4 py-1 text-xs font-semibold rounded-full bg-amber-500 text-neutral-950">{{ $freePlan->badge }}</span>
             @endif
             <div class="w-14 h-14 rounded-2xl bg-neutral-800 flex items-center justify-center mb-5">
                 <svg class="w-7 h-7 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                 </svg>
             </div>
-            <h2 class="text-2xl font-bold mb-2">Gratuito</h2>
+            <h2 class="text-2xl font-bold mb-2">{{ $freePlan?->name ?? 'Gratuito' }}</h2>
             <p class="text-4xl font-black mb-6">R$ 0</p>
             <ul class="space-y-3 mb-8 text-sm">
-                <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Até 2 mesas</li>
-                <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Cardápio digital ilimitado</li>
-                <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Pedidos ilimitados</li>
-                <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> 1 usuário (admin)</li>
-                <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Cupons de desconto</li>
-                <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Delivery com entregadores</li>
-                <li class="flex items-center gap-3 text-neutral-500"><svg class="w-5 h-5 text-neutral-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg> Programa de fidelidade (pontos)</li>
-                <li class="flex items-center gap-3 text-neutral-500"><svg class="w-5 h-5 text-neutral-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg> Relatórios avançados</li>
-                <li class="flex items-center gap-3 text-neutral-500"><svg class="w-5 h-5 text-neutral-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg> Múltiplos usuários</li>
+                @foreach ($freeItems as $item)
+                    @if ($item['included'])
+                        <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> {{ $item['label'] }}</li>
+                    @else
+                        <li class="flex items-center gap-3 text-neutral-500"><svg class="w-5 h-5 text-neutral-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg> {{ $item['label'] }}</li>
+                    @endif
+                @endforeach
             </ul>
             @if ($tenant->isFree())
                 <div class="w-full py-3.5 px-4 rounded-xl text-center font-semibold bg-neutral-800 text-neutral-400 cursor-not-allowed">Plano Atual</div>
+            @elseif ($tenant->isPaid())
+                <div class="w-full py-3.5 px-4 rounded-xl text-center font-semibold bg-neutral-800 text-neutral-400 cursor-not-allowed">Plano Gratuito indisponível</div>
             @else
                 <form method="POST" action="{{ route('subscription.checkout.store') }}">
                     @csrf
@@ -207,39 +222,47 @@
             @if ($currentPlanActive === $plan->id)
                 <span class="absolute -top-3 right-6 px-4 py-1 text-xs font-semibold rounded-full bg-amber-500 text-neutral-950">Atual</span>
             @else
-                <span class="absolute -top-3 right-6 px-4 py-1 text-xs font-semibold rounded-full bg-amber-500 text-neutral-950">Popular</span>
+                <span class="absolute -top-3 right-6 px-4 py-1 text-xs font-semibold rounded-full bg-amber-500 text-neutral-950">{{ $plan->badge ?: 'Popular' }}</span>
             @endif
             <div class="w-14 h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center mb-5">
                 <svg class="w-7 h-7 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
                 </svg>
             </div>
-            <h2 class="text-2xl font-bold mb-2">Premium</h2>
+            <h2 class="text-2xl font-bold mb-2">{{ $plan->name }}</h2>
             @php $defaultMonths = $intervalMonths[$plan->interval] ?? 1; @endphp
             <p class="text-sm text-neutral-500 mb-1">R$ {{ number_format($plan->price_cents / 100, 2, ',', '.') }}/mês</p>
             <p class="text-3xl font-black mb-2 plan-total">R$ {{ number_format($plan->getTotalForMonths($defaultMonths) / 100, 2, ',', '.') }}</p>
                 <p class="text-xs text-neutral-500 mb-6">{{ $defaultMonths === 1 ? 'Mensal (todos) · à vista' : $intervalNames[$plan->interval].' ('.$defaultMonths.' meses) · '.$defaultMonths.' meses com desconto' }}</p>
+            <p class="text-xs text-neutral-500 mb-6">Períodos: {{ collect($intervalOptions[$plan->interval] ?? [1, 3, 6, 12])->map(fn($m) => $m.' '.($m === 1 ? 'mês' : 'meses'))->implode(' · ') }}</p>
             <ul class="space-y-3 mb-8 text-sm">
-                <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Mesas ilimitadas</li>
-                <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Cardápio digital ilimitado</li>
-                <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Pedidos ilimitados</li>
-                <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Múltiplos usuários</li>
-                <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Cupons de desconto</li>
-                <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Programa de fidelidade (pontos)</li>
-                <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Delivery com entregadores</li>
-                <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Relatórios e gráficos</li>
-                <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Suporte prioritário</li>
+                @foreach ($plan->featureItems() as $item)
+                    @if ($item['included'])
+                        <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> {{ $item['label'] }}</li>
+                    @else
+                        <li class="flex items-center gap-3 text-neutral-500"><svg class="w-5 h-5 text-neutral-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg> {{ $item['label'] }}</li>
+                    @endif
+                @endforeach
             </ul>
 
-            <form method="POST" action="{{ route('subscription.checkout.store') }}">
+            @php $isDowngradePremium = $plan->price_cents > 0 && $currentPlanPrice > $plan->price_cents && $currentPlanActive !== $plan->id; @endphp
+
+            @if ($isDowngradePremium)
+                <div class="w-full py-3.5 px-4 rounded-xl text-center font-semibold bg-neutral-800 text-neutral-400 cursor-not-allowed">Indisponível — você está em um plano superior</div>
+            @else
+            <form method="POST" action="{{ route('subscription.checkout.store') }}"
+                @if ($currentPlanActive && $currentPlanActive !== $plan->id)
+                data-confirm-msg="{{ $currentPlanConfirm }}"
+                onsubmit="saasConfirmSubmit(event, this, this.dataset.confirmMsg, { type: 'confirm', title: 'Fazer upgrade', confirmLabel: 'Upgrade' })"
+                @endif>
                 @csrf
                 <input type="hidden" name="plan" value="premium">
                 <input type="hidden" name="months" value="{{ $defaultMonths }}">
 
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-neutral-400 mb-2">Período ({{ $defaultMonths === 1 ? 'Mensal (todos)' : $intervalNames[$plan->interval].' ('.$defaultMonths.' meses)' }})</label>
+                    <label class="block text-sm font-medium text-neutral-400 mb-2">Período</label>
                     <select onchange="updatePrice(this)" class="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm">
-                        @foreach (($defaultMonths === 1 ? [1, 3, 6, 12] : [$defaultMonths]) as $m)
+                        @foreach ($intervalOptions[$plan->interval] ?? [1, 3, 6, 12] as $m)
                             @php
                                 $discountPct = \App\Models\SaasPlan::getDiscountPercent($m);
                                 $full = $plan->price_cents * $m;
@@ -259,9 +282,10 @@
                 </div>
 
                 <button type="submit" class="w-full py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200">
-                    {{ $tenant->isPaid() ? 'Renovar Premium' : 'Assinar Premium' }}
+                    {{ $currentPlanActive === $plan->id ? 'Renovar Premium' : ($currentPlanPrice > 0 ? 'Upgrade para Premium' : 'Assinar Premium') }}
                 </button>
             </form>
+            @endif
         </div>
         @endif
 
@@ -272,6 +296,8 @@
              style="{{ $plan->border_color ? 'border-color: '.$plan->border_color.';' : '' }}{{ $plan->background_color ? ' background-color: '.$plan->background_color.';' : '' }}">
             @if ($currentPlanActive === $plan->id)
                 <span class="absolute -top-3 right-6 px-4 py-1 text-xs font-semibold rounded-full bg-amber-500 text-neutral-950">Atual</span>
+            @elseif ($plan->badge)
+                <span class="absolute -top-3 right-6 px-4 py-1 text-xs font-semibold rounded-full bg-amber-500 text-neutral-950">{{ $plan->badge }}</span>
             @endif
             <div class="w-14 h-14 rounded-2xl bg-neutral-800 flex items-center justify-center mb-5">
                 <svg class="w-7 h-7 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -284,32 +310,39 @@
                 <p class="text-sm text-neutral-500 mb-1">R$ {{ number_format($plan->price_cents / 100, 2, ',', '.') }}/mês</p>
                 <p class="text-3xl font-black mb-2 plan-total">R$ {{ number_format($plan->getTotalForMonths($defaultMonths) / 100, 2, ',', '.') }}</p>
             <p class="text-xs text-neutral-500 mb-6">{{ $defaultMonths === 1 ? 'Mensal (todos) · à vista' : $intervalNames[$plan->interval].' ('.$defaultMonths.' meses) · '.$defaultMonths.' meses com desconto' }}</p>
+            <p class="text-xs text-neutral-500 mb-6">Períodos: {{ collect($intervalOptions[$plan->interval] ?? [1, 3, 6, 12])->map(fn($m) => $m.' '.($m === 1 ? 'mês' : 'meses'))->implode(' · ') }}</p>
             @else
                 <p class="text-4xl font-black mb-6">R$ 0</p>
             @endif
             <ul class="space-y-3 mb-8 text-sm">
-                @foreach ($plan->visibleFeatures() as $item)
-                <li class="flex items-center gap-3 {{ $item['value'] === false ? 'text-neutral-500' : 'text-neutral-300' }}">
-                    @if ($item['value'] === true || ! is_bool($item['value']))
-                        <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                @foreach ($plan->featureItems() as $item)
+                    @if ($item['included'])
+                        <li class="flex items-center gap-3 text-neutral-300"><svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> {{ $item['label'] }}</li>
                     @else
-                        <svg class="w-5 h-5 text-neutral-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        <li class="flex items-center gap-3 text-neutral-500"><svg class="w-5 h-5 text-neutral-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg> {{ $item['label'] }}</li>
                     @endif
-                    <span>{{ $item['label'] }}@if (! is_bool($item['value'])): {{ $item['value'] }}@endif</span>
-                </li>
                 @endforeach
             </ul>
 
-            <form method="POST" action="{{ route('subscription.checkout.store') }}">
+            @php $isDowngradeOther = $plan->price_cents > 0 && $currentPlanPrice > $plan->price_cents && $currentPlanActive !== $plan->id; @endphp
+
+            @if ($isDowngradeOther)
+                <div class="w-full py-3.5 px-4 rounded-xl text-center font-semibold bg-neutral-800 text-neutral-400 cursor-not-allowed">Indisponível — você está em um plano superior</div>
+            @else
+            <form method="POST" action="{{ route('subscription.checkout.store') }}"
+                @if ($currentPlanActive && $currentPlanActive !== $plan->id)
+                data-confirm-msg="{{ $currentPlanConfirm }}"
+                onsubmit="saasConfirmSubmit(event, this, this.dataset.confirmMsg, { type: 'confirm', title: 'Fazer upgrade', confirmLabel: 'Upgrade' })"
+                @endif>
                     @csrf
                     <input type="hidden" name="plan" value="{{ $plan->slug }}">
                     <input type="hidden" name="months" value="{{ $defaultMonths }}">
 
                     @if ($plan->price_cents > 0)
                     <div class="mb-4">
-                        <label class="block text-sm font-medium text-neutral-400 mb-2">Período ({{ $defaultMonths === 1 ? 'Mensal (todos)' : $intervalNames[$plan->interval].' ('.$defaultMonths.' meses)' }})</label>
+                        <label class="block text-sm font-medium text-neutral-400 mb-2">Período</label>
                         <select onchange="updatePrice(this)" class="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 text-sm">
-                            @foreach (($defaultMonths === 1 ? [1, 3, 6, 12] : [$defaultMonths]) as $m)
+                            @foreach ($intervalOptions[$plan->interval] ?? [1, 3, 6, 12] as $m)
                                 @php
                                     $discountPct = \App\Models\SaasPlan::getDiscountPercent($m);
                                     $full = $plan->price_cents * $m;
@@ -330,9 +363,10 @@
                     @endif
 
                     <button type="submit" class="w-full py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200">
-                        {{ $tenant->isPaid() ? 'Renovar '.$plan->name : 'Assinar '.$plan->name }}
+                        {{ $currentPlanActive === $plan->id ? 'Renovar '.$plan->name : ($currentPlanPrice > 0 ? 'Upgrade para '.$plan->name : 'Assinar '.$plan->name) }}
                     </button>
                 </form>
+            @endif
         </div>
         @endforeach
     </div>

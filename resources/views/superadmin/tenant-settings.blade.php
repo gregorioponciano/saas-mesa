@@ -14,7 +14,7 @@
             </div>
             <p class="mt-1 text-sm text-neutral-400" x-text="'Gerenciando: ' + (form.name || '...')"></p>
         </div>
-        <span class="px-3 py-1 text-xs font-medium rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 capitalize" x-text="form.plan_label || ''"></span>
+        <span class="px-3 py-1 text-xs font-medium rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 capitalize" x-text="form.plan_name || form.plan_label"></span>
     </div>
 
     <template x-if="loading">
@@ -160,7 +160,11 @@
                         </div>
                         <div class="flex justify-between">
                             <span class="text-neutral-500">Plano</span>
-                            <span class="text-white font-medium capitalize" x-text="form.plan"></span>
+                            <span class="text-white font-medium capitalize" x-text="form.plan_name || form.plan"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-neutral-500">Vence em</span>
+                            <span class="text-white font-medium" x-text="form.subscription_ends_at || '—'"></span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-neutral-500">Status</span>

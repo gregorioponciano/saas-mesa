@@ -45,11 +45,18 @@
                             <td class="p-4">
                                 <div class="flex items-center justify-end">
                                     <button @click="toggle(t)" :disabled="t.toggling"
-                                            class="relative inline-flex items-center h-7 w-12 rounded-full cursor-pointer transition-all duration-300 shrink-0 disabled:opacity-60"
-                                            :class="t.points_enabled ? 'bg-emerald-500 shadow-[0_0_12px_rgba(52,211,153,.45)]' : 'bg-neutral-800 border border-neutral-700'"
+                                            class="relative inline-flex items-center h-7 w-12 rounded-full cursor-pointer transition-colors duration-300 shrink-0 disabled:opacity-60"
+                                            :style="`background-color: ${t.points_enabled ? '#16a34a' : '#3f3f46'}`"
                                             :aria-pressed="t.points_enabled">
-                                        <span class="inline-block w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300"
-                                              :style="switchStyle(t)"></span>
+                                        <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300"
+                                              :style="switchStyle(t)">
+                                            <svg x-show="t.points_enabled" class="w-3 h-3 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                                            </svg>
+                                            <svg x-show="!t.points_enabled" class="w-3 h-3 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/>
+                                            </svg>
+                                        </span>
                                     </button>
                                 </div>
                             </td>
@@ -80,8 +87,8 @@
             },
             switchStyle(t) {
                 return {
-                    transform: t.points_enabled ? 'translateX(1.5rem)' : 'translateX(0.25rem)',
-                    transitionTimingFunction: 'cubic-bezier(.68, -0.55, .27, 1.55)',
+                    transform: t.points_enabled ? 'translateX(26px)' : 'translateX(2px)',
+                    transitionTimingFunction: 'cubic-bezier(.34,1.56,.64,1)',
                 };
             },
             async toggle(t) {

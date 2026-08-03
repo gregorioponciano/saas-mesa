@@ -125,16 +125,21 @@ class ProcessEfiBankWebhook implements ShouldQueue
 
             $months = $subscription->metadata['months'] ?? 1;
 
+            $hasPeriod = $subscription->current_period_end !== null && $subscription->current_period_end > now();
+            $newPeriodEnd = $hasPeriod
+                ? $subscription->current_period_end->copy()->addMonths($months)
+                : now()->addMonths($months);
+
             $subscription->update([
                 'status' => 'active',
                 'current_period_start' => $subscription->current_period_start ?? now(),
-                'current_period_end' => now()->addMonths($months),
-                'next_billing_date' => now()->addMonths($months),
+                'current_period_end' => $newPeriodEnd,
+                'next_billing_date' => $newPeriodEnd,
                 'suspended_at' => null,
             ]);
 
             $tenant = $subscription->tenant;
-            if ($tenant && in_array($tenant->status, ['suspended', 'trial', 'cancelled'])) {
+            if ($tenant) {
                 $plan = $subscription->plan;
                 $isPaidPlan = $plan !== null && $plan->price_cents > 0;
 
@@ -143,7 +148,7 @@ class ProcessEfiBankWebhook implements ShouldQueue
                     'plan' => $isPaidPlan ? Tenant::PLAN_PAID : Tenant::PLAN_FREE,
                     'max_tables' => $plan->features_json['max_tables'] ?? ($isPaidPlan ? 50 : 2),
                     'subscription_id' => $subscription->id,
-                    'subscription_ends_at' => now()->addMonths($months),
+                    'subscription_ends_at' => $newPeriodEnd,
                 ]);
 
                 app(TenantResolverService::class)->clearCache($tenant);

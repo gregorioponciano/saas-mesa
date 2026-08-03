@@ -6,13 +6,17 @@ namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SaasPaymentHistory;
+use App\Models\SaasPixCharge;
 use App\Models\SaasSubscription;
 use App\Models\Tenant;
 use App\Models\TenantBackup;
 use App\Models\TenantInvoice;
 use App\Models\WebhookLog;
+use App\Services\TenantResolverService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class FinancialController extends Controller
 {
@@ -185,6 +189,129 @@ class FinancialController extends Controller
         return response()->json([
             'subscriptions' => $subscriptions,
             'stats' => $stats,
+        ]);
+    }
+
+    public function pixCharges(Request $request): JsonResponse
+    {
+        $query = SaasPixCharge::with(['tenant', 'plan', 'subscription'])
+            ->orderByDesc('created_at');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('tenant_id')) {
+            $query->where('tenant_id', $request->integer('tenant_id'));
+        }
+
+        $charges = $query->paginate($request->get('per_page', 15))
+            ->through(fn (SaasPixCharge $charge) => [
+                'id' => $charge->id,
+                'tenant_id' => $charge->tenant_id,
+                'tenant_name' => $charge->tenant?->name,
+                'plan_name' => $charge->plan?->name,
+                'plan_slug' => $charge->plan?->slug,
+                'amount_cents' => $charge->amount_cents,
+                'months' => $charge->months,
+                'status' => $charge->resolveStatus(),
+                'paid_at' => $charge->paid_at,
+                'expires_at' => $charge->expires_at,
+                'created_at' => $charge->created_at,
+                'subscription_status' => $charge->subscription?->status,
+            ]);
+
+        $stats = [
+            'pending' => SaasPixCharge::where('status', 'pending')->count(),
+            'paid' => SaasPixCharge::where('status', 'paid')->count(),
+            'expired' => SaasPixCharge::where('status', 'expired')->count(),
+        ];
+
+        return response()->json([
+            'charges' => $charges,
+            'stats' => $stats,
+        ]);
+    }
+
+    public function confirmPix(SaasPixCharge $charge, Request $request): JsonResponse
+    {
+        if ($charge->status === 'paid') {
+            return response()->json([
+                'message' => 'Este pagamento já foi confirmado.',
+                'already_paid' => true,
+            ], 200);
+        }
+
+        $subscription = $charge->subscription;
+
+        if (! $subscription) {
+            return response()->json([
+                'message' => 'PIX sem assinatura vinculada.',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($charge, $subscription) {
+            $months = max(1, (int) ($charge->months ?? $subscription->metadata['months'] ?? 1));
+
+            $hasPeriod = $subscription->current_period_end !== null && $subscription->current_period_end > now();
+            $newPeriodEnd = $hasPeriod
+                ? $subscription->current_period_end->copy()->addMonths($months)
+                : now()->addMonths($months);
+
+            $subscription->update([
+                'status' => 'active',
+                'current_period_start' => $subscription->current_period_start ?? now(),
+                'current_period_end' => $newPeriodEnd,
+                'next_billing_date' => $newPeriodEnd,
+                'suspended_at' => null,
+            ]);
+
+            $plan = $subscription->plan;
+            $isPaidPlan = $plan !== null && $plan->price_cents > 0;
+
+            if ($subscription->tenant) {
+                $subscription->tenant->update([
+                    'status' => 'active',
+                    'plan' => $isPaidPlan ? Tenant::PLAN_PAID : Tenant::PLAN_FREE,
+                    'max_tables' => $plan?->features_json['max_tables'] ?? ($isPaidPlan ? 50 : 2),
+                    'subscription_id' => $subscription->id,
+                    'subscription_ends_at' => $newPeriodEnd,
+                ]);
+
+                app(TenantResolverService::class)->clearCache($subscription->tenant);
+            }
+
+            SaasPaymentHistory::updateOrCreate(
+                ['efi_charge_id' => $charge->txid],
+                [
+                    'subscription_id' => $subscription->id,
+                    'tenant_id' => $subscription->tenant_id,
+                    'amount_cents' => $charge->amount_cents,
+                    'status' => 'paid',
+                    'method' => 'pix',
+                    'paid_at' => now(),
+                ]
+            );
+
+            $charge->update([
+                'status' => 'paid',
+                'paid_at' => now(),
+            ]);
+
+            Log::info('Saas PIX payment confirmed manually by superadmin', [
+                'charge_id' => $charge->id,
+                'subscription_id' => $subscription->id,
+                'tenant_id' => $subscription->tenant_id,
+                'admin_id' => \Illuminate\Support\Facades\Auth::id(),
+            ]);
+        });
+
+        return response()->json([
+            'message' => 'Pagamento confirmado. Assinatura ativada com sucesso.',
+            'charge' => [
+                'id' => $charge->id,
+                'status' => $charge->refresh()->status,
+            ],
         ]);
     }
 

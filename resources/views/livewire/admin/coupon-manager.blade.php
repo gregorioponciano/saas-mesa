@@ -31,10 +31,17 @@
         <div wire:ignore>
             <button x-data="{ on: @js(auth()->user()->tenant->coupons_enabled) }"
                     x-on:click="on = !on; $wire.toggleCouponsEnabled()"
-                    x-bind:style="`background-color: ${on ? '#f59e0b' : '#404040'}`"
-                    class="relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 ease-in-out cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-neutral-900">
+                    x-bind:style="`background-color: ${on ? '#16a34a' : '#3f3f46'}`"
+                    class="relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-300 ease-in-out cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-neutral-900">
                 <span x-bind:style="`transform: translateX(${on ? 26 : 2}px)`"
-                      class="inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-300 ease-in-out"></span>
+                      class="inline-flex items-center justify-center h-5 w-5 rounded-full bg-white shadow transition-transform duration-300 ease-in-out">
+                    <svg x-show="on" class="w-3 h-3 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    <svg x-show="!on" class="w-3 h-3 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </span>
             </button>
         </div>
     </x-admin.card>

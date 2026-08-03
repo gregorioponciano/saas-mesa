@@ -22,9 +22,6 @@
                  :style="cardStyle(p)">
                 <div class="flex items-start justify-between gap-3">
                     <div class="flex items-center gap-3 min-w-0">
-                        <div class="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-                            <span class="text-lg font-black text-amber-400 uppercase" x-text="p.name.charAt(0)"></span>
-                        </div>
                         <h3 class="text-lg font-bold text-white truncate" x-text="p.name"></h3>
                     </div>
                     <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide shrink-0"
@@ -152,6 +149,12 @@
                 </div>
 
                 <div>
+                    <label class="block text-xs font-semibold text-neutral-400 mb-1.5">Selo / etiqueta (ex.: Popular)</label>
+                    <input x-model="form.badge" type="text" maxlength="60" placeholder="Ex.: Popular, Mais vendido, Recomendado…"
+                           class="w-full px-3.5 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-white text-sm outline-none transition-all duration-200">
+                </div>
+
+                <div>
                     <div class="flex items-center gap-2 mb-3">
                         <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
@@ -178,30 +181,52 @@
                 </div>
 
                 <div>
-                    <div class="flex items-center gap-2 mb-3">
-                        <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        <label class="text-xs font-semibold text-neutral-300 uppercase tracking-wide">Recursos do plano</label>
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <label class="text-xs font-semibold text-neutral-300 uppercase tracking-wide">Recursos do plano</label>
+                        </div>
+                        <button @click="addFeatureItem()" type="button"
+                                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold transition-all duration-200">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Adicionar
+                        </button>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <template x-for="(label, key) in descriptionFeatures" :key="key">
-                            <label class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-neutral-950 border cursor-pointer transition-all duration-200"
-                                   :class="form.features[key] ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-neutral-800 hover:border-neutral-700'">
-                                <input type="checkbox" x-model="form.features[key]" class="hidden">
-                                <span class="w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all duration-200"
-                                      :class="form.features[key] ? 'bg-emerald-500 border-emerald-500' : 'border-neutral-700'">
-                                    <template x-if="form.features[key]">
-                                        <svg class="w-3.5 h-3.5 text-neutral-950" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
-                                        </svg>
-                                    </template>
-                                </span>
-                                <span class="text-sm text-neutral-300 flex-1" x-text="label"></span>
-                                <span class="text-xs font-bold px-2 py-0.5 rounded-md"
-                                      :class="form.features[key] ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10'"
-                                      x-text="form.features[key] ? 'V' : 'X'"></span>
-                            </label>
+
+                    <div class="space-y-2">
+                        <template x-for="(item, index) in form.feature_items" :key="index">
+                            <div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800">
+                                <button @click="moveFeatureItem(index, -1)" type="button" :disabled="index === 0"
+                                        class="w-7 h-7 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-400 flex items-center justify-center shrink-0 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>
+                                </button>
+                                <button @click="moveFeatureItem(index, 1)" type="button" :disabled="index === form.feature_items.length - 1"
+                                        class="w-7 h-7 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-400 flex items-center justify-center shrink-0 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                                </button>
+                                <input x-model="item.label" type="text" placeholder="Ex.: Mesas ilimitadas"
+                                       class="flex-1 min-w-0 px-3 py-2 rounded-lg bg-neutral-900 border border-neutral-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-white text-sm outline-none transition-all duration-200">
+                                <button @click="toggleFeatureItem(index)" type="button"
+                                        class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-all duration-200 font-bold text-xs"
+                                        :class="item.included ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/10 text-red-400'">
+                                    <svg x-show="item.included" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                    <svg x-show="!item.included" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                                <button @click="removeFeatureItem(index)" type="button"
+                                        class="w-7 h-7 rounded-lg bg-neutral-800 hover:bg-red-500/20 text-neutral-500 hover:text-red-400 flex items-center justify-center shrink-0 transition-all duration-200">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                            </div>
                         </template>
                     </div>
                 </div>
@@ -211,11 +236,19 @@
                         <p class="text-sm font-medium text-neutral-300">Plano ativo</p>
                         <p class="text-xs text-neutral-500">Disponível para contratação</p>
                     </div>
-                    <button @click="form.is_active = !form.is_active" type="button"
-                            class="relative w-12 h-7 rounded-full transition-colors duration-300 focus:outline-none"
-                            :class="form.is_active ? 'bg-amber-500' : 'bg-neutral-700'">
-                        <span class="absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 ease-out"
-                              :class="form.is_active ? 'translate-x-5' : ''"></span>
+                    <button @click="form.is_active = !form.is_active" type="button" aria-pressed="form.is_active"
+                            class="relative inline-flex h-7 w-12 items-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/50 transition-colors duration-300 ease-in-out cursor-pointer"
+                            :style="`background-color: ${form.is_active ? '#16a34a' : '#3f3f46'}`">
+                        <span x-show="form.is_active" class="animate-pulse absolute inset-0 rounded-full bg-green-400/30"></span>
+                        <span class="relative inline-flex items-center justify-center h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-300 ease-in-out"
+                              :style="`transform: translateX(${form.is_active ? 26 : 2}px)`">
+                            <svg x-show="form.is_active" class="w-3 h-3 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            <svg x-show="!form.is_active" class="w-3 h-3 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </span>
                     </button>
                 </div>
 
@@ -254,7 +287,7 @@
             extraFeatures: {},
             knownFeatures: ['max_tables', 'max_products', 'max_users'],
             descriptionFeatures: @json(\App\Models\SaasPlan::DESCRIPTION_FEATURES),
-            form: { name: '', price_reais: 0, interval: 'month', features: {}, border_color: '', background_color: '', is_active: true },
+            form: { name: '', price_reais: 0, interval: 'month', badge: '', features: {}, feature_items: [], border_color: '', background_color: '', is_active: true },
             init() {
                 this.load();
             },
@@ -283,11 +316,16 @@
                 const descriptions = Object.fromEntries(Object.keys(this.descriptionFeatures).map(k => [k, false]));
                 return { ...numeric, ...descriptions };
             },
+            defaultFeatureItems() {
+                return Object.keys(this.descriptionFeatures).map(key => {
+                    return { label: this.descriptionFeatures[key], included: true };
+                });
+            },
             openCreate() {
                 this.editingId = null;
                 this.error = '';
                 this.extraFeatures = {};
-                this.form = { name: '', price_reais: 0, interval: 'month', features: this.emptyFeatures(), border_color: '', background_color: '', is_active: true };
+                this.form = { name: '', price_reais: 0, interval: 'month', badge: '', features: this.emptyFeatures(), feature_items: this.defaultFeatureItems(), border_color: '', background_color: '', is_active: true };
                 this.showModal = true;
             },
             openEdit(p) {
@@ -301,16 +339,36 @@
                 this.extraFeatures = Object.fromEntries(
                     Object.entries(features).filter(([key]) => !this.knownFeatures.includes(key))
                 );
+                const featureItems = (p.feature_items && Array.isArray(p.feature_items) && p.feature_items.length)
+                    ? p.feature_items.map(i => ({ label: i.label || 'Recurso', included: !!i.included }))
+                    : this.defaultFeatureItems();
                 this.form = {
                     name: p.name,
                     price_reais: (p.price_cents || 0) / 100,
                     interval: p.interval,
+                    badge: p.badge || '',
                     features: formFeatures,
+                    feature_items: featureItems,
                     border_color: p.border_color || '',
                     background_color: p.background_color || '',
                     is_active: !!p.is_active
                 };
                 this.showModal = true;
+            },
+            addFeatureItem() {
+                this.form.feature_items.push({ label: '', included: true });
+            },
+            removeFeatureItem(index) {
+                this.form.feature_items.splice(index, 1);
+            },
+            toggleFeatureItem(index) {
+                this.form.feature_items[index].included = !this.form.feature_items[index].included;
+            },
+            moveFeatureItem(index, dir) {
+                const target = index + dir;
+                if (target < 0 || target >= this.form.feature_items.length) return;
+                const arr = this.form.feature_items;
+                [arr[index], arr[target]] = [arr[target], arr[index]];
             },
             buildFeatures() {
                 const features = { ...this.extraFeatures };
@@ -330,7 +388,11 @@
                     name: this.form.name,
                     price_cents: Math.round((Number(this.form.price_reais) || 0) * 100),
                     interval: this.form.interval,
+                    badge: this.form.badge || null,
                     features_json: this.buildFeatures(),
+                    feature_items: this.form.feature_items
+                        .filter(i => (i.label || '').trim() !== '')
+                        .map(i => ({ label: i.label.trim(), included: !!i.included })),
                     border_color: this.form.border_color || null,
                     background_color: this.form.background_color || null,
                     is_active: this.form.is_active
@@ -352,10 +414,10 @@
                 this.load();
             },
             async remove(p) {
-                if (!confirm('Excluir o plano "' + p.name + '"?')) return;
+                if (!await saasConfirm('Excluir o plano "' + p.name + '"?', { type: 'danger', title: 'Excluir plano', confirmLabel: 'Excluir' })) return;
                 const r = await fetch('/api/superadmin/plans/' + p.id, { method: 'DELETE', headers: { 'Accept': 'application/json' } });
                 if (r.ok) this.load();
-                else alert('Falha ao excluir o plano.');
+                else saasAlert('Falha ao excluir o plano.', { title: 'Erro' });
             },
             formatCents(cents) {
                 return 'R$ ' + (Number(cents || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 });

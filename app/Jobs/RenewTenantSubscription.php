@@ -45,10 +45,15 @@ class RenewTenantSubscription implements ShouldQueue
                 $response = $efiBankService->createSubscriptionCharge($tenant, $plan, $this->subscription);
 
                 if ($response) {
+                    $hasPeriod = $this->subscription->current_period_end !== null && $this->subscription->current_period_end > now();
+                    $newPeriodEnd = $hasPeriod
+                        ? $this->subscription->current_period_end->copy()->addMonth()
+                        : now()->addMonth();
+
                     $this->subscription->update([
-                        'current_period_start' => now(),
-                        'current_period_end' => now()->addMonth(),
-                        'next_billing_date' => now()->addMonth(),
+                        'current_period_start' => $this->subscription->current_period_start ?? now(),
+                        'current_period_end' => $newPeriodEnd,
+                        'next_billing_date' => $newPeriodEnd,
                         'status' => 'pending',
                         'suspended_at' => null,
                     ]);

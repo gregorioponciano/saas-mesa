@@ -38,7 +38,38 @@ class SubscriptionController extends Controller
         $planSlug = $validated['plan'];
         $months = (int) ($validated['months'] ?? 1);
 
+        $subscriptions = SaasSubscription::with('plan')
+            ->where('tenant_id', $tenant->id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        // Assinatura ativa do tenant (a que dirige o plano pago atual)
+        $currentSubscription = ! empty($tenant->subscription_id)
+            ? $subscriptions->firstWhere('id', $tenant->subscription_id)
+            : $subscriptions->firstWhere('status', 'active');
+
+        // Plano pago ativo no momento (impede downgrade e volta ao gratuito)
+        $activePaidPlan = null;
+        $hasPaidPlan = false;
+
+        if ($currentSubscription && $currentSubscription->plan) {
+            $isPaidPlan = $currentSubscription->plan->price_cents > 0;
+            $hasPaidPlan = $isPaidPlan && in_array($currentSubscription->status, ['active', 'trial', 'pending'], true);
+
+            if ($isPaidPlan && in_array($currentSubscription->status, ['active', 'trial'], true)) {
+                $activePaidPlan = $currentSubscription->plan;
+            }
+        }
+
+        // Assinatura mais recente para decidir reuso/renovação do PIX pendente
+        $existingSubscription = $subscriptions->first();
+
         if (in_array($planSlug, ['free', 'gratuito'], true)) {
+            if ($hasPaidPlan) {
+                return redirect()->route('subscription.checkout')
+                    ->with('error', 'Você está em um plano pago. Não é possível voltar ao plano Gratuito — faça upgrade ou renove seu plano.');
+            }
+
             return $this->activateFreePlan($tenant);
         }
 
@@ -51,7 +82,11 @@ class SubscriptionController extends Controller
                 ->with('error', 'Plano não encontrado.');
         }
 
-        $existingSubscription = SaasSubscription::where('tenant_id', $tenant->id)->first();
+        // Não permite trocar para um plano pago mais barato — só upgrade ou renovação
+        if ($activePaidPlan && $plan->id !== $activePaidPlan->id && $plan->price_cents < $activePaidPlan->price_cents) {
+            return redirect()->route('subscription.checkout')
+                ->with('error', 'Não é possível trocar para um plano inferior. Você pode renovar seu plano atual ou fazer um upgrade pagando via PIX.');
+        }
 
         // Só reutiliza o PIX pendente se for o MESMO plano + período.
         // Se mudou o valor/plano, gera um PIX novo (vira uma nova entrada no histórico).
@@ -77,7 +112,38 @@ class SubscriptionController extends Controller
 
         // Cria cobrança PIX via EfiBank (sua conta)
         try {
-            DB::transaction(function () use ($tenant, $plan, $existingSubscription, $months) {
+            DB::transaction(function () use ($tenant, $plan, $currentSubscription, $existingSubscription, $months) {
+                $samePlan = $currentSubscription && $currentSubscription->plan_id === $plan->id;
+
+                // Renovação do MESMO plano: reutiliza a assinatura ATIVA atual, mantendo o
+                // período vigente para que a confirmação ESTENDA o current_period_end.
+                if ($currentSubscription && $samePlan) {
+                    $currentSubscription->update([
+                        'plan_id' => $plan->id,
+                        'status' => 'pending',
+                        'payment_method' => 'pix',
+                        'efi_charge_id' => null,
+                        'metadata' => null,
+                    ]);
+                    $this->efiBankService->chargeSubscription($currentSubscription, $tenant, $plan, $months);
+                    session()->flash('payment_pending', $currentSubscription->id);
+
+                    return;
+                }
+
+                // Upgrade (plano diferente): cria NOVA assinatura do zero.
+                // Ao confirmar, o novo período começa de hoje — os dias restantes
+                // do plano anterior NÃO são herdados (o usuário é avisado no checkout).
+                if ($currentSubscription && $currentSubscription->status === 'active') {
+                    $subscription = $this->efiBankService->createSubscription($tenant, $plan, ['months' => $months]);
+                    if ($subscription->status === 'payment_error') {
+                        throw new \RuntimeException('Falha ao gerar cobrança PIX');
+                    }
+                    session()->flash('payment_pending', $subscription->id);
+
+                    return;
+                }
+
                 if ($existingSubscription) {
                     $existingSubscription->update([
                         'plan_id' => $plan->id,
@@ -219,7 +285,9 @@ class SubscriptionController extends Controller
             ->orderBy('price_cents')
             ->get();
         $tenant = Auth::user()->tenant;
-        $currentSubscription = SaasSubscription::where('tenant_id', $tenant->id)->first();
+        $currentSubscription = ! empty($tenant->subscription_id)
+            ? SaasSubscription::find($tenant->subscription_id)
+            : SaasSubscription::where('tenant_id', $tenant->id)->first();
         $paymentHistory = SaasPaymentHistory::where('tenant_id', $tenant->id)
             ->with('subscription.plan')
             ->latest('paid_at')

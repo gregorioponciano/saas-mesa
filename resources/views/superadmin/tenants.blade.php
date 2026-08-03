@@ -346,8 +346,8 @@
                 URL.revokeObjectURL(url);
             },
             async anonymize(t) {
-                if (!confirm('ANONIMIZAR E ENCERRAR "' + t.name + '"?\n\nEsta ação é irreversível: usuários, entregadores, senhas, endereços e backups serão removidos. Pedidos ficam anonimizados para fins contábeis.')) return;
-                if (!confirm('Tem certeza absoluta? O acesso de toda a empresa será perdido imediatamente.')) return;
+                if (!await saasConfirm('ANONIMIZAR E ENCERRAR "' + t.name + '"?\n\nEsta ação é irreversível: usuários, entregadores, senhas, endereços e backups serão removidos. Pedidos ficam anonimizados para fins contábeis.', { type: 'danger', title: 'Anonimizar empresa', confirmLabel: 'Anonimizar' })) return;
+                if (!await saasConfirm('Tem certeza absoluta? O acesso de toda a empresa será perdido imediatamente.', { title: 'Última confirmação', confirmLabel: 'Sim, anonimizar' })) return;
                 const r = await fetch('/api/superadmin/tenants/' + t.id, {
                     method: 'DELETE',
                     headers: {
@@ -362,7 +362,7 @@
                         .then(res => res.ok ? res.json() : [])
                         .then(d => { this.all = d; this.filter(); });
                 } else {
-                    alert(data.error || 'Falha ao anonimizar a empresa.');
+                    saasAlert(data.error || 'Falha ao anonimizar a empresa.', { title: 'Erro' });
                 }
             },
             formatDate(date) {

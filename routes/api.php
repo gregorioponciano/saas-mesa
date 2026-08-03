@@ -78,6 +78,8 @@ Route::prefix('superadmin')
         Route::get('financial/subscriptions', [FinancialController::class, 'subscriptions']);
         Route::get('financial/invoices', [FinancialController::class, 'invoices']);
         Route::get('financial/tenant/{tenant}', [FinancialController::class, 'tenant']);
+        Route::get('financial/pix', [FinancialController::class, 'pixCharges']);
+        Route::post('financial/pix/{charge}/confirm', [FinancialController::class, 'confirmPix']);
         Route::get('loyalty', [LoyaltyController::class, 'index']);
         Route::get('backups', [BackupsController::class, 'index']);
         Route::get('tenants/{tenant}/settings', [TenantSettingsController::class, 'show']);

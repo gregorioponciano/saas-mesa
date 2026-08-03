@@ -27,6 +27,12 @@ class SaasPlanSeeder extends Seeder
                 'backup_retention_days' => 7,
                 'backup_max_count' => 3,
             ],
+            'feature_items' => [
+                ['label' => 'Mesas máximas: 2', 'included' => true],
+                ['label' => 'Produtos máximos: 20', 'included' => true],
+                ['label' => 'Usuários máximos: 2', 'included' => true],
+                ['label' => 'Pagamentos via PIX', 'included' => true],
+            ],
             'is_active' => true,
         ]);
 
@@ -35,7 +41,7 @@ class SaasPlanSeeder extends Seeder
             'price_cents' => 9790,
             'interval' => 'month',
             'features_json' => [
-                'max_tables' => 50,
+                'max_tables' => 20,
                 'max_products' => 999,
                 'max_users' => 20,
                 'pix_payments' => true,
@@ -45,6 +51,16 @@ class SaasPlanSeeder extends Seeder
                 'priority_support' => true,
                 'backup_retention_days' => null,
                 'backup_max_count' => 30,
+            ],
+            'feature_items' => [
+                ['label' => 'Mesas máximas: 20', 'included' => true],
+                ['label' => 'Produtos máximos: 999', 'included' => true],
+                ['label' => 'Usuários máximos: 20', 'included' => true],
+                ['label' => 'Pagamentos via PIX', 'included' => true],
+                ['label' => 'Pedidos ilimitados', 'included' => true],
+                ['label' => 'Delivery com entregadores', 'included' => true],
+                ['label' => 'Relatórios avançados', 'included' => true],
+                ['label' => 'Suporte prioritário', 'included' => true],
             ],
             'is_active' => true,
         ]);

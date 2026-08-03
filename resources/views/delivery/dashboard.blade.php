@@ -264,11 +264,20 @@
                 <p class="text-[11px] text-neutral-500 uppercase tracking-wider font-medium">Disponivel</p>
                 <form method="POST" action="{{ route('delivery.toggle.availability') }}" id="toggle-availability-form">
                     @csrf
-                    <button type="submit"
-                            class="relative w-10 h-6 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-                            :class="$el.closest('form').querySelector('button')">
-                        <span class="absolute inset-0 rounded-full {{ $isAvailable ? 'bg-emerald-500' : 'bg-neutral-700' }} transition-colors duration-300"></span>
-                        <span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 {{ $isAvailable ? 'translate-x-4' : 'translate-x-0' }}"></span>
+                    <button type="button"
+                            x-data="{ on: @js($isAvailable) }"
+                            x-on:click="on = !on; $nextTick(() => toggleAvailability())"
+                            x-bind:style="`background-color: ${on ? '#16a34a' : '#3f3f46'}`"
+                            class="relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-300 ease-in-out cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <span x-bind:style="`transform: translateX(${on ? 26 : 2}px)`"
+                              class="inline-flex items-center justify-center h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-300 ease-in-out">
+                            <svg x-show="on" class="w-3 h-3 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            <svg x-show="!on" class="w-3 h-3 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </span>
                     </button>
                 </form>
             </div>
@@ -1179,6 +1188,30 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
     let deliveryMapInstance = null;
+
+    function toggleAvailability() {
+        const form = document.getElementById('toggle-availability-form');
+        if (!form) return;
+        const btn = form.querySelector('button');
+        if (btn._busy) return;
+        btn._busy = true;
+        btn.disabled = true;
+        fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                'Accept': 'application/json',
+            },
+            body: new FormData(form),
+        }).then(r => {
+            if (r.redirected) { window.location.href = r.url; return; }
+            window.location.reload();
+        }).catch(() => {
+            btn._busy = false;
+            btn.disabled = false;
+        });
+    }
+
     function initDeliveryMap(address, customerLat, customerLng) {
         const restLat = @json($restaurantLat);
         const restLng = @json($restaurantLng);
