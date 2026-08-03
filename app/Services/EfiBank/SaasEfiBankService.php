@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\EfiBank;
 
 use App\Models\SaasPaymentHistory;
+use App\Models\SaasPixCharge;
 use App\Models\SaasPlan;
 use App\Models\SaasSubscription;
 use App\Models\Tenant;
@@ -51,9 +52,9 @@ class SaasEfiBankService
                 'status' => 'pending',
                 'payment_method' => 'pix',
                 'trial_ends_at' => now()->addDays(7),
-                'current_period_start' => now(),
-                'current_period_end' => now()->addMonths($months),
-                'next_billing_date' => now()->addMonths($months),
+                'current_period_start' => null,
+                'current_period_end' => null,
+                'next_billing_date' => null,
             ]);
 
             $this->chargeSubscription($subscription, $tenant, $plan, $months);
@@ -149,6 +150,20 @@ class SaasEfiBankService
         $subscription->update([
             'efi_charge_id' => $txid,
             'metadata' => array_merge($subscription->metadata ?? [], $pixData, ['months' => $months]),
+        ]);
+
+        SaasPixCharge::create([
+            'tenant_id' => $subscription->tenant_id,
+            'subscription_id' => $subscription->id,
+            'plan_id' => $plan->id,
+            'txid' => $txid,
+            'loc_id' => $locId !== null ? (string) $locId : null,
+            'amount_cents' => $totalCents,
+            'months' => $months,
+            'status' => 'pending',
+            'qrcode' => $pixQrCode,
+            'copy_paste' => $copyPaste,
+            'expires_at' => $expiresAt,
         ]);
 
         Log::info('PIX charge created successfully', [
@@ -332,6 +347,12 @@ class SaasEfiBankService
                         'paid_at' => now(),
                     ]
                 );
+
+                SaasPixCharge::where('txid', $identifier)
+                    ->update([
+                        'status' => 'paid',
+                        'paid_at' => now(),
+                    ]);
 
                 Log::info('Saas subscription activated via webhook', [
                     'subscription_id' => $subscription->id,

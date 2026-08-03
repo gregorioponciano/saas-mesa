@@ -123,11 +123,13 @@ class ProcessEfiBankWebhook implements ShouldQueue
                 throw new \RuntimeException($amountError);
             }
 
+            $months = $subscription->metadata['months'] ?? 1;
+
             $subscription->update([
                 'status' => 'active',
                 'current_period_start' => $subscription->current_period_start ?? now(),
-                'current_period_end' => now()->addMonth(),
-                'next_billing_date' => now()->addMonth(),
+                'current_period_end' => now()->addMonths($months),
+                'next_billing_date' => now()->addMonths($months),
                 'suspended_at' => null,
             ]);
 
@@ -141,7 +143,7 @@ class ProcessEfiBankWebhook implements ShouldQueue
                     'plan' => $isPaidPlan ? Tenant::PLAN_PAID : Tenant::PLAN_FREE,
                     'max_tables' => $plan->features_json['max_tables'] ?? ($isPaidPlan ? 50 : 2),
                     'subscription_id' => $subscription->id,
-                    'subscription_ends_at' => now()->addMonth(),
+                    'subscription_ends_at' => now()->addMonths($months),
                 ]);
 
                 app(TenantResolverService::class)->clearCache($tenant);

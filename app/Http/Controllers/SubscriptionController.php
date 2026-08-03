@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\SaasPaymentHistory;
+use App\Models\SaasPixCharge;
 use App\Models\SaasPlan;
 use App\Models\SaasSubscription;
 use App\Models\Tenant;
@@ -52,16 +53,26 @@ class SubscriptionController extends Controller
 
         $existingSubscription = SaasSubscription::where('tenant_id', $tenant->id)->first();
 
-        // Se já tem pagamento pendente válido, reexibe
+        // Só reutiliza o PIX pendente se for o MESMO plano + período.
+        // Se mudou o valor/plano, gera um PIX novo (vira uma nova entrada no histórico).
+        $reusePending = false;
         if ($existingSubscription && $existingSubscription->status === 'pending') {
+            $sameSelection = $existingSubscription->plan_id === $plan->id
+                && (int) ($existingSubscription->metadata['months'] ?? 1) === $months;
+
             $details = $this->efiBankService->pixDetails($existingSubscription);
-            if (! empty($details['expired'])) {
-                // PIX expirado — vai gerar novo
+
+            if ($sameSelection && empty($details['expired'])) {
+                $reusePending = true;
+            } elseif (! empty($details['expired'])) {
+                // PIX antigo expirou — marca como expirado e segue gerando novo
                 $this->logExpiredCharge($existingSubscription);
-            } else {
-                return redirect()->route('subscription.checkout')
-                    ->with('payment_pending', $existingSubscription->id);
             }
+        }
+
+        if ($reusePending) {
+            return redirect()->route('subscription.checkout')
+                ->with('payment_pending', $existingSubscription->id);
         }
 
         // Cria cobrança PIX via EfiBank (sua conta)
@@ -196,6 +207,10 @@ class SubscriptionController extends Controller
                 'paid_at' => $expiresAt,
             ]
         );
+
+        SaasPixCharge::where('txid', $subscription->efi_charge_id)
+            ->where('status', 'pending')
+            ->update(['status' => 'expired']);
     }
 
     public function checkout(): View
@@ -209,6 +224,28 @@ class SubscriptionController extends Controller
             ->with('subscription.plan')
             ->latest('paid_at')
             ->get();
+
+        $pixCharges = SaasPixCharge::with('plan')
+            ->where('tenant_id', $tenant->id)
+            ->latest()
+            ->get()
+            ->map(function (SaasPixCharge $charge) {
+                return [
+                    'id' => $charge->id,
+                    'plan_name' => $charge->plan?->name,
+                    'plan_slug' => $charge->plan?->slug,
+                    'amount_cents' => $charge->amount_cents,
+                    'months' => $charge->months,
+                    'txid' => $charge->txid,
+                    'qrcode' => $charge->qrcode,
+                    'copy_paste' => $charge->copy_paste,
+                    'expires_at' => $charge->expires_at,
+                    'paid_at' => $charge->paid_at,
+                    'created_at' => $charge->created_at,
+                    'status' => $charge->resolveStatus(),
+                ];
+            })
+            ->values();
 
         $pendingPayment = null;
         if (session('payment_pending')) {
@@ -230,6 +267,7 @@ class SubscriptionController extends Controller
             'currentSubscription' => $currentSubscription,
             'pendingPayment' => $pendingPayment,
             'paymentHistory' => $paymentHistory,
+            'pixCharges' => $pixCharges,
         ]);
     }
 }

@@ -73,19 +73,20 @@
         $progressPct = $totalDays > 0 ? min(100, ($remainingDays / $totalDays) * 100) : 0;
         $isEnding = $diff && $diff->days <= 7 && !$expired;
     @endphp
-    @php
+@php
         $isPaid = $tenant->isPaid();
+        $isPendingPayment = $currentSubscription->status === 'pending';
         $freeBg = 'from-neutral-800/50 to-neutral-900/30 border border-neutral-700/50';
     @endphp
-    <div class="mb-8 p-6 rounded-2xl bg-gradient-to-br {{ !$isPaid ? $freeBg : ($expired ? 'from-red-500/10 to-red-600/5 border border-red-500/20' : ($isEnding ? 'from-amber-500/10 to-amber-600/5 border border-amber-500/20' : 'from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20')) }}">
+    <div class="mb-8 p-6 rounded-2xl bg-gradient-to-br {{ $isPendingPayment ? 'from-amber-500/10 to-amber-600/5 border border-amber-500/20' : (! $isPaid ? $freeBg : ($expired ? 'from-red-500/10 to-red-600/5 border border-red-500/20' : ($isEnding ? 'from-amber-500/10 to-amber-600/5 border border-amber-500/20' : 'from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20'))) }}">
         <div class="flex items-start gap-4">
-            <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 {{ !$isPaid ? 'bg-neutral-700/50' : ($expired ? 'bg-red-500/20' : ($isEnding ? 'bg-amber-500/20' : 'bg-emerald-500/20')) }}">
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 {{ $isPendingPayment ? 'bg-amber-500/20' : (! $isPaid ? 'bg-neutral-700/50' : ($expired ? 'bg-red-500/20' : ($isEnding ? 'bg-amber-500/20' : 'bg-emerald-500/20'))) }}">
                 @if ($isPaid && $expired)
                     <svg class="w-6 h-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                 @else
-                    <svg class="w-6 h-6 {{ $isPaid && $isEnding ? 'text-amber-400' : 'text-neutral-400' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg class="w-6 h-6 {{ $isPendingPayment ? 'text-amber-400' : ($isPaid && $isEnding ? 'text-amber-400' : 'text-neutral-400') }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                 @endif
@@ -94,14 +95,16 @@
                 <div class="flex items-center justify-between flex-wrap gap-2">
                     <div>
                         <div class="flex items-center gap-3">
-                            <h3 class="text-xl font-black tracking-tight {{ !$isPaid ? 'text-neutral-300' : ($expired ? 'text-red-400' : ($isEnding ? 'text-amber-400' : 'text-emerald-400')) }}">
+                            <h3 class="text-xl font-black tracking-tight {{ $isPendingPayment ? 'text-amber-400' : (! $isPaid ? 'text-neutral-300' : ($expired ? 'text-red-400' : ($isEnding ? 'text-amber-400' : 'text-emerald-400'))) }}">
                                 {{ $isPaid ? 'Premium' : 'Gratuito' }}
                             </h3>
-                            <span class="px-3 py-1 text-xs font-bold rounded-full {{ !$isPaid ? 'bg-neutral-700/50 text-neutral-400' : ($expired ? 'bg-red-500/20 text-red-400' : ($isEnding ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400')) }}">
-                                {{ !$isPaid ? 'Ativo' : ($expired ? 'Expirado' : ($isEnding ? 'Vencendo' : 'Ativo')) }}
+                            <span class="px-3 py-1 text-xs font-bold rounded-full {{ $isPendingPayment ? 'bg-amber-500/20 text-amber-400' : (! $isPaid ? 'bg-neutral-700/50 text-neutral-400' : ($expired ? 'bg-red-500/20 text-red-400' : ($isEnding ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'))) }}">
+                                {{ $isPendingPayment ? 'Pagamento Pendente' : (! $isPaid ? 'Ativo' : ($expired ? 'Expirado' : ($isEnding ? 'Vencendo' : 'Ativo'))) }}
                             </span>
                         </div>
-                        @if ($isPaid && $diff && !$expired)
+                        @if ($isPendingPayment)
+                            <p class="text-sm text-amber-400/90 mt-1 font-medium">Pagamento do PIX aguardando confirmação. O plano será ativado quando o pagamento for confirmado.</p>
+                        @elseif ($isPaid && $diff && !$expired)
                             <div class="flex items-baseline gap-2 mt-2">
                                 <span class="text-sm text-neutral-400">Restam</span>
                                 <span class="text-2xl font-black tracking-tight text-white drop-shadow-sm">{{ $remainingDays }}d</span>
@@ -138,6 +141,11 @@
 
     {{-- Tab: Planos --}}
     @if ($tab === 'planos')
+    @php
+        $currentPlanActive = ($currentSubscription && $currentSubscription->status === 'active')
+            ? $currentSubscription->plan_id
+            : null;
+    @endphp
     <script>
         const discounts = {1:0, 3:15, 6:23, 12:32};
         function updatePrice(select) {
@@ -196,7 +204,7 @@
         @if ($plan)
         <div class="plan-card relative p-8 rounded-3xl bg-gradient-to-b from-amber-500/10 to-amber-600/5 border-2 border-amber-500/30" data-price-per-month="{{ $plan->price_cents / 100 }}"
              style="{{ $plan->border_color ? 'border-color: '.$plan->border_color.';' : '' }}{{ $plan->background_color ? ' background-color: '.$plan->background_color.';' : '' }}">
-            @if ($currentSubscription?->plan_id === $plan->id)
+            @if ($currentPlanActive === $plan->id)
                 <span class="absolute -top-3 right-6 px-4 py-1 text-xs font-semibold rounded-full bg-amber-500 text-neutral-950">Atual</span>
             @else
                 <span class="absolute -top-3 right-6 px-4 py-1 text-xs font-semibold rounded-full bg-amber-500 text-neutral-950">Popular</span>
@@ -250,13 +258,9 @@
                     </select>
                 </div>
 
-                @if ($currentSubscription?->plan_id === $plan->id)
-                    <div class="w-full py-3.5 px-4 rounded-xl text-center font-semibold bg-neutral-800 text-neutral-400 cursor-not-allowed">Plano Atual</div>
-                @else
                 <button type="submit" class="w-full py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl transition-all duration-200">
                     {{ $tenant->isPaid() ? 'Renovar Premium' : 'Assinar Premium' }}
                 </button>
-                @endif
             </form>
         </div>
         @endif
@@ -266,7 +270,7 @@
         <div class="plan-card relative p-8 rounded-3xl bg-neutral-900/50 border border-neutral-800 transition-all duration-300"
              @if ($plan->price_cents > 0) data-price-per-month="{{ $plan->price_cents / 100 }}" @endif
              style="{{ $plan->border_color ? 'border-color: '.$plan->border_color.';' : '' }}{{ $plan->background_color ? ' background-color: '.$plan->background_color.';' : '' }}">
-            @if ($currentSubscription?->plan_id === $plan->id)
+            @if ($currentPlanActive === $plan->id)
                 <span class="absolute -top-3 right-6 px-4 py-1 text-xs font-semibold rounded-full bg-amber-500 text-neutral-950">Atual</span>
             @endif
             <div class="w-14 h-14 rounded-2xl bg-neutral-800 flex items-center justify-center mb-5">
@@ -296,10 +300,7 @@
                 @endforeach
             </ul>
 
-            @if ($currentSubscription?->plan_id === $plan->id)
-                <div class="w-full py-3.5 px-4 rounded-xl text-center font-semibold bg-neutral-800 text-neutral-400 cursor-not-allowed">Plano Atual</div>
-            @else
-                <form method="POST" action="{{ route('subscription.checkout.store') }}">
+            <form method="POST" action="{{ route('subscription.checkout.store') }}">
                     @csrf
                     <input type="hidden" name="plan" value="{{ $plan->slug }}">
                     <input type="hidden" name="months" value="{{ $defaultMonths }}">
@@ -332,7 +333,6 @@
                         {{ $tenant->isPaid() ? 'Renovar '.$plan->name : 'Assinar '.$plan->name }}
                     </button>
                 </form>
-            @endif
         </div>
         @endforeach
     </div>
@@ -340,6 +340,173 @@
 
     {{-- Tab: Histórico --}}
     @if ($tab === 'historico')
+    @php
+        $qrData = $pixCharges->map(fn ($c) => [
+            'id' => $c['id'],
+            'qrcode' => $c['qrcode'],
+            'copy_paste' => $c['copy_paste'],
+            'status' => $c['status'],
+            'plan_name' => $c['plan_name'] ?? 'Premium',
+            'amount' => number_format($c['amount_cents'] / 100, 2, ',', '.'),
+            'months' => $c['months'],
+            'created_at' => $c['created_at']?->format('d/m/Y H:i'),
+            'expires_at' => $c['expires_at']?->format('d/m/Y H:i'),
+            'paid_at' => $c['paid_at']?->format('d/m/Y H:i'),
+        ])->all();
+    @endphp
+    <script>window.pixQrData = @json($qrData);</script>
+
+    {{-- PIX Gerados --}}
+    <div class="rounded-2xl bg-neutral-900/50 border border-neutral-800 p-6 lg:p-8 mb-6">
+        <h2 class="text-lg font-semibold mb-6">PIX Gerados</h2>
+
+        @if ($pixCharges->isEmpty())
+            <div class="text-center py-10">
+                <svg class="w-12 h-12 text-neutral-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+                <p class="text-neutral-500">Nenhum PIX gerado até o momento.</p>
+            </div>
+        @else
+        <div class="space-y-4">
+            @foreach ($pixCharges as $index => $item)
+                @php
+                    $status = $item['status'];
+                    $isPaid = $status === 'paid';
+                    $isExpired = $status === 'expired';
+                @endphp
+                <div class="p-4 rounded-xl bg-neutral-800/30 border {{ $isPaid ? 'border-emerald-500/20' : ($isExpired ? 'border-red-500/20' : 'border-amber-500/20') }}">
+                    <div class="flex items-center justify-between flex-wrap gap-3">
+                        <div>
+                            <p class="font-medium text-sm">Plano <strong>{{ $item['plan_name'] ?? 'Premium' }}</strong>
+                                · R$ {{ number_format($item['amount_cents'] / 100, 2, ',', '.') }}
+                                @if ($item['months'] > 1)
+                                    <span class="text-neutral-500">({{ $item['months'] }} meses)</span>
+                                @endif
+                            </p>
+                            <p class="text-xs text-neutral-500 mt-0.5">
+                                Gerado em {{ $item['created_at'] ? $item['created_at']->format('d/m/Y H:i') : '-' }}
+                                @if ($item['expires_at'])
+                                    · Válido até {{ $item['expires_at']->format('d/m/Y H:i') }}
+                                @endif
+                            </p>
+                            @if ($isPaid && $item['paid_at'])
+                                <p class="text-xs text-emerald-400 mt-0.5">Pago em {{ $item['paid_at']->format('d/m/Y H:i') }}</p>
+                            @endif
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            @if ($isPaid)
+                                <span class="px-3 py-1 text-xs font-bold rounded-full bg-emerald-500/20 text-emerald-400">Pago</span>
+                            @elseif ($isExpired)
+                                <span class="px-3 py-1 text-xs font-bold rounded-full bg-red-500/20 text-red-400">Expirado</span>
+                            @else
+                                <span class="px-3 py-1 text-xs font-bold rounded-full bg-amber-500/20 text-amber-400 animate-pulse">Válido</span>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3 pt-4 mt-4 border-t border-neutral-700/50">
+                        <button onclick="abrirQrModal({{ $index }})" class="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl text-sm inline-flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M7 4h.01M7 4v4H4v4h4v4H4m4 0v4m0-4h4v4h4m-8-4v-4m0 0H8"/></svg>
+                            Ver QR Code
+                        </button>
+
+                        @if (!$isPaid && $isExpired)
+                            <form method="POST" action="{{ route('subscription.checkout.store') }}">
+                                @csrf
+                                <input type="hidden" name="plan" value="{{ $item['plan_slug'] ?? 'premium' }}">
+                                <button type="submit" class="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-semibold rounded-xl text-sm">Gerar novo PIX</button>
+                            </form>
+                        @endif
+                    </div>
+                </div>
+            @endforeach
+        </div>
+        @endif
+    </div>j
+
+    {{-- Modal QR Code --}}
+    <div id="qr-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div class="bg-neutral-900 rounded-3xl p-8 max-w-md w-full mx-4 border border-neutral-700 shadow-2xl text-center">
+            <div id="qr-modal-status" class="mx-auto mb-4 px-4 py-1 w-fit text-xs font-bold rounded-full bg-amber-500/20 text-amber-400"></div>
+            <h2 id="qr-modal-title" class="text-xl font-bold mb-1"></h2>
+            <p id="qr-modal-sub" class="text-sm text-neutral-500 mb-5"></p>
+
+            <img id="qr-modal-image" alt="QR Code PIX" class="w-56 h-56 mx-auto rounded-2xl bg-white p-2 mb-5 hidden">
+
+            <div id="qr-modal-message" class="hidden mb-5 p-4 rounded-xl text-sm font-medium"></div>
+
+            <div id="qr-modal-copy" class="hidden mb-6 text-left">
+                <label class="text-xs text-neutral-500 block mb-2">PIX Copia e Cola:</label>
+                <div class="flex gap-2">
+                    <input type="text" readonly id="qr-modal-copy-input" class="flex-1 bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-xs text-neutral-300 font-mono min-w-0">
+                    <button onclick="navigator.clipboard.writeText(document.getElementById('qr-modal-copy-input').value).then(() => { this.textContent = 'Copiado!'; setTimeout(() => this.textContent = 'Copiar', 2000); })" class="px-4 py-3 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold rounded-xl text-sm whitespace-nowrap">Copiar</button>
+                </div>
+            </div>
+
+            <button onclick="fecharQrModal()" class="w-full py-3 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-semibold rounded-xl text-sm">Fechar</button>
+        </div>
+    </div>
+
+    <script>
+        function abrirQrModal(index) {
+            var d = (window.pixQrData || [])[index];
+            if (!d) return;
+
+            document.getElementById('qr-modal-title').textContent = d.plan_name + ' · R$ ' + d.amount + (d.months > 1 ? ' (' + d.months + ' meses)' : '');
+            document.getElementById('qr-modal-sub').textContent = 'Gerado em ' + (d.created_at || '-') + (d.expires_at ? ' · Válido até ' + d.expires_at : '');
+
+            var img = document.getElementById('qr-modal-image');
+            if (d.qrcode) {
+                img.src = 'data:image/png;base64,' + d.qrcode;
+                img.classList.remove('hidden');
+            } else {
+                img.classList.add('hidden');
+            }
+
+            var statusEl = document.getElementById('qr-modal-status');
+            var msgEl = document.getElementById('qr-modal-message');
+            var copyEl = document.getElementById('qr-modal-copy');
+            var inputEl = document.getElementById('qr-modal-copy-input');
+
+            if (d.status === 'paid') {
+                statusEl.textContent = 'Pago';
+                statusEl.className = 'mb-4 px-4 py-1 text-xs font-bold rounded-full bg-emerald-500/20 text-emerald-400';
+                msgEl.textContent = 'Este PIX já foi pago' + (d.paid_at ? ' em ' + d.paid_at : '') + '.';
+                msgEl.className = 'mb-5 p-4 rounded-xl text-sm font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-400';
+                msgEl.classList.remove('hidden');
+                copyEl.classList.add('hidden');
+            } else if (d.status === 'expired') {
+                statusEl.textContent = 'Expirado';
+                statusEl.className = 'mb-4 px-4 py-1 text-xs font-bold rounded-full bg-red-500/20 text-red-400';
+                msgEl.textContent = 'Este PIX expirou' + (d.expires_at ? ' em ' + d.expires_at : '') + ' e não pode mais ser pago.';
+                msgEl.className = 'mb-5 p-4 rounded-xl text-sm font-medium bg-red-500/10 border border-red-500/20 text-red-400';
+                msgEl.classList.remove('hidden');
+                copyEl.classList.add('hidden');
+            } else {
+                statusEl.textContent = 'Válido';
+                statusEl.className = 'mb-4 px-4 py-1 text-xs font-bold rounded-full bg-amber-500/20 text-amber-400';
+                msgEl.classList.add('hidden');
+                if (d.copy_paste) {
+                    copyEl.classList.remove('hidden');
+                    copyEl = document.getElementById('qr-modal-copy');
+                    document.getElementById('qr-modal-copy-input').value = d.copy_paste;
+                } else {
+                    copyEl.classList.add('hidden');
+                }
+            }
+
+            document.getElementById('qr-modal').classList.remove('hidden');
+            document.getElementById('qr-modal').classList.add('flex');
+        }
+
+        function fecharQrModal() {
+            document.getElementById('qr-modal').classList.add('hidden');
+            document.getElementById('qr-modal').classList.remove('flex');
+        }
+    </script>
+
     <div class="rounded-2xl bg-neutral-900/50 border border-neutral-800 p-6 lg:p-8">
         <h2 class="text-lg font-semibold mb-6">Histórico de Pagamentos</h2>
 
