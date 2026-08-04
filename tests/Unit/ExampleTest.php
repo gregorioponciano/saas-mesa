@@ -13,8 +13,8 @@ it('classifica os planos corretamente', function () {
 });
 
 it('limita o número de mesas por plano', function () {
-    $free = createTenant(['plan' => 'free', 'max_tables' => 2]);
-    $paid = createTenant(['plan' => 'paid', 'max_tables' => 30]);
+    $free = createTenant(['plan' => 'free']);
+    $paid = createTenant(['plan' => 'paid']);
 
     expect($free->maxTablesAllowed())->toBe(2)
         ->and($paid->maxTablesAllowed())->toBe(50);

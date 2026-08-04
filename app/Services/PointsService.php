@@ -16,7 +16,7 @@ class PointsService
 {
     public function isPointsActive(Tenant $tenant): bool
     {
-        if (! $tenant->isPaid()) {
+        if (! $tenant->hasFeature('programa_fidelidade')) {
             return false;
         }
 

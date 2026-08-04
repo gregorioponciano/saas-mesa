@@ -6,9 +6,14 @@ use App\Models\Tenant;
 use App\Models\User;
 use Database\Seeders\SaasPlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class)->in('Feature', 'Unit');
+
+beforeEach(function () {
+    Cache::flush();
+});
 
 function createSuperAdmin(): User
 {

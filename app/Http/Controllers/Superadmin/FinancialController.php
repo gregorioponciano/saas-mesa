@@ -15,6 +15,7 @@ use App\Models\WebhookLog;
 use App\Services\TenantResolverService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -273,7 +274,6 @@ class FinancialController extends Controller
                 $subscription->tenant->update([
                     'status' => 'active',
                     'plan' => $isPaidPlan ? Tenant::PLAN_PAID : Tenant::PLAN_FREE,
-                    'max_tables' => $plan?->features_json['max_tables'] ?? ($isPaidPlan ? 50 : 2),
                     'subscription_id' => $subscription->id,
                     'subscription_ends_at' => $newPeriodEnd,
                 ]);
@@ -302,7 +302,7 @@ class FinancialController extends Controller
                 'charge_id' => $charge->id,
                 'subscription_id' => $subscription->id,
                 'tenant_id' => $subscription->tenant_id,
-                'admin_id' => \Illuminate\Support\Facades\Auth::id(),
+                'admin_id' => Auth::id(),
             ]);
         });
 

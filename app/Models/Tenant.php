@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 
 class Tenant extends Model
@@ -157,9 +158,88 @@ class Tenant extends Model
         return $this->plan === self::PLAN_PAID;
     }
 
+    private ?SaasPlan $resolvedPlan = null;
+
+    /**
+     * Plano ativo do tenant. Apenas o array de features fica em cache
+     * (valores primitivos — serialização segura em qualquer store; objetos
+     * Eloquent em cache file podem virar __PHP_Incomplete_Class). Invalidado
+     * quando o superadmin salva o plano.
+     */
+    public function currentPlan(): ?SaasPlan
+    {
+        $plan = $this->resolvePlan();
+
+        if (! $plan) {
+            return null;
+        }
+
+        $features = Cache::remember(SaasPlan::planCacheKey($plan->slug), 3600, fn (): array => $plan->features_json ?? []);
+
+        $slug = $plan->slug === 'gratuito' ? 'free' : $plan->slug;
+
+        return (new SaasPlan)->forceFill([
+            'slug' => $slug,
+            'features_json' => $features,
+            'name' => $plan->name,
+        ]);
+    }
+
+    /**
+     * Plano concreto do tenant: sempre o plano da assinatura ativa (qualquer
+     * plano criado no painel — free, premium ou custom), com fallback para
+     * premium (pagante sem assinatura) e free/slug legado 'gratuito'.
+     */
+    private function resolvePlan(): ?SaasPlan
+    {
+        if ($this->resolvedPlan !== null) {
+            return $this->resolvedPlan;
+        }
+
+        $subscriptionPlan = $this->activeSubscription?->plan;
+
+        if ($subscriptionPlan && $subscriptionPlan->is_active) {
+            return $this->resolvedPlan = $subscriptionPlan;
+        }
+
+        if ($this->plan === self::PLAN_PAID) {
+            return $this->resolvedPlan = SaasPlan::query()
+                ->where('slug', 'premium')
+                ->where('is_active', true)
+                ->first();
+        }
+
+        return $this->resolvedPlan = SaasPlan::query()->where('slug', 'free')->where('is_active', true)->first()
+            ?? SaasPlan::query()->where('slug', 'gratuito')->where('is_active', true)->first();
+    }
+
+    public function planFeature(string $key, mixed $default = null): mixed
+    {
+        return $this->currentPlan()?->features_json[$key] ?? $default;
+    }
+
+    /**
+     * Feature booleana/numerica do plano (ex.: programa_fidelidade,
+     * backup_retention_days). Fonte unica de verdade: SaasPlan.features_json.
+     */
+    public function hasFeature(string $key): bool
+    {
+        return (bool) ($this->planFeature($key, false) ?? false);
+    }
+
     public function canAddTable(): bool
     {
-        return $this->tables()->count() < $this->max_tables;
+        return $this->tables()->count() < $this->maxTablesAllowed();
+    }
+
+    public function canCreateProduct(): bool
+    {
+        return $this->products()->count() < $this->maxProductsAllowed();
+    }
+
+    public function canCreateUser(): bool
+    {
+        return $this->users()->count() < $this->maxUsersAllowed();
     }
 
     public function logoUrl(): ?string
@@ -171,14 +251,41 @@ class Tenant extends Model
         return Storage::url($this->logo);
     }
 
+    /**
+     * Limite de mesas: override individual (contrato especial) ou, na
+     * ausencia dele, o limite dinamico do plano ativo.
+     */
     public function maxTablesAllowed(): int
     {
-        return self::PLAN_MAX_TABLES[$this->plan] ?? self::PLAN_MAX_TABLES[self::PLAN_FREE];
+        $planDefault = self::PLAN_MAX_TABLES[$this->plan] ?? self::PLAN_MAX_TABLES[self::PLAN_FREE];
+
+        return (int) ($this->max_tables ?? $this->planFeature('max_tables', $planDefault));
+    }
+
+    public function maxProductsAllowed(): int
+    {
+        return (int) $this->planFeature('max_products', $this->isPaid() ? 999 : 20);
+    }
+
+    public function maxUsersAllowed(): int
+    {
+        return (int) $this->planFeature('max_users', $this->isPaid() ? 20 : 2);
+    }
+
+    /**
+     * Mensagem de limite atingido: para o gratuito mantém o texto de
+     * upgrade; para pagantes avisa que o limite é do plano contratado.
+     */
+    public function planLimitMessage(string $item, int $limit): string
+    {
+        $base = 'Seu plano permite apenas '.$limit.' '.$item.'.';
+
+        return $this->isFree() ? $base.' Faça upgrade para Premium.' : $base;
     }
 
     public function hasHiddenTables(): bool
     {
-        return $this->isFree() && $this->tables()->count() > $this->maxTablesAllowed();
+        return $this->tables()->count() > $this->maxTablesAllowed();
     }
 
     public function hiddenTablesCount(): int
@@ -186,10 +293,36 @@ class Tenant extends Model
         return max(0, $this->tables()->count() - $this->maxTablesAllowed());
     }
 
+    public function hiddenProductsCount(): int
+    {
+        return max(0, $this->products()->count() - $this->maxProductsAllowed());
+    }
+
+    public function hiddenUsersCount(): int
+    {
+        return max(0, $this->users()->count() - $this->maxUsersAllowed());
+    }
+
+    public function manageableProductsIds(): array
+    {
+        return $this->products()->orderBy('id')
+            ->take(max(0, $this->maxProductsAllowed()))
+            ->pluck('id')
+            ->all();
+    }
+
+    public function manageableUsersIds(): array
+    {
+        return $this->users()->orderBy('id')
+            ->take(max(0, $this->maxUsersAllowed()))
+            ->pluck('id')
+            ->all();
+    }
+
     public function manageableTables()
     {
         $query = $this->tables()->orderByRaw('CAST(number AS UNSIGNED), number');
-        if ($this->isFree()) {
+        if ($this->hasHiddenTables()) {
             $ids = (clone $query)->take($this->maxTablesAllowed())->pluck('id');
 
             return $query->whereIn('id', $ids);
@@ -200,13 +333,13 @@ class Tenant extends Model
 
     public function planLabel(): string
     {
-        return self::PLAN_LABELS[$this->plan] ?? 'Gratuito';
+        return $this->currentPlan()?->name ?? (self::PLAN_LABELS[$this->plan] ?? 'Gratuito');
     }
 
     public function activeSubscription(): HasOne
     {
         return $this->hasOne(SaasSubscription::class)
-            ->whereIn('status', ['active', 'trialing']);
+            ->whereIn('status', ['active', 'trial']);
     }
 
     public function isSuspended(): bool

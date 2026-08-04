@@ -34,7 +34,7 @@ class LoyaltyManager extends Component
     {
         $this->tenant = Auth::user()->tenant;
 
-        if (! $this->tenant || ! $this->tenant->isPaid()) {
+        if (! $this->tenant || ! $this->tenant->hasFeature('programa_fidelidade')) {
             $this->points_enabled = false;
             $this->points_percentage = 5;
             $this->points_to_money_rate = '0.01';
@@ -50,7 +50,7 @@ class LoyaltyManager extends Component
 
     public function saveLoyaltyConfig(): void
     {
-        if (! $this->tenant || ! $this->tenant->isPaid()) {
+        if (! $this->tenant || ! $this->tenant->hasFeature('programa_fidelidade')) {
             $this->dispatch('notify', message: 'O programa de fidelidade é um recurso exclusivo do plano Premium.', type: 'alert');
 
             return;

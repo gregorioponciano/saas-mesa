@@ -10,6 +10,7 @@ use App\Services\AuditService;
 use App\Services\EfiBank\SaasEfiBankService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class PlansController extends Controller
@@ -102,10 +103,15 @@ class PlansController extends Controller
         ]);
 
         if (isset($validated['name'])) {
-            $validated['slug'] = Str::slug($validated['name']);
+            $newSlug = Str::slug($validated['name']);
+            $oldSlugFromName = Str::slug($plan->getOriginal('name'));
 
-            if (SaasPlan::where('slug', $validated['slug'])->where('id', '!=', $plan->id)->exists()) {
-                return response()->json(['message' => 'Já existe um plano com este nome.'], 422);
+            if ($newSlug !== $oldSlugFromName) {
+                if (SaasPlan::where('slug', $newSlug)->where('id', '!=', $plan->id)->exists()) {
+                    return response()->json(['message' => 'Já existe um plano com este nome.'], 422);
+                }
+
+                $validated['slug'] = $newSlug;
             }
         }
 
@@ -113,21 +119,40 @@ class PlansController extends Controller
             $validated['features_json'] = json_decode($validated['features_json'], true);
         }
 
+        $before = [
+            'price_cents' => $plan->price_cents,
+            'features_json' => $plan->features_json,
+            'feature_items' => $plan->feature_items,
+        ];
+
         $plan->update($validated);
+
+        Cache::forget(SaasPlan::planCacheKey($plan->getOriginal('slug')));
+        Cache::forget(SaasPlan::planCacheKey($plan->fresh()->slug));
 
         $this->auditService->log(
             'plan.update',
             "Plano \"{$plan->name}\" atualizado.",
-            ['plan_id' => $plan->id, 'changes' => $validated],
+            [
+                'plan_id' => $plan->id,
+                'before' => $before,
+                'after' => [
+                    'price_cents' => $plan->fresh()->price_cents,
+                    'features_json' => $plan->fresh()->features_json,
+                    'feature_items' => $plan->fresh()->feature_items,
+                ],
+            ],
             entityType: SaasPlan::class,
             entityId: (string) $plan->id
         );
 
-        return response()->json($plan);
+        return response()->json($plan->fresh());
     }
 
     public function destroy(SaasPlan $plan): JsonResponse
     {
+        Cache::forget(SaasPlan::planCacheKey($plan->slug));
+
         $plan->update(['is_active' => false]);
         $plan->delete();
 

@@ -64,7 +64,7 @@ test('usuario pode registrar novo tenant com mesas automaticas', function () {
         'email' => 'contato@novalanchonete.com',
         'slug' => 'nova-lanchonete',
         'plan' => Tenant::PLAN_FREE,
-        'max_tables' => Tenant::PLAN_MAX_TABLES[Tenant::PLAN_FREE],
+        'max_tables' => null,
     ]);
 
     $this->assertDatabaseHas('users', [

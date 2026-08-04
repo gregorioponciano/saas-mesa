@@ -162,10 +162,14 @@ class MenuManager extends Component
 
     public function initializePointsPrices(): void
     {
-        $products = Product::where('tenant_id', auth()->user()->tenant_id)
-            ->where('status', 'active')
-            ->orderBy('name')
-            ->get();
+        $query = Product::where('tenant_id', auth()->user()->tenant_id)->where('status', 'active');
+
+        $tenant = auth()->user()?->tenant;
+        if ($tenant && $tenant->hiddenProductsCount() > 0) {
+            $query->whereIn('id', $tenant->manageableProductsIds());
+        }
+
+        $products = $query->orderBy('name')->get();
         foreach ($products as $product) {
             $this->pointsPrices[$product->id] = $product->points_price ? (string) $product->points_price : '';
         }
@@ -382,6 +386,12 @@ class MenuManager extends Component
             $product->update($data);
             $this->dispatch('notify', message: 'Produto "'.$product->name.'" atualizado!');
         } else {
+            if (! $tenant->canCreateProduct()) {
+                $this->addError('productName', $tenant->planLimitMessage('produtos', $tenant->maxProductsAllowed()));
+
+                return;
+            }
+
             $this->authorize('create', Product::class);
             $data['tenant_id'] = $tenant->id;
             Product::create($data);
@@ -549,7 +559,23 @@ class MenuManager extends Component
 
     public function getCategoriesProperty()
     {
-        return auth()->user()->tenant?->categories()?->withCount('products')->orderBy('position')->get() ?? collect();
+        $categories = auth()->user()->tenant?->categories()?->withCount('products')->orderBy('position')->get() ?? collect();
+
+        $tenant = auth()->user()?->tenant;
+        if ($tenant && $tenant->hiddenProductsCount() > 0) {
+            $visibleIds = $tenant->manageableProductsIds();
+            foreach ($categories as $category) {
+                $category->visible_products_count = $category->products()->whereIn('id', $visibleIds)->count();
+                $category->hidden_in_category = $category->products_count - $category->visible_products_count;
+            }
+        } else {
+            foreach ($categories as $category) {
+                $category->visible_products_count = $category->products_count;
+                $category->hidden_in_category = 0;
+            }
+        }
+
+        return $categories;
     }
 
     public function getProductsProperty()
@@ -557,6 +583,11 @@ class MenuManager extends Component
         $query = Product::where('tenant_id', auth()->user()->tenant_id)->with(['category', 'attributes.options.ingredient']);
         if ($this->view === 'categories') {
             $query->whereIn('category_id', $this->categories->pluck('id'));
+        }
+
+        $tenant = auth()->user()?->tenant;
+        if ($tenant && $tenant->hiddenProductsCount() > 0) {
+            $query->whereIn('id', $tenant->manageableProductsIds());
         }
 
         return $query->orderBy('category_id')->orderBy('name')->get();
@@ -630,6 +661,7 @@ class MenuManager extends Component
             'categories' => $this->categories,
             'products' => $this->products,
             'tenant' => auth()->user()->tenant,
+            'hiddenProductsCount' => auth()->user()?->tenant?->hiddenProductsCount() ?? 0,
             'lowStockProducts' => $tenantId
                 ? app(StockService::class)->getLowStockProducts($tenantId, 5)
                 : collect(),

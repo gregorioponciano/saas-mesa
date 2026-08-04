@@ -47,7 +47,7 @@ class LoyaltyController extends Controller
 
         $newState = ! $config->points_enabled;
 
-        if ($newState && ! $tenant->isPaid()) {
+        if ($newState && ! $tenant->hasFeature('programa_fidelidade')) {
             return response()->json([
                 'error' => 'Nao e possivel ativar pontos para um tenant que nao esta no plano Premium.',
             ], 422);

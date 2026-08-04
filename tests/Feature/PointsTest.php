@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\PointsService;
 
 beforeEach(function () {
+    seedPlans();
     $this->service = app(PointsService::class);
     $this->tenant = Tenant::factory()->create(['plan' => Tenant::PLAN_PAID]);
     $this->user = User::factory()->create([

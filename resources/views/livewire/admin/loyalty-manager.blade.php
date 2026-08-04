@@ -27,14 +27,14 @@
                         <div>
                             <h4 class="font-medium text-neutral-200">Ativar Programa de Fidelidade</h4>
                             <p class="text-sm text-neutral-500">Permite que clientes acumulem e gastem pontos.</p>
-                             @if (!$tenant->isPaid())
+                             @if (!$tenant->hasFeature('programa_fidelidade'))
                                 <p class="text-xs text-amber-400 mt-1">Exclusivo do plano Premium.</p>
                             @endif
                         </div>
                         <div wire:ignore>
                             <button
                                 type="button"
-                                @if(!$tenant->isPaid()) disabled title="Funcionalidade exclusiva do plano Premium" @endif
+                                @if(!$tenant->hasFeature('programa_fidelidade')) disabled title="Funcionalidade exclusiva do plano Premium" @endif
                                 x-data="{ on: @js($points_enabled) }"
                                 x-on:click="on = !on; $wire.set('points_enabled', on)"
                                 x-bind:style="`background-color: ${on ? '#16a34a' : '#3f3f46'}`"

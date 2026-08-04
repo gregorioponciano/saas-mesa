@@ -22,11 +22,15 @@ class CheckTenantSubscription
         }
 
         if ($tenant) {
-            $subscription = SaasSubscription::where('tenant_id', $tenant->id)->first();
+            $hasActiveAccess = SaasSubscription::where('tenant_id', $tenant->id)
+                ->whereIn('status', ['active', 'trial'])
+                ->exists();
+
+            $subscription = SaasSubscription::where('tenant_id', $tenant->id)->latest('id')->first();
 
             $hasPaidActiveAccess = $tenant->status === 'active' && $tenant->plan === Tenant::PLAN_PAID;
 
-            if ($subscription && $subscription->status === 'pending' && ! $hasPaidActiveAccess) {
+            if (! $hasActiveAccess && $subscription && $subscription->status === 'pending' && ! $hasPaidActiveAccess) {
                 if ($request->expectsJson() || $request->is('api/*') || $request->wantsJson()) {
                     return response()->json([
                         'error' => 'payment_pending',

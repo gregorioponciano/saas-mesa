@@ -383,7 +383,14 @@ class Dashboard extends Component
     #[Computed]
     public function availableProducts()
     {
-        return Product::where('tenant_id', auth()->user()->tenant_id)->active()->with('category')->orderBy('name')->get();
+        $query = Product::where('tenant_id', auth()->user()->tenant_id)->active()->with('category');
+
+        $tenant = auth()->user()?->tenant;
+        if ($tenant && $tenant->hiddenProductsCount() > 0) {
+            $query->whereIn('id', $tenant->manageableProductsIds());
+        }
+
+        return $query->orderBy('name')->get();
     }
 
     public function viewOrder(int $orderId): void

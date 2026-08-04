@@ -6,6 +6,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 return new class extends Migration
 {
@@ -57,7 +58,7 @@ return new class extends Migration
             $expired = $expiresAt && now()->isAfter($expiresAt);
 
             DB::table('saas_pix_charges')->insert([
-                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'tenant_id' => $subscription->tenant_id,
                 'subscription_id' => $subscription->id,
                 'plan_id' => $subscription->plan_id,

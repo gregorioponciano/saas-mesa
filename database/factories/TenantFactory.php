@@ -19,7 +19,7 @@ class TenantFactory extends Factory
             'email' => fake()->unique()->companyEmail(),
             'slug' => Str::slug($name).'-'.Str::random(4),
             'plan' => Tenant::PLAN_FREE,
-            'max_tables' => Tenant::PLAN_MAX_TABLES[Tenant::PLAN_FREE],
+            'max_tables' => null,
             'status' => 'active',
         ];
     }

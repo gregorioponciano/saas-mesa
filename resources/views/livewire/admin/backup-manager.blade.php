@@ -35,7 +35,7 @@
                     <p class="mt-1 text-sm text-neutral-400">
                         Seus backups são armazenados por
                         <span class="font-semibold text-amber-400">{{ $this->retentionLabel }}</span>.
-                        @if (Auth::user()->tenant->isPaid())
+                        @if (Auth::user()->tenant->hasFeature('backup_retention_days'))
                             Enquanto o plano Premium estiver ativo, seus backups nunca são removidos automaticamente.
                         @else
                             Faça upgrade para o plano Premium para manter seus backups por tempo ilimitado.

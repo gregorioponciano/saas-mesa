@@ -251,7 +251,7 @@ test('delivery dashboard shows earnings history', function () {
         'vehicle_model' => 'Moto',
         'password' => bcrypt('secret123'),
         'activated_at' => now(),
-    ]);
+    ])->fresh();
 
     $order = makeDeliveredOrder($delivery, $user, ['status' => 'entregue', 'delivered_at' => now()]);
     DeliveryEarning::create([

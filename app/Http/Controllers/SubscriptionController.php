@@ -202,7 +202,7 @@ class SubscriptionController extends Controller
 
             $tenant->update([
                 'plan' => Tenant::PLAN_FREE,
-                'max_tables' => Tenant::PLAN_MAX_TABLES[Tenant::PLAN_FREE],
+                'max_tables' => null,
                 'status' => 'active',
             ]);
         });
@@ -247,7 +247,7 @@ class SubscriptionController extends Controller
 
             $tenant->update([
                 'plan' => Tenant::PLAN_FREE,
-                'max_tables' => Tenant::PLAN_MAX_TABLES[Tenant::PLAN_FREE],
+                'max_tables' => null,
                 'subscription_ends_at' => null,
             ]);
         });

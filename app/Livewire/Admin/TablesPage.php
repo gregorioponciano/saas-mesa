@@ -136,7 +136,7 @@ class TablesPage extends Component
         $tenant = auth()->user()->tenant;
 
         if (! $this->editingTableId && ! $tenant->canAddTable()) {
-            $this->addError('number', 'Seu plano gratuito permite apenas '.$tenant->maxTablesAllowed().' mesas. Faca upgrade para Premium.');
+            $this->addError('number', $tenant->planLimitMessage('mesas', $tenant->maxTablesAllowed()));
 
             return;
         }
@@ -209,7 +209,7 @@ class TablesPage extends Component
         $qty = $this->bulkEnd - $this->bulkStart + 1;
 
         if (! $tenant->canAddTable() && $tenant->tables()->count() + $qty > $tenant->maxTablesAllowed()) {
-            $this->addError('bulkEnd', 'Limite de '.$tenant->maxTablesAllowed().' mesas excedido. Faca upgrade para Premium.');
+            $this->addError('bulkEnd', 'Limite de '.$tenant->maxTablesAllowed().' mesas excedido.'.($tenant->isFree() ? ' Faça upgrade para Premium.' : ''));
 
             return;
         }

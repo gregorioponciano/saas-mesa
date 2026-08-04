@@ -32,7 +32,12 @@ class TenantsController extends Controller
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($tenant) {
-                $subscription = SaasSubscription::where('tenant_id', $tenant->id)->first();
+                $subscription = SaasSubscription::with('plan')
+                    ->where('tenant_id', $tenant->id)
+                    ->whereIn('status', ['active', 'trial'])
+                    ->latest('id')
+                    ->first()
+                    ?? SaasSubscription::with('plan')->where('tenant_id', $tenant->id)->latest('id')->first();
 
                 return [
                     'id' => $tenant->id,
@@ -60,7 +65,11 @@ class TenantsController extends Controller
             $q->latest()->limit(10);
         }]);
 
-        $subscription = SaasSubscription::where('tenant_id', $tenant->id)->first();
+        $subscription = SaasSubscription::where('tenant_id', $tenant->id)
+            ->whereIn('status', ['active', 'trial'])
+            ->latest('id')
+            ->first()
+            ?? SaasSubscription::where('tenant_id', $tenant->id)->latest('id')->first();
 
         return response()->json([
             'tenant' => $tenant,
@@ -101,8 +110,9 @@ class TenantsController extends Controller
                     'boleto_payments' => false,
                     'reports' => false,
                     'delivery' => false,
+                    'programa_fidelidade' => false,
                     'priority_support' => false,
-                    'backup_retention_days' => 7,
+                    'backup_retention_days' => null,
                     'backup_max_count' => 3,
                 ],
                 'is_active' => true,
@@ -122,8 +132,7 @@ class TenantsController extends Controller
                 'email' => $validated['email'],
                 'whatsapp' => $validated['whatsapp'],
                 'slug' => $slug,
-                'plan' => $plan && $plan->slug === 'premium' ? 'paid' : 'free',
-                'max_tables' => $plan?->features_json['max_tables'] ?? Tenant::PLAN_MAX_TABLES['free'],
+                'plan' => $plan && $plan->price_cents > 0 ? 'paid' : 'free',
                 'status' => 'trial',
             ]);
 
@@ -263,7 +272,11 @@ class TenantsController extends Controller
 
         $previousPlan = $tenant->plan;
 
-        $subscription = SaasSubscription::where('tenant_id', $tenant->id)->first();
+        $subscription = SaasSubscription::where('tenant_id', $tenant->id)
+            ->whereIn('status', ['active', 'trial'])
+            ->latest('id')
+            ->first()
+            ?? SaasSubscription::where('tenant_id', $tenant->id)->latest('id')->first();
 
         if ($subscription) {
             $subscription->update([
@@ -273,11 +286,19 @@ class TenantsController extends Controller
                     'previous_plan_id' => $subscription->plan_id,
                 ]),
             ]);
+        } else {
+            $subscription = SaasSubscription::create([
+                'tenant_id' => $tenant->id,
+                'plan_id' => $plan->id,
+                'status' => 'active',
+                'current_period_start' => now(),
+                'current_period_end' => now()->addMonth(),
+            ]);
         }
 
         $tenant->update([
-            'plan' => $plan->slug === 'premium' ? 'paid' : 'free',
-            'max_tables' => $plan->features_json['max_tables'] ?? 10,
+            'subscription_id' => $subscription->id,
+            'plan' => $plan->price_cents > 0 ? 'paid' : 'free',
         ]);
 
         $this->auditService->log(

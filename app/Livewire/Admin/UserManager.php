@@ -128,6 +128,12 @@ class UserManager extends Component
             $user->update($data);
             $this->dispatch('notify', message: 'Usuário "'.$user->name.'" atualizado!');
         } else {
+            if (! $tenant->canCreateUser()) {
+                $this->addError('email', $tenant->planLimitMessage('usuários', $tenant->maxUsersAllowed()));
+
+                return;
+            }
+
             $this->authorize('create', User::class);
             $data['tenant_id'] = $tenant->id;
             User::create($data);
@@ -177,10 +183,16 @@ class UserManager extends Component
             return collect();
         }
 
-        return User::where('tenant_id', $tenantId)
-            ->orderByRaw("FIELD(role, 'admin', 'atendente', 'cliente')")
-            ->orderBy('name')
-            ->get();
+        $query = User::where('tenant_id', $tenantId)
+            ->orderByRaw("CASE role WHEN 'admin' THEN 1 WHEN 'atendente' THEN 2 ELSE 3 END")
+            ->orderBy('name');
+
+        $tenant = auth()->user()?->tenant;
+        if ($tenant && $tenant->hiddenUsersCount() > 0) {
+            $query->whereIn('id', $tenant->manageableUsersIds());
+        }
+
+        return $query->get();
     }
 
     public function getUserPointsProperty(): array
@@ -205,6 +217,7 @@ class UserManager extends Component
         return view('livewire.admin.user-manager', [
             'users' => $this->users,
             'userPoints' => $userPoints,
+            'hiddenUsersCount' => auth()->user()?->tenant?->hiddenUsersCount() ?? 0,
         ])->extends('layouts.admin');
     }
 }

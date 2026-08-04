@@ -69,6 +69,11 @@ class SaasPlan extends Model
         return (string) Str::uuid();
     }
 
+    public static function planCacheKey(string $slug): string
+    {
+        return 'saas_plan:'.$slug;
+    }
+
     public function subscriptions(): HasMany
     {
         return $this->hasMany(SaasSubscription::class);

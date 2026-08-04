@@ -204,11 +204,15 @@ test('checkout do tenant exibe as mesmas features dos planos', function () {
     $this->actingAs($user)
         ->get('/subscription')
         ->assertOk()
-        ->assertSee('Até 2 mesas')
-        ->assertSee('Cardápio digital ilimitado')
+        ->assertSee('Mesas máximas: 2')
+        ->assertSee('Produtos máximos: 20')
+        ->assertSee('Usuários máximos: 2')
+        ->assertSee('Pagamentos via PIX')
+        ->assertSee('Mesas máximas: 50')
         ->assertSee('Pedidos ilimitados')
-        ->assertSee('Mesas ilimitadas')
-        ->assertSee('Múltiplos usuários')
+        ->assertSee('Delivery com entregadores')
+        ->assertSee('Relatórios avançados')
+        ->assertSee('Programa de fidelidade (pontos)')
         ->assertSee('Suporte prioritário');
 });
 

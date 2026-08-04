@@ -122,7 +122,7 @@
                     <div class="rounded-xl bg-neutral-950/60 border border-neutral-800 p-4 space-y-2 text-sm">
                         <div class="flex justify-between">
                             <span class="text-neutral-500">Plano</span>
-                            <span class="text-white font-medium capitalize" x-text="detail.data.tenant?.plan"></span>
+                            <span class="text-white font-medium capitalize" x-text="detail.data.subscription?.plan?.name || detail.data.tenant?.plan"></span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-neutral-500">Status</span>
@@ -139,6 +139,21 @@
                         <div class="flex justify-between">
                             <span class="text-neutral-500">Próxima cobrança</span>
                             <span class="text-white font-medium" x-text="detail.data.subscription?.next_billing_date ? formatDate(detail.data.subscription.next_billing_date) : '—'"></span>
+                        </div>
+                        <div class="flex items-center gap-2 pt-2 border-t border-neutral-800">
+                            <select x-model="planChangeId"
+                                    class="flex-1 px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 focus:border-amber-500 text-white text-sm outline-none">
+                                <option value="">Alterar plano...</option>
+                                <template x-for="p in plans" :key="p.id">
+                                    <option :value="p.id" x-text="p.name + ' — R$ ' + (Number(p.price_cents || 0) / 100).toFixed(2).replace('.', ',')"></option>
+                                </template>
+                            </select>
+                            <button @click="changePlan(detail.data.tenant)"
+                                    :disabled="!planChangeId || planChanging"
+                                    class="shrink-0 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200">
+                                <span x-show="!planChanging">Alterar</span>
+                                <span x-show="planChanging" class="inline-block w-4 h-4 border-2 border-neutral-950 border-t-transparent rounded-full animate-spin align-middle"></span>
+                            </button>
                         </div>
                     </div>
 
@@ -263,6 +278,8 @@
             showCreate: false,
             creating: false,
             createError: '',
+            planChangeId: '',
+            planChanging: false,
             createForm: { name: '', email: '', whatsapp: '', admin_name: '', admin_password: '', plan_id: '' },
             init() {
                 fetch('/api/superadmin/tenants', { headers: { 'Accept': 'application/json' } })
@@ -288,6 +305,30 @@
                     .then(r => r.ok ? r.json() : Promise.reject(new Error('Falha ao carregar detalhes (' + r.status + ')')))
                     .then(data => { this.detail.data = data; this.detail.loading = false; })
                     .catch(() => { this.detail.loading = false; });
+            },
+            async changePlan(t) {
+                if (!this.planChangeId || this.planChanging) return;
+                this.planChanging = true;
+                const r = await fetch('/api/superadmin/tenants/' + t.id + '/plan', {
+                    method: 'PUT',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify({ plan_id: this.planChangeId })
+                });
+                const data = await r.json().catch(() => ({}));
+                this.planChanging = false;
+                if (!r.ok) {
+                    alert(data.error || 'Falha ao alterar o plano.');
+                    return;
+                }
+                this.planChangeId = '';
+                this.openDetail(t);
+                fetch('/api/superadmin/tenants', { headers: { 'Accept': 'application/json' } })
+                    .then(res => res.ok ? res.json() : [])
+                    .then(d => { this.all = d; this.filter(); });
             },
             async toggleStatus(t) {
                 const action = t.status === 'suspended' ? 'reactivate' : 'suspend';

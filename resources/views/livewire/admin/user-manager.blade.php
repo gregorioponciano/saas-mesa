@@ -35,9 +35,26 @@
                        class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('email') border-red-500 @enderror">
                 @error('email') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
             </div>
-            <div>
+            <div x-data="{
+                phoneDisplay: '',
+                init() { this.phoneDisplay = $wire.phone ? this.fmt($wire.phone) : ''; },
+                fmt(v) {
+                    let r = (v||'').replace(/\D/g,'').substring(0,11);
+                    if (r.length<=2) return r.length ? '('+r : '';
+                    if (r.length<=6) return '('+r.substring(0,2)+') '+r.substring(2);
+                    if (r.length<=7) return '('+r.substring(0,2)+') '+r.substring(2,7);
+                    return '('+r.substring(0,2)+') '+r.substring(2,7)+'-'+r.substring(7);
+                },
+                onPhoneInput() {
+                    let raw = (this.phoneDisplay||'').replace(/\D/g,'').substring(0,11);
+                    this.phoneDisplay = this.fmt(raw);
+                    $wire.phone = raw;
+                }
+            }">
                 <label class="block text-sm font-medium text-neutral-300 mb-2">Telefone</label>
-                <input wire:model="phone" type="text" maxlength="20" placeholder="(11) 99999-9999"
+                <input type="tel" inputmode="numeric" placeholder="(11) 99999-9999" autocomplete="tel" maxlength="15"
+                       x-model="phoneDisplay"
+                       @input="onPhoneInput"
                        class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all @error('phone') border-red-500 @enderror">
                 @error('phone') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
             </div>
@@ -81,6 +98,12 @@
     </x-admin.modal>
 
     {{-- Users List --}}
+    @if (($hiddenUsersCount ?? 0) > 0)
+        <div class="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 to-amber-600/5 border border-amber-500/20">
+            <p class="text-sm font-medium text-amber-400">{{ $hiddenUsersCount }} usuários ocultos</p>
+            <p class="text-xs text-neutral-400 mt-0.5">{{ auth()->user()->tenant->planLimitMessage('usuários', auth()->user()->tenant->maxUsersAllowed()) }}</p>
+        </div>
+    @endif
     <div class="grid gap-3">
         @forelse ($users as $user)
             <div class="flex items-center gap-4 p-4 rounded-2xl bg-neutral-900/50 border border-neutral-800 hover:border-amber-500/20 transition-all duration-200">

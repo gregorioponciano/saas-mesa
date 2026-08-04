@@ -1436,7 +1436,14 @@ class WaiterDashboard extends Component
     #[Computed]
     public function availableProducts()
     {
-        return Product::where('tenant_id', auth()->user()->tenant_id)->active()->with('category')->orderBy('name')->get();
+        $query = Product::where('tenant_id', auth()->user()->tenant_id)->active()->with('category');
+
+        $tenant = auth()->user()?->tenant;
+        if ($tenant && $tenant->hiddenProductsCount() > 0) {
+            $query->whereIn('id', $tenant->manageableProductsIds());
+        }
+
+        return $query->orderBy('name')->get();
     }
 
     #[Computed]
@@ -1445,6 +1452,11 @@ class WaiterDashboard extends Component
         return Category::where('tenant_id', $this->tenant->id)
             ->with(['products' => function ($q) {
                 $q->active()->with('attributes.options');
+
+                $tenant = auth()->user()?->tenant;
+                if ($tenant && $tenant->hiddenProductsCount() > 0) {
+                    $q->whereIn('id', $tenant->manageableProductsIds());
+                }
             }])
             ->orderBy('position')
             ->get();

@@ -45,6 +45,6 @@ class LoyaltyConfig extends Model
 
     public function canEnable(): bool
     {
-        return $this->tenant->isPaid();
+        return $this->tenant->hasFeature('programa_fidelidade');
     }
 }

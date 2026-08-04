@@ -28,7 +28,7 @@ it('superadmin cria uma nova empresa com admin e assinatura trial', function () 
     $tenant = Tenant::where('slug', 'nova-lanchonete')->first();
 
     expect($tenant)->not->toBeNull()
-        ->and($tenant->max_tables)->toBe(2);
+        ->and($tenant->maxTablesAllowed())->toBe(2);
 
     $admin = User::where('tenant_id', $tenant->id)->where('role', 'admin')->first();
 

@@ -65,11 +65,7 @@ class TenantBackupService
 
     public function maxBackupsForTenant(Tenant $tenant): int
     {
-        if ($tenant->isPaid()) {
-            return 30;
-        }
-
-        $plan = $tenant->activeSubscription?->plan;
+        $plan = $tenant->activeSubscription?->plan ?? $tenant->currentPlan();
         $max = $plan?->features_json['backup_max_count'] ?? null;
 
         return is_numeric($max) ? (int) $max : 3;

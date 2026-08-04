@@ -146,7 +146,6 @@ class ProcessEfiBankWebhook implements ShouldQueue
                 $tenant->update([
                     'status' => 'active',
                     'plan' => $isPaidPlan ? Tenant::PLAN_PAID : Tenant::PLAN_FREE,
-                    'max_tables' => $plan->features_json['max_tables'] ?? ($isPaidPlan ? 50 : 2),
                     'subscription_id' => $subscription->id,
                     'subscription_ends_at' => $newPeriodEnd,
                 ]);

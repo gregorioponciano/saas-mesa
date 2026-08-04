@@ -71,7 +71,7 @@ Middleware:  ResolveTenant → CheckTenantSubscription / CheckSubscription → A
 Scope:       BelongsToTenant trait → WHERE tenant_id = ? em TODAS as queries do tenant
 ```
 
-Cada `Tenant` tem: `plan` (`free` | `paid`), `max_tables`, `status`, período de trial, além de configurações próprias (horário de funcionamento, WhatsApp, logo, SMTP, cupons habilitados, custo de entrega, endereço/raio de entrega). O `TenantObserver` reage a mudanças de plano: quando um tenant deixa de ser `paid`, desativa automaticamente o módulo de fidelidade (`PointsService::disableForTenant`) e invalida o cache de resolução de domínio/subdomínio (`TenantResolverService`).
+Cada `Tenant` tem: `plan` (`free` | `paid`), `max_tables` (override opcional), `status`, período de trial, além de configurações próprias (horário de funcionamento, WhatsApp, logo, SMTP, cupons habilitados, custo de entrega, endereço/raio de entrega). O `TenantObserver` reage a mudanças de plano: quando um tenant deixa de ser `paid`, desativa automaticamente o módulo de fidelidade (`PointsService::disableForTenant`) e invalida o cache de resolução de domínio/subdomínio (`TenantResolverService`).
 
 Modelos isolados por escopo global: `Category`, `Product`, `Order`, `Table`, `Coupon`, `Payment`, `DeliveryPerson`, `Ingredient`, `Notification`, `UserAddress`, `DeliveryEarning`, `ProductAttribute`, `SupportTicket`, `OrderPayment`, `TenantEfiCredentials`, `TenantBillingConfig`, `CustomerPoint`, `PointsTransaction`, `StockMovement`, `LoyaltyConfig`. Exceções deliberadas (sem escopo): `WebhookLog` e `TenantInvoice` (criados fora de autenticação por webhooks/jobs e lidos apenas por superadmin).
 
@@ -87,14 +87,24 @@ Modelos isolados por escopo global: `Category`, `Product`, `Order`, `Table`, `Co
 
 ## Planos da plataforma
 
-O sistema tem **apenas 2 planos** definidos hoje (constantes em `App\Models\Tenant` e seed em `SaasPlanSeeder`):
+O sistema tem **apenas 2 planos** definidos hoje (seed em `SaasPlanSeeder`):
 
 | Plano | Preço | Mesas | Produtos | Usuários | Boleto | Relatórios | Delivery | Suporte prioritário |
 |---|---|---|---|---|---|---|---|---|
 | **Gratuito** (`free`) | R$ 0 | 2 | 20 | 2 | Não | Não | Não | Não |
 | **Premium** (`paid`) | R$ 97,90/mês | 50 | 999 | 20 | Sim | Sim | Sim | Sim |
 
-> Não há um plano "Enterprise" no código atual — se isso vier a existir, precisa ser criado em `SaasPlanSeeder` e nas constantes `Tenant::PLAN_*`.
+### Limites e features são dinâmicos (fonte de verdade única)
+
+Os limites (`max_tables`, `max_products`, `max_users`) e features (`pix_payments`, `boleto_payments`, `reports`, `delivery`, `programa_fidelidade`, `priority_support`, `backup_retention_days`, `backup_max_count`) são lidos **em runtime** de `SaasPlan.features_json` (editável pelo superadmin em `/superadmin/planos` ou API `/api/superadmin/plans`). Ao salvar o plano, o cache é invalidado e todos os tenants daquele plano passam a usar o novo limite **imediatamente, sem deploy** — nenhuma coluna de tenant é reescrita.
+
+- `Tenant::maxTablesAllowed() / maxProductsAllowed() / maxUsersAllowed()` resolvem o limite do plano ativo (por slug `free`/`premium`); o método `hasFeature($key)` resolve features booleanas.
+- `Tenant::canAddTable() / canCreateProduct() / canCreateUser()` comparam a contagem atual com o limite dinâmico (checadas aplicadas em `TablesPage`, `MenuManager::saveProduct` e `UserManager::save`).
+- `tenants.max_tables` é apenas um **override opcional por tenant** (contratos especiais): se preenchido, prevalece sobre o plano; se `NULL`, vale o limite do plano. O upgrade/downgrade não sobrescreve a coluna (downgrade a zera, voltando ao limite do plano).
+- Mesas acima do limite atual ficam ocultas (`manageableTables`/`hasHiddenTables`/`hiddenTablesCount`), mesmo em plano pago com limite reduzido pelo superadmin.
+- `Tenant::PLAN_MAX_TABLES` e demais constantes `Tenant::PLAN_*` servem apenas de **fallback/seed inicial** — não são mais a fonte de verdade em runtime.
+
+> Não há um plano "Enterprise" no código atual — se isso vier a existir, basta criar o registro em `SaasPlanSeeder` (ou pelo painel superadmin) com o slug desejado.
 
 ## Módulos e funcionalidades
 

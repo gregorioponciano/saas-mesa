@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
@@ -7,6 +9,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (! $this->isMysql()) {
+            return;
+        }
+
         $tables = DB::select('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = "BASE TABLE"');
 
         foreach ($tables as $table) {
@@ -23,6 +29,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (! $this->isMysql()) {
+            return;
+        }
+
         $tables = DB::select('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = "BASE TABLE"');
 
         foreach ($tables as $table) {
@@ -35,5 +45,10 @@ return new class extends Migration
                 DB::statement("UPDATE `{$table->TABLE_NAME}` SET `{$col->COLUMN_NAME}` = DATE_ADD(`{$col->COLUMN_NAME}`, INTERVAL 3 HOUR) WHERE `{$col->COLUMN_NAME}` IS NOT NULL");
             }
         }
+    }
+
+    private function isMysql(): bool
+    {
+        return DB::connection()->getDriverName() === 'mysql';
     }
 };

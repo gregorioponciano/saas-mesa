@@ -397,7 +397,7 @@ test('paid webhook with mismatched amount does not activate subscription', funct
 test('paid webhook activates trial tenant', function () {
     seedPlans();
     $plan = SaasPlan::where('slug', 'premium')->first();
-    $tenant = createTenant(['status' => 'trial', 'plan' => 'free', 'max_tables' => 2]);
+    $tenant = createTenant(['status' => 'trial', 'plan' => 'free', 'max_tables' => null]);
 
     $subscription = SaasSubscription::create([
         'tenant_id' => $tenant->id,
@@ -423,7 +423,7 @@ test('paid webhook activates trial tenant', function () {
     $tenant->refresh();
     expect($tenant->status)->toBe('active');
     expect($tenant->plan)->toBe('paid');
-    expect($tenant->max_tables)->toBe(50);
+    expect($tenant->maxTablesAllowed())->toBe(50);
     expect($subscription->fresh()->status)->toBe('active');
     expect($log->fresh()->processed)->toBeTrue();
 });

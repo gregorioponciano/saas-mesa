@@ -95,7 +95,6 @@ class AuthController extends Controller
                 'email' => $validated['tenant_email'],
                 'slug' => $validated['slug'],
                 'plan' => Tenant::PLAN_FREE,
-                'max_tables' => Tenant::PLAN_MAX_TABLES[Tenant::PLAN_FREE],
                 'status' => 'trial',
             ]);
 

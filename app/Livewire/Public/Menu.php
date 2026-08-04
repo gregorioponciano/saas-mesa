@@ -199,6 +199,11 @@ class Menu extends Component
         return Category::where('tenant_id', $this->tenant->id)
             ->with(['products' => function ($q) {
                 $q->active()->with('attributes.options.ingredient');
+
+                $tenant = auth()->user()?->tenant ?? $this->tenant;
+                if ($tenant && $tenant->hiddenProductsCount() > 0) {
+                    $q->whereIn('id', $tenant->manageableProductsIds());
+                }
             }])
             ->orderBy('position')
             ->get();
@@ -1012,9 +1017,14 @@ class Menu extends Component
     #[Computed]
     public function pointsProducts()
     {
-        return Product::where('tenant_id', $this->tenant->id)
-            ->active()
-            ->get();
+        $query = Product::where('tenant_id', $this->tenant->id)->active();
+
+        $tenant = auth()->user()?->tenant ?? $this->tenant;
+        if ($tenant && $tenant->hiddenProductsCount() > 0) {
+            $query->whereIn('id', $tenant->manageableProductsIds());
+        }
+
+        return $query->get();
     }
 
     #[Computed]
@@ -1024,11 +1034,17 @@ class Menu extends Component
             return collect();
         }
 
-        return Product::where('tenant_id', $this->tenant->id)
+        $query = Product::where('tenant_id', $this->tenant->id)
             ->whereIn('id', $this->favoriteProductIds)
             ->active()
-            ->with('attributes.options.ingredient')
-            ->get();
+            ->with('attributes.options.ingredient');
+
+        $tenant = auth()->user()?->tenant ?? $this->tenant;
+        if ($tenant && $tenant->hiddenProductsCount() > 0) {
+            $query->whereIn('id', $tenant->manageableProductsIds());
+        }
+
+        return $query->get();
     }
 
     public function redeemProductWithPoints(int $productId): void

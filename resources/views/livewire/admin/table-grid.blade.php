@@ -62,12 +62,18 @@
                     <p class="text-sm font-medium text-amber-400">
                         {{ auth()->user()->tenant->hiddenTablesCount() }} mesas ocultas
                     </p>
-                    <p class="text-xs text-neutral-400 mt-0.5">Seu plano Gratuito permite gerenciar apenas {{ auth()->user()->tenant->maxTablesAllowed() }} mesas. Faca upgrade para Premium e gerencie todas.</p>
+                    @if (auth()->user()->tenant->isFree())
+                        <p class="text-xs text-neutral-400 mt-0.5">Seu plano Gratuito permite gerenciar apenas {{ auth()->user()->tenant->maxTablesAllowed() }} mesas. Faca upgrade para Premium e gerencie todas.</p>
+                    @else
+                        <p class="text-xs text-neutral-400 mt-0.5">Seu plano permite gerenciar apenas {{ auth()->user()->tenant->maxTablesAllowed() }} mesas.</p>
+                    @endif
                 </div>
-                <a href="{{ route('subscription.checkout') }}"
-                   class="px-4 py-2 text-xs font-semibold rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-all duration-200 hover:scale-105 shrink-0">
-                    Fazer Upgrade
-                </a>
+                @if (auth()->user()->tenant->isFree())
+                    <a href="{{ route('subscription.checkout') }}"
+                       class="px-4 py-2 text-xs font-semibold rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-all duration-200 hover:scale-105 shrink-0">
+                        Fazer Upgrade
+                    </a>
+                @endif
             </div>
         </div>
     @endif

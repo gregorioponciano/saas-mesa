@@ -24,7 +24,6 @@ class SubscriptionService
 
         $tenant->update([
             'plan' => $plan->price_cents > 0 ? Tenant::PLAN_PAID : Tenant::PLAN_FREE,
-            'max_tables' => $plan->features_json['max_tables'] ?? 10,
             'status' => 'active',
             'subscription_id' => $subscription->id,
             'trial_ends_at' => $subscription->trial_ends_at,

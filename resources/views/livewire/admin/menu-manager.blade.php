@@ -53,7 +53,7 @@
             </svg>
             Produtos
         </button>
-        @if (auth()->user()->isAdmin() && $tenant->isPaid())
+        @if (auth()->user()->isAdmin() && $tenant->hasFeature('programa_fidelidade'))
             <button wire:click="switchView('pontos')"
                     class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 {{ $view === 'pontos' ? 'bg-emerald-500 text-neutral-950 shadow-lg shadow-emerald-500/20' : 'text-neutral-400 hover:text-white' }}">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -63,6 +63,13 @@
             </button>
         @endif
     </div>
+
+    @if (($hiddenProductsCount ?? 0) > 0)
+        <div class="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 to-amber-600/5 border border-amber-500/20">
+            <p class="text-sm font-medium text-amber-400">{{ $hiddenProductsCount }} produtos ocultos</p>
+            <p class="text-xs text-neutral-400 mt-0.5">{{ $tenant->planLimitMessage('produtos', $tenant->maxProductsAllowed()) }}</p>
+        </div>
+    @endif
 
     {{-- ========== CATEGORIES VIEW ========== --}}
     @if ($view === 'categories')
@@ -74,7 +81,7 @@
                         <span class="w-7 h-7 flex items-center justify-center rounded-lg bg-neutral-800 text-xs font-bold text-neutral-400">{{ $category->position }}</span>
                         <div>
                             <h3 class="font-semibold text-white">{{ $category->name }}</h3>
-                            <p class="text-xs text-neutral-500">{{ $category->products_count }} produto(s)</p>
+                            <p class="text-xs text-neutral-500">{{ $category->visible_products_count }} produto(s)@if (($category->hidden_in_category ?? 0) > 0) <span class="text-amber-500">(+{{ $category->hidden_in_category }} ocultos)</span>@endif</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-1">
@@ -573,7 +580,7 @@
             </div>
         @endforelse
     {{-- ========== PONTOS VIEW ========== --}}
-    @elseif ($view === 'pontos' && auth()->user()->isAdmin() && $tenant->isPaid())
+    @elseif ($view === 'pontos' && auth()->user()->isAdmin() && $tenant->hasFeature('programa_fidelidade'))
         <div class="space-y-3">
             <div class="flex items-center justify-between">
                 <p class="text-sm text-neutral-400">Selecione os produtos que podem ser trocados por pontos e defina o custo em pontos.</p>
@@ -685,7 +692,7 @@
                     </div>
                     @error('productPrice') <p class="mt-1 text-xs text-red-400">{{ $message }}</p> @enderror
                 </div>
-                @if ($tenant->isPaid())
+                @if ($tenant->hasFeature('programa_fidelidade'))
                 <div>
                     <label class="block text-sm font-medium text-neutral-300 mb-2">Preço em Pontos <span class="text-xs text-neutral-500">(opcional)</span></label>
                     <div class="relative">
