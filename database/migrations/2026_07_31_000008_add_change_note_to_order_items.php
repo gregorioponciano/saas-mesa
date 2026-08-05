@@ -12,6 +12,9 @@ return new class extends Migration
             if (! Schema::hasColumn('order_items', 'change_note')) {
                 $table->text('change_note')->nullable();
             }
+            if (! Schema::hasColumn('order_items', 'change_requested_at')) {
+                $table->timestamp('change_requested_at')->nullable();
+            }
         });
     }
 
@@ -20,6 +23,9 @@ return new class extends Migration
         Schema::table('order_items', function (Blueprint $table) {
             if (Schema::hasColumn('order_items', 'change_note')) {
                 $table->dropColumn('change_note');
+            }
+            if (Schema::hasColumn('order_items', 'change_requested_at')) {
+                $table->dropColumn('change_requested_at');
             }
         });
     }

@@ -112,8 +112,10 @@ class User extends Authenticatable
 
     public function scopeStaff($query)
     {
-        return $query->where('is_staff', true)
-            ->orWhereIn('role', [self::ROLE_ADMIN, self::ROLE_SUPERADMIN]);
+        return $query->where(function ($q) {
+            $q->where('is_staff', true)
+                ->orWhereIn('role', [self::ROLE_ADMIN, self::ROLE_ATENDENTE, self::ROLE_SUPERADMIN]);
+        });
     }
 
     public function scopeClients($query)

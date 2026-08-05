@@ -12,6 +12,7 @@ use App\Models\SupportTicketMessage;
 use App\Models\Table;
 use App\Models\UserAddress;
 use App\Models\UserFavorite;
+use App\Services\DeliveryNotificationService;
 use App\Services\EfiBank\EfiBankClient;
 use App\Services\EfiBank\TenantEfiBankService;
 use App\Services\PointsService;
@@ -577,7 +578,7 @@ class Menu extends Component
                 $this->pixPaymentError = false;
 
                 $order = Order::where('user_id', Auth::id())->find($this->pixOrderId);
-                if ($order && ! $order->payments->where('status', 'paid')->count()) {
+                if ($order && ! $order->hasPayment()) {
                     Payment::create([
                         'order_id' => $order->id,
                         'tenant_id' => $order->tenant_id,
@@ -587,7 +588,9 @@ class Menu extends Component
                         'paid_at' => now(),
                         'notes' => 'Pagamento PIX confirmado via API',
                     ]);
+                    $order->update(['payment_status' => 'paid']);
                     app(PointsService::class)->grantPointsForOrder($order->fresh());
+                    app(DeliveryNotificationService::class)->newOrderAvailable($order->fresh());
                 }
 
                 if ($order && $order->table_id) {
@@ -745,6 +748,7 @@ class Menu extends Component
                         'paid_at' => now(),
                         'notes' => 'Pagamento via PIX pelo cliente',
                     ]);
+                    $order->update(['payment_status' => 'paid']);
                 }
                 if ($order->pendingPaymentAmount() <= 0) {
                     $order->update(['status' => 'fechado']);
@@ -1159,10 +1163,6 @@ class Menu extends Component
 
     public function leaveTable(): void
     {
-        if (! Auth::check()) {
-            return;
-        }
-
         if ($this->userHasPendingPaymentOnTable()) {
             $this->dispatch('notify', message: 'Existem pedidos pendentes de pagamento nesta mesa. Quite-os antes de sair ou solicite ao atendente.');
 

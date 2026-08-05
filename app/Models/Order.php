@@ -258,18 +258,6 @@ class Order extends Model
         };
     }
 
-    public function hasPayment(): bool
-    {
-        return $this->payments()->where('status', 'paid')->exists();
-    }
-
-    public function pendingPaymentAmount(): float
-    {
-        $paid = (float) $this->payments()->where('status', 'paid')->sum('amount');
-
-        return max(0, (float) $this->total - $paid);
-    }
-
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
@@ -293,6 +281,30 @@ class Order extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function orderPayments(): HasMany
+    {
+        return $this->hasMany(OrderPayment::class);
+    }
+
+    public function hasPayment(): bool
+    {
+        return $this->paidAmount() > 0;
+    }
+
+    public function paidAmount(): float
+    {
+        $manual = (float) $this->payments()->where('status', 'paid')->sum('amount');
+
+        $orderPayments = $this->orderPayments()->where('status', 'paid')->sum('amount_cents');
+
+        return $manual + ((float) $orderPayments / 100);
+    }
+
+    public function pendingPaymentAmount(): float
+    {
+        return max(0, (float) $this->total - $this->paidAmount());
     }
 
     public function pointsTransactions(): HasMany

@@ -12,7 +12,14 @@ class CheckStaffRole
     public function handle(Request $request, Closure $next): Response
     {
         if (Auth::check() && ! Auth::user()->isStaff()) {
-            return redirect()->route('menu.show', Auth::user()->load('tenant')->tenant->slug)
+            $tenantSlug = Auth::user()->load('tenant')->tenant?->slug;
+
+            if ($tenantSlug) {
+                return redirect()->route('menu.show', $tenantSlug)
+                    ->with('error', 'Acesso restrito a equipe do restaurante.');
+            }
+
+            return redirect()->route('login')
                 ->with('error', 'Acesso restrito a equipe do restaurante.');
         }
 

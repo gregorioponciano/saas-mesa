@@ -594,7 +594,7 @@ class TableGrid extends Component
             $table->update(['status' => 'free']);
             $this->dispatch('tableFreed')->to('public.menu');
             $this->dispatch('tableFreed')->to('public.cart');
-            $this->dispatch('notify', message: "Conta da Mesa {$table->number} fechada! R$ ".number_format($totalPending, 2, ',', '.')." em {$closedCount} pedido(s). Pagamento: ".($this->closeTablePaymentMethod === 'pix' ? 'PIX' : ($this->closeTablePaymentMethod === 'credit_card' ? 'Cartao Credito' : ($this->closeTablePaymentMethod === 'debit_card' ? 'Cartao Debito' : 'Dinheiro'))));
+            $this->dispatch('notify', message: "Conta da Mesa {$table->number} fechada! R$ ".number_format($totalPending, 2, ',', '.')." em {$closedCount} pedido(s). Pagamento: ".(Payment::PAYMENT_METHODS[$this->closeTablePaymentMethod] ?? 'Outro'));
         } else {
             $this->dispatch('notify', message: "Nenhum pedido da Mesa {$table->number} pode ser fechado.");
         }
@@ -624,7 +624,7 @@ class TableGrid extends Component
             ->get();
 
         foreach ($activeOrders as $activeOrder) {
-            if (! $activeOrder->hasPayment() || $activeOrder->pendingPaymentAmount() <= 0) {
+            if ($activeOrder->hasPayment() && $activeOrder->pendingPaymentAmount() <= 0) {
                 $activeOrder->update([
                     'status' => 'fechado',
                     'bill_closed_at' => now(),

@@ -14,8 +14,6 @@ return new class extends Migration
         $this->alterOrderItems();
         $this->alterDeliveryPeople();
         $this->alterProducts();
-        $this->alterProductAttributes();
-        $this->alterProductAttributeOptions();
         $this->alterTables();
         $this->alterPayments();
         $this->alterCoupons();
@@ -157,9 +155,6 @@ return new class extends Migration
             if (! Schema::hasColumn('delivery_people', 'avatar_path')) {
                 $table->string('avatar_path')->nullable();
             }
-            if (! Schema::hasColumn('delivery_people', 'password')) {
-                $table->string('password')->nullable();
-            }
             if (! Schema::hasColumn('delivery_people', 'invite_token')) {
                 $table->string('invite_token', 80)->unique()->nullable();
             }
@@ -186,24 +181,6 @@ return new class extends Migration
             }
             if (! Schema::hasColumn('products', 'stock')) {
                 $table->integer('stock')->default(0)->unsigned();
-            }
-        });
-    }
-
-    private function alterProductAttributes(): void
-    {
-        Schema::table('product_attributes', function (Blueprint $table) {
-            if (! Schema::hasColumn('product_attributes', 'price')) {
-                $table->decimal('price', 10, 2)->default(0);
-            }
-        });
-    }
-
-    private function alterProductAttributeOptions(): void
-    {
-        Schema::table('product_attribute_options', function (Blueprint $table) {
-            if (! Schema::hasColumn('product_attribute_options', 'ingredient_id')) {
-                $table->foreignId('ingredient_id')->nullable()->constrained()->nullOnDelete();
             }
         });
     }

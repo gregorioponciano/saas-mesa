@@ -47,6 +47,7 @@ class DeliveryPerson extends Authenticatable
     {
         return [
             'api_token' => 'string',
+            'password' => 'hashed',
             'is_online' => 'boolean',
             'invite_expires_at' => 'datetime',
             'invited_at' => 'datetime',

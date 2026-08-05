@@ -180,12 +180,8 @@ Route::prefix('/cardapio')->group(function () {
 });
 
 // Waiter Panel
-Route::middleware(['auth', 'tenant.scope', 'check.staff'])->prefix('/painel')->group(function () {
+Route::middleware(['auth', 'tenant.scope', 'check.staff', 'check.tenant.owner'])->prefix('/painel')->group(function () {
     Route::get('/{slug:slug}', function (Tenant $slug) {
-        $user = Auth::user();
-        if ($user->tenant_id !== $slug->id) {
-            abort(403);
-        }
         if ($slug->isFree()) {
             abort(403, 'Acesso restrito. Plano Premium requerido.');
         }
@@ -194,25 +190,15 @@ Route::middleware(['auth', 'tenant.scope', 'check.staff'])->prefix('/painel')->g
     })->name('waiter.panel');
 
     Route::get('/{slug:slug}/configuracoes', function (Tenant $slug) {
-        $user = Auth::user();
-        if ($user->tenant_id !== $slug->id) {
-            abort(403);
-        }
-
         return view('waiter-panel', ['tenant' => $slug, 'tab' => 'settings']);
-    })->name('waiter.panel.settings');
+    })->name('waiter.panel.settings')->middleware('check.paid.tenant');
 
-    Route::get('/{slug:slug}/suporte', WaiterSupport::class)->name('waiter.support');
+    Route::get('/{slug:slug}/suporte', WaiterSupport::class)->name('waiter.support')->middleware('check.paid.tenant');
 });
 
 // Client Area
-Route::middleware(['auth', 'tenant.scope'])->prefix('/conta')->group(function () {
+Route::middleware(['auth', 'tenant.scope', 'check.tenant.owner'])->prefix('/conta')->group(function () {
     Route::get('/{slug:slug}', function (Tenant $slug) {
-        $user = Auth::user();
-        if ($user->tenant_id !== $slug->id) {
-            abort(403);
-        }
-
         return view('client-panel', ['tenant' => $slug]);
     })->name('client.panel');
 

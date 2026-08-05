@@ -183,21 +183,23 @@ class SubscriptionController extends Controller
         $freePlan = SaasPlan::whereIn('slug', ['free', 'gratuito'])->first();
 
         DB::transaction(function () use ($tenant, $freePlan) {
-            $subscription = SaasSubscription::where('tenant_id', $tenant->id)->first();
+            $subscription = SaasSubscription::where('tenant_id', $tenant->id)->latest('created_at')->first();
 
             if ($subscription) {
                 $subscription->update([
                     'plan_id' => $freePlan?->id,
                     'status' => 'active',
                 ]);
+                $tenant->update(['subscription_id' => $subscription->id]);
             } elseif ($freePlan) {
-                SaasSubscription::create([
+                $newSubscription = SaasSubscription::create([
                     'tenant_id' => $tenant->id,
                     'plan_id' => $freePlan->id,
                     'status' => 'active',
                     'current_period_start' => now(),
                     'current_period_end' => now()->addMonth(),
                 ]);
+                $tenant->update(['subscription_id' => $newSubscription->id]);
             }
 
             $tenant->update([
@@ -222,7 +224,7 @@ class SubscriptionController extends Controller
         $freePlan = SaasPlan::where('slug', 'free')->first();
 
         DB::transaction(function () use ($tenant, $freePlan) {
-            $subscription = SaasSubscription::where('tenant_id', $tenant->id)->first();
+            $subscription = SaasSubscription::where('tenant_id', $tenant->id)->latest('created_at')->first();
 
             if ($subscription) {
                 $subscription->update([
@@ -287,7 +289,7 @@ class SubscriptionController extends Controller
         $tenant = Auth::user()->tenant;
         $currentSubscription = ! empty($tenant->subscription_id)
             ? SaasSubscription::find($tenant->subscription_id)
-            : SaasSubscription::where('tenant_id', $tenant->id)->first();
+            : SaasSubscription::where('tenant_id', $tenant->id)->latest('created_at')->first();
         $paymentHistory = SaasPaymentHistory::where('tenant_id', $tenant->id)
             ->with('subscription.plan')
             ->latest('paid_at')

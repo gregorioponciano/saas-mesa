@@ -905,7 +905,7 @@ class Dashboard extends Component
             }
 
             $table->update(['status' => 'free']);
-            $this->dispatch('notify', message: "Conta da Mesa {$table->number} fechada! R$ ".number_format($totalPending, 2, ',', '.')." em {$closedCount} pedido(s). Pagamento: PIX");
+            $this->dispatch('notify', message: "Conta da Mesa {$table->number} fechada! R$ ".number_format($totalPending, 2, ',', '.')." em {$closedCount} pedido(s). Pagamento: ".(Payment::PAYMENT_METHODS[$this->closeTablePaymentMethod] ?? 'Outro'));
         } else {
             $this->dispatch('notify', message: "Nenhum pedido da Mesa {$table->number} pode ser fechado.");
         }
@@ -944,6 +944,16 @@ class Dashboard extends Component
                     'order_id' => $order->id, 'error' => $e->getMessage(),
                 ]);
             }
+
+            if (! $order->isDelivered()) {
+                try {
+                    app(StockService::class)->returnOrderStock($order->fresh(), Auth::id());
+                } catch (\Throwable $e) {
+                    Log::error('Erro ao devolver estoque no cancelamento manual', [
+                        'order_id' => $order->id, 'error' => $e->getMessage(),
+                    ]);
+                }
+            }
         } elseif ($status === 'fechado') {
             try {
                 app(PointsService::class)->grantPointsForOrder($order->fresh());
@@ -951,6 +961,19 @@ class Dashboard extends Component
                 Log::error('Erro ao conceder pontos na atualizacao de status', [
                     'order_id' => $order->id, 'error' => $e->getMessage(),
                 ]);
+            }
+        }
+
+        if ($order->table_id && $status === 'novo') {
+            $order->table()->update(['status' => 'occupied']);
+        }
+
+        if ($order->table_id && in_array($status, ['cancelado', 'fechado'])) {
+            $hasOther = Table::hasOtherActiveOrders($order->table_id, $order->id);
+            if (! $hasOther) {
+                $order->table()->update(['status' => 'free']);
+                $this->dispatch('tableFreed')->to('public.menu');
+                $this->dispatch('tableFreed')->to('public.cart');
             }
         }
 

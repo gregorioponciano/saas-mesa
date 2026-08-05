@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use App\Http\Middleware\BlockSuperadminFromTenantPanel;
 use App\Http\Middleware\CheckAdminRole;
+use App\Http\Middleware\CheckPaidTenant;
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\CheckStaffRole;
 use App\Http\Middleware\CheckSubscription;
+use App\Http\Middleware\CheckTenantOwner;
 use App\Http\Middleware\CheckTenantSubscription;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\SecurityHeaders;
@@ -46,6 +48,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'block.superadmin.from.tenant.panel' => BlockSuperadminFromTenantPanel::class,
             'check.admin' => CheckAdminRole::class,
             'check.staff' => CheckStaffRole::class,
+            'check.tenant.owner' => CheckTenantOwner::class,
+            'check.paid.tenant' => CheckPaidTenant::class,
             'resolve.tenant' => ResolveTenant::class,
             'security.headers' => SecurityHeaders::class,
             'validate.webhook.signature' => ValidateWebhookSignature::class,

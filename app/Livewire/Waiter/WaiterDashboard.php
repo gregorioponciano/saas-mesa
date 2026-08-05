@@ -797,7 +797,7 @@ class WaiterDashboard extends Component
             $table->update(['status' => 'free']);
             $this->dispatch('tableFreed')->to('public.menu');
             $this->dispatch('tableFreed')->to('public.cart');
-            $this->dispatch('notify', message: "Conta da Mesa {$table->number} fechada! R$ ".number_format($totalPending, 2, ',', '.')." em {$closedCount} pedido(s). Pagamento: PIX");
+            $this->dispatch('notify', message: "Conta da Mesa {$table->number} fechada! R$ ".number_format($totalPending, 2, ',', '.')." em {$closedCount} pedido(s). Pagamento: ".(Payment::PAYMENT_METHODS[$this->closeTablePaymentMethod] ?? 'Outro'));
         } else {
             $this->dispatch('notify', message: "Nenhum pedido da Mesa {$table->number} pode ser fechado.");
         }
@@ -925,7 +925,7 @@ class WaiterDashboard extends Component
             ->get();
 
         foreach ($activeOrders as $activeOrder) {
-            if (! $activeOrder->hasPayment() || $activeOrder->pendingPaymentAmount() <= 0) {
+            if ($activeOrder->hasPayment() && $activeOrder->pendingPaymentAmount() <= 0) {
                 $activeOrder->update([
                     'status' => 'fechado',
                     'bill_closed_at' => now(),
@@ -1557,6 +1557,9 @@ class WaiterDashboard extends Component
 
     public function assignDeliveryPerson(int $orderId, int $deliveryPersonId): void
     {
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
         $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
         $delivery = DeliveryPerson::where('tenant_id', auth()->user()->tenant_id)->findOrFail($deliveryPersonId);
 
@@ -1574,6 +1577,9 @@ class WaiterDashboard extends Component
 
     public function removeDeliveryPerson(int $orderId): void
     {
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
         $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
         $order->update(['delivery_person_id' => null]);
 
@@ -1730,6 +1736,9 @@ class WaiterDashboard extends Component
 
     public function saveTable(): void
     {
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
         $this->validate([
             'editTableNumber' => 'required|string|max:20',
             'editTableCapacity' => 'required|integer|min:1|max:50',
@@ -1769,6 +1778,9 @@ class WaiterDashboard extends Component
 
     public function toggleTableStatus(int $id): void
     {
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
         $table = Table::where('tenant_id', auth()->user()->tenant_id)->findOrFail($id);
         $newStatus = match ($table->status) {
             'free' => 'occupied',
