@@ -479,7 +479,7 @@ class Menu extends Component
             ->get();
     }
 
-    public string $ordersFilter = 'mesa';
+    public string $ordersFilter = 'all';
 
     public bool $showPixModal = false;
 

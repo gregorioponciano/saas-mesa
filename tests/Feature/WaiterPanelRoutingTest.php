@@ -32,17 +32,22 @@ it('bloqueia acesso ao painel para usuário de tenant free', function () {
         ->assertForbidden();
 });
 
-it('bloqueia configuracoes e suporte do painel para tenant free', function () {
+it('bloqueia suporte do painel para tenant free', function () {
     $tenant = createTenant(['plan' => Tenant::PLAN_FREE]);
     $staff = createTenantAdmin($tenant, ['role' => 'atendente', 'is_staff' => false]);
 
     $this->actingAs($staff)
-        ->get('/painel/'.$tenant->slug.'/configuracoes')
-        ->assertForbidden();
-
-    $this->actingAs($staff)
         ->get('/painel/'.$tenant->slug.'/suporte')
         ->assertForbidden();
+});
+
+it('gera 404 para configuracoes do painel (rota removida)', function () {
+    $tenant = createTenant(['plan' => Tenant::PLAN_PAID]);
+    $staff = createTenantAdmin($tenant, ['role' => 'atendente', 'is_staff' => false]);
+
+    $this->actingAs($staff)
+        ->get('/painel/'.$tenant->slug.'/configuracoes')
+        ->assertNotFound();
 });
 
 it('gera 404 para tenant inexistente no painel', function () {

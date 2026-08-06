@@ -16,18 +16,20 @@
             <div class="flex items-center gap-4 px-6 py-4 rounded-2xl border shadow-2xl backdrop-blur-xl"
                  :class="n.type === 'order' ? 'bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-neutral-900 border-amber-500/20 shadow-amber-500/10' :
                          n.type === 'success' ? 'bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-neutral-900 border-emerald-500/20 shadow-emerald-500/10' :
+                         n.type === 'error' ? 'bg-gradient-to-r from-red-500/15 via-red-500/10 to-neutral-900 border-red-500/20 shadow-red-500/10' :
                          'bg-gradient-to-r from-violet-500/15 via-violet-500/10 to-neutral-900 border-violet-500/20 shadow-violet-500/10'">
                 <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                     :class="n.type === 'order' ? 'bg-amber-500/20' : n.type === 'success' ? 'bg-emerald-500/20' : 'bg-violet-500/20'">
-                    <svg class="w-5 h-5" :class="n.type === 'order' ? 'text-amber-400 animate-pulse' : n.type === 'success' ? 'text-emerald-400' : 'text-violet-400'"
+                     :class="n.type === 'order' ? 'bg-amber-500/20' : n.type === 'success' ? 'bg-emerald-500/20' : n.type === 'error' ? 'bg-red-500/20' : 'bg-violet-500/20'">
+                    <svg class="w-5 h-5" :class="n.type === 'order' ? 'text-amber-400 animate-pulse' : n.type === 'success' ? 'text-emerald-400' : n.type === 'error' ? 'text-red-400' : 'text-violet-400'"
                          fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path x-show="n.type === 'order'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                         <path x-show="n.type === 'success'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        <path x-show="n.type !== 'order' && n.type !== 'success'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        <path x-show="n.type === 'error'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        <path x-show="n.type !== 'order' && n.type !== 'success' && n.type !== 'error'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                     </svg>
                 </div>
                 <div class="flex-1 min-w-0">
-                    <p class="text-sm font-bold" :class="n.type === 'order' ? 'text-amber-400' : n.type === 'success' ? 'text-emerald-400' : 'text-violet-400'" x-text="n.title || 'Notificação'"></p>
+                    <p class="text-sm font-bold" :class="n.type === 'order' ? 'text-amber-400' : n.type === 'success' ? 'text-emerald-400' : n.type === 'error' ? 'text-red-400' : 'text-violet-400'" x-text="n.title || 'Notificação'"></p>
                     <p class="text-sm text-neutral-200" x-text="n.message"></p>
                 </div>
                 <button @click="remove(index)"

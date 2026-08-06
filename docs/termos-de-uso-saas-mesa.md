@@ -31,11 +31,11 @@ Para os fins deste instrumento, os termos a seguir, utilizados em letra maiúscu
 
 **2.8. Credenciais EfiBank do Tenant:** Conjunto de credenciais de autenticação para integração com a plataforma de pagamentos EfiBank (arranjo de pagamento regulado pelo Banco Central do Brasil), compostas por: *client_id*, *client_secret*, *PIX key* (chave PIX), certificado digital no formato `.p12` e senha do certificado. Estas credenciais são de propriedade e responsabilidade exclusiva do Contratante, que as obtém diretamente junto à EfiBank. O Operador as armazena de forma criptografada no banco de dados utilizando o algoritmo AES-256-GCM, com chave de criptografia derivada de `TENANT_CREDENTIAL_ENCRYPTION_KEY` via HKDF-SHA256. As credenciais são utilizadas exclusivamente para processamento de transações PIX do próprio estabelecimento do Contratante com seus Clientes Finais.
 
-**2.9. Plano Gratuito:** Modalidade de contratação sem custo mensal, limitada a até 2 (duas) mesas e recursos restritos (ocultação automática de mesas excedentes, funcionalidades reduzidas). O Tenant em Plano Gratuito não possui acesso a recursos premium como relatórios financeiros avançados, múltiplos entregadores ou suporte prioritário.
+**2.9. Plano Gratuito:** Modalidade de contratação sem custo mensal, limitada a até 2 (duas) mesas, até 20 (vinte) produtos no cardápio e até 2 (dois) usuários, com ocultação automática das mesas excedentes ao limite. O Tenant em Plano Gratuito não possui acesso a pagamentos por boleto, relatórios financeiros, delivery com entregadores, programa de fidelidade ou suporte prioritário.
 
-**2.10. Plano Premium:** Modalidade de contratação mediante pagamento de assinatura mensal, permitindo até 50 (cinquenta) mesas e acesso completo a todas as funcionalidades da plataforma, incluindo múltiplos entregadores, relatórios financeiros, integração completa com EfiBank e suporte técnico prioritário. O valor mensal do Plano Premium é de R$ 97,90 (noventa e sete reais e noventa centavos), podendo ser contratado com descontos progressivos por períodos de múltiplos meses.
+**2.10. Plano Premium:** Modalidade de contratação mediante pagamento de assinatura mensal, permitindo até 50 (cinquenta) mesas, até 999 (novecentos e noventa e nove) produtos e até 20 (vinte) usuários, com acesso completo a todas as funcionalidades da plataforma, incluindo pagamentos por boleto, relatórios financeiros, delivery com entregadores, programa de fidelidade (pontos), integração completa com EfiBank e suporte técnico prioritário. O valor mensal do Plano Premium é de R$ 97,90 (noventa e sete reais e noventa centavos), podendo ser contratado com descontos progressivos por períodos de múltiplos meses.
 
-**2.11. Período de Trial (*Trial*):** Período de avaliação gratuita da plataforma, com duração de 7 (sete) dias corridos contados da data de criação da assinatura do Tenant. Durante o período de Trial, o Contratante tem acesso a todas as funcionalidades do Plano Premium, sem qualquer ônus. O término do Trial é registrado no campo `trial_ends_at` do modelo Tenant e no campo homônimo do modelo SaasSubscription.
+**2.11. Período de Trial (*Trial*):** Período de avaliação gratuita da plataforma, com duração de 7 (sete) dias corridos contados da data de criação da assinatura do Tenant, durante o qual a assinatura assume o status "trial" e o Contratante não está obrigado ao pagamento de qualquer valor. O término do Trial é registrado no campo `trial_ends_at` do modelo Tenant e no campo homônimo do modelo SaasSubscription.
 
 **2.12. Webhook:** Mecanismo de comunicação assíncrona entre sistemas, pelo qual a EfiBank notifica o Operador sobre eventos relacionados a transações PIX (confirmação de pagamento, falha na cobrança, reembolso). O Operador disponibiliza endpoints seguros protegidos por validação de assinatura HMAC-SHA256 (cabeçalho `x-efi-hmac-sha256`) e verificação de IP de origem contra lista de IPs conhecidos da EfiBank. Os webhooks são processados de forma assíncrona através de filas gerenciadas pelo Supervisor (filas Redis + PHP), com registro completo do payload, assinatura e status de processamento na tabela `webhook_logs`. O Operador processa dois tipos de webhook: webhook SaaS (para cobranças de assinatura do próprio Tenant) e webhook do Tenant (para pagamentos PIX realizados pelos Clientes Finais do estabelecimento).
 
@@ -70,18 +70,18 @@ Para os fins deste instrumento, os termos a seguir, utilizados em letra maiúscu
 **4.1. PLANO GRATUITO:**
 
 **4.1.1.** O Plano Gratuito é oferecido sem qualquer custo de assinatura ao Contratante, permitindo o uso limitado da plataforma com as seguintes restrições:
-- Limite máximo de 2 (duas) mesas simultaneamente ativas;
+- Limite máximo de 2 (duas) mesas, 20 (vinte) produtos e 2 (dois) usuários simultaneamente ativos;
 - Ocultação automática das mesas excedentes ao limite;
-- Recursos limitados, conforme definidos na tabela de funcionalidades disponível na plataforma;
-- Ausência de suporte técnico prioritário.
+- Pagamentos PIX habilitados, sem pagamentos por boleto;
+- Ausência de relatórios financeiros, de delivery com entregadores, do programa de fidelidade e de suporte técnico prioritário.
 
 **4.1.2.** O Operador reserva-se o direito de, a qualquer tempo e mediante aviso prévio de 15 (quinze) dias, alterar as condições do Plano Gratuito, incluindo a sua descontinuação.
 
 **4.2. PLANO PREMIUM:**
 
 **4.2.1.** O Plano Premium é contratado mediante pagamento de assinatura mensal no valor de R$ 97,90 (noventa e sete reais e noventa centavos), que dá direito a:
-- Até 50 (cinquenta) mesas simultaneamente ativas;
-- Acesso completo a todas as funcionalidades da plataforma, incluindo relatórios financeiros, múltiplos entregadores e integração completa com EfiBank;
+- Até 50 (cinquenta) mesas, 999 (novecentos e noventa e nove) produtos e 20 (vinte) usuários simultaneamente ativos;
+- Acesso completo a todas as funcionalidades da plataforma, incluindo boleto, relatórios financeiros, delivery com múltiplos entregadores, programa de fidelidade e integração completa com EfiBank;
 - Suporte técnico prioritário.
 
 **4.2.2.** O Contratante poderá optar pela contratação antecipada de múltiplos meses, hipótese em que fará jus aos seguintes descontos progressivos sobre o valor mensal de R$ 97,90:
@@ -117,7 +117,7 @@ Para os fins deste instrumento, os termos a seguir, utilizados em letra maiúscu
 
 **5.1. PERÍODO DE TRIAL GRATUITO:**
 
-**5.1.1.** Ao realizar o cadastro na plataforma, o Contratante recebe automaticamente um período de avaliação gratuita (*trial*) de 7 (sete) dias corridos, durante o qual poderá utilizar todas as funcionalidades do Plano Premium sem qualquer ônus.
+**5.1.1.** Ao realizar o cadastro na plataforma, o Contratante recebe automaticamente um período de avaliação gratuita (*trial*) de 7 (sete) dias corridos, contados da data de criação do cadastro, registrado no campo `trial_ends_at` do modelo Tenant e no campo homônimo do modelo SaasSubscription.
 
 **5.1.2.** O início do período de trial é contado da data de criação da assinatura do Tenant, registrada no campo `trial_ends_at` do modelo Tenant e no campo `trial_ends_at` do modelo SaasSubscription, ambos no banco de dados da plataforma.
 
@@ -125,9 +125,9 @@ Para os fins deste instrumento, os termos a seguir, utilizados em letra maiúscu
 
 **5.2. TÉRMINO DO PERÍODO DE TRIAL:**
 
-**5.2.1.** Esgotado o período de trial sem que o Contratante tenha contratado qualquer plano, o acesso do Tenant às funcionalidades da plataforma será automaticamente restrito ao Plano Gratuito, com as limitações previstas na Cláusula 4.1.
+**5.2.1.** O cadastro do Contratante é realizado no Plano Gratuito, cujo acesso é mantido durante o período de trial e após o seu término, com as limitações previstas na Cláusula 4.1, até que o Contratante contrate um plano pago ou que a assinatura seja suspensa nos termos da Cláusula 5.3.
 
-**5.2.2.** Caso o Contratante não tenha contratado qualquer plano e o período de trial tenha expirado, os dados do Tenant permanecerão armazenados na plataforma pelo prazo de 30 (trinta) dias, após o qual poderão ser definitivamente excluídos, observado o disposto na Cláusula 12.
+**5.2.2.** Caso o Contratante não tenha contratado qualquer plano e o período de trial tenha expirado, não havendo cobrança nem confirmação de pagamento, aplica-se o procedimento de suspensão automática previsto na Cláusula 5.3. Os dados do Tenant permanecem armazenados na plataforma durante o período de suspensão, observado o disposto na Cláusula 12.
 
 **5.3. SUSPENSÃO ADMINISTRATIVA POR INADIMPLÊNCIA:**
 
@@ -163,7 +163,7 @@ Para os fins deste instrumento, os termos a seguir, utilizados em letra maiúscu
 
 **6.2. MANUTENÇÃO DE BACKUPS:**
 
-**6.2.1.** O Operador realiza backups automáticos e periódicos do banco de dados da plataforma (MySQL 8+), com frequência mínima diária, armazenados em local seguro e segregado do ambiente de produção.
+**6.2.1.** O Operador disponibiliza ao Contratante a criação de backups e a exportação dos dados da sua empresa em formato JSON pelo painel administrativo, com armazenamento seguro e retenção conforme o plano contratado (até 3 backups no Plano Gratuito e até 30 backups com retenção de 365 dias no Plano Premium). A remoção automática de backups expirados é executada diariamente pelo comando `backups:purge`.
 
 **6.2.2.** O Operador não se responsabiliza pela perda de dados decorrente de ação ou omissão do Contratante, incluindo, mas não se limitando a, exclusão acidental de dados, alterações indevidas no sistema ou falhas na configuração de integrações.
 
@@ -185,8 +185,8 @@ Para os fins deste instrumento, os termos a seguir, utilizados em letra maiúscu
 **6.5. SUPORTE TÉCNICO:**
 
 **6.5.1.** O Operador disponibilizará canais de suporte técnico para atendimento ao Contratante, incluindo:
-- Canal de e-mail para abertura de chamados;
-- Base de conhecimento e documentação online;
+- Central de chamados de suporte integrada à plataforma (tickets), com abertura e acompanhamento pelo painel administrativo, pelo painel do garçom e pela área do cliente;
+- Canal de e-mail para comunicações oficiais e recuperação de acesso;
 - Suporte prioritário para Contratantes do Plano Premium.
 
 **6.5.2.** O prazo de resposta para chamados técnicos será de até 48 (quarenta e oito) horas úteis para Contratantes do Plano Premium e de até 120 (cento e vinte) horas úteis para Contratantes do Plano Gratuito.
@@ -358,9 +358,9 @@ Para os fins deste instrumento, os termos a seguir, utilizados em letra maiúscu
 
 **9.1.1.2. Criptografia em Trânsito:** Todas as comunicações entre o cliente (navegador web ou aplicativo mobile) e os servidores da plataforma são protegidas por TLS/SSL.
 
-**9.1.1.3. Controle de Acesso:** O sistema implementa autenticação multifator (suporte a passkeys), papéis de acesso granulares (superadmin, admin, atendente, cliente) e políticas de sessão seguras.
+**9.1.1.3. Controle de Acesso:** O sistema implementa papéis de acesso granulares (superadmin, admin, atendente e cliente), com guardas de autenticação próprios para o painel web e a API mobile dos entregadores, além de políticas de sessão seguras.
 
-**9.1.1.4. Rate Limiting (Throttle):** O sistema implementa limitação de taxa de requisições de autenticação para prevenção de ataques de força bruta: 10 (dez) requisições por minuto na rota de login web e 5 (cinco) requisições por minuto na rota de login da API. As rotas de recuperação de senha também possuem limitação de 60 (sessenta) segundos entre requisições.
+**9.1.1.4. Rate Limiting (Throttle):** O sistema implementa limitação de taxa de requisições para prevenção de ataques de força bruta: 10 (dez) requisições por minuto nas rotas de login web e 5 (cinco) requisições por minuto nas rotas de login da API. As rotas de recuperação e redefinição de senha possuem limite de 5 (cinco) requisições por minuto. O painel do superadmin possui limite de 120 (cento e vinte) requisições por minuto, reduzido para 20 (vinte) requisições por minuto nas ações sensíveis (suspensão, reativação, troca de plano, cobrança, backups, fidelidade e configurações).
 
 **9.1.1.5. Validação de Webhooks:** As notificações recebidas da EfiBank são validadas mediante assinatura HMAC-SHA256 (cabeçalho `x-efi-hmac-sha256`) e verificação de IP de origem contra lista de IPs autorizados (produção: 54.94.56.243, 54.94.43.18, 54.232.206.88; sandbox: 177.71.168.182, 54.94.56.243).
 
@@ -447,19 +447,15 @@ Para os fins deste instrumento, os termos a seguir, utilizados em letra maiúscu
 
 **12.2. EXPORTAÇÃO DE DADOS:**
 
-**12.2.1.** O Contratante poderá solicitar a exportação de seus dados no prazo de até 30 (trinta) dias contados da data do cancelamento ou do término do contrato.
+**12.2.1.** O Contratante poderá solicitar, a qualquer momento, a exportação dos seus dados, realizada pela plataforma de forma automática em formato JSON e abrangendo os dados cadastrais do Tenant, dados de pedidos, dados de clientes e demais informações inseridas pelo Contratante na plataforma.
 
-**12.2.2.** A exportação será realizada pelo Operador no prazo de até 15 (quinze) dias úteis contados da solicitação, em formato estruturado e de uso corrente (CSV, JSON ou outro formato a ser definido pelo Operador), abrangendo os dados cadastrais do Tenant, dados de pedidos, dados de clientes e demais informações inseridas pelo Contratante na plataforma.
+**12.2.2.** A exportação está disponível pelo painel do superadmin e pela API da plataforma, devendo ser solicitada antes do encerramento da empresa, pois o procedimento de encerramento promove a anonimização dos dados pessoais (Cláusula 12.3), após o qual os dados pessoais não são recuperáveis.
 
-**12.2.3.** Expirado o prazo de 30 (trinta) dias sem solicitação de exportação, o Operador poderá proceder à exclusão definitiva dos dados, observado o disposto na Cláusula 12.3.
+**12.3. EXCLUSÃO E ANONIMIZAÇÃO DE DADOS:**
 
-**12.3. EXCLUSÃO DE DADOS:**
+**12.3.1.** O encerramento de uma empresa na plataforma é realizado mediante o procedimento de anonimização de dados pessoais (art. 18, VI da LGPD): nome, e-mail, telefone, senha e credenciais de API dos usuários são substituídos por dados anônimos e não identificáveis, os backups da empresa são removidos e os dados operacionais são mantidos sem qualquer dado pessoal identificável, para fins contábeis e de prevenção a fraudes.
 
-**12.3.1.** Após o encerramento do contrato, os dados do Contratante não são excluídos imediatamente do banco de dados, sendo aplicado o mecanismo de SoftDelete (exclusão lógica), que mantém os dados no banco de dados com uma marcação de exclusão, permitindo eventual recuperação em caso de reativação ou solicitação tempestiva do Contratante.
-
-**12.3.2.** Transcorrido o prazo de 30 (trinta) dias do encerramento sem manifestação do Contratante, os dados poderão ser definitivamente excluídos (hard delete) pelo Operador, exceto aqueles cuja retenção seja exigida por obrigação legal ou regulatória.
-
-**12.3.3.** O Operador reserva-se o direito de reter, mesmo após a exclusão, logs técnicos de operação, registros de acesso, registros de webhook e metadados anonimizados necessários para segurança da plataforma e cumprimento de obrigações legais.
+**12.3.2.** O Operador mantém registros de auditoria, logs técnicos de operação, registros de acesso e registros de webhook necessários para a segurança da plataforma e o cumprimento de obrigações legais.
 
 ## 13. VIGÊNCIA E RESCISÃO
 
@@ -568,8 +564,9 @@ Para os fins deste instrumento, os termos a seguir, utilizados em letra maiúscu
 
 **Operador:** [RAZÃO SOCIAL DO OPERADOR]
 **CNPJ/CPF:** [CNPJ]
-**E-mail para comunicações:** [E-MAIL DO OPERADOR]
-**Encarregado (DPO):** [NOME DO DPO] — [EMAIL DO DPO]
+**Domínio da plataforma:** saasmesa.com.br (painel em app.saasmesa.com.br)
+**E-mail para comunicações:** gregorio@saasmesa.com.br
+**Encarregado (DPO):** [NOME DO DPO] — gregorio@saasmesa.com.br
 **Termos para Clientes Finais:** O Contratante obriga-se a adotar, publicar e manter disponíveis aos seus Clientes Finais os Termos de Uso e Política de Privacidade específicos para consumidores (Documento 2 da plataforma), nos termos da Cláusula 7.6.1, responsabilizando-se integralmente pelo seu conteúdo e observância perante seus consumidores e autoridades competentes.
 
 **Contratante:** O estabelecimento identificado no cadastro eletrônico da plataforma SaaS Mesa, que declara ter lido, compreendido e aceitado todos os termos e condições deste instrumento, vinculando-se desde já ao seu inteiro teor.

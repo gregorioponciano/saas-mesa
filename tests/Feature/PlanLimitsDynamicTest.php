@@ -295,7 +295,27 @@ test('update mantem o slug do plano quando o nome nao muda', function () {
     expect($tenant->fresh()->maxTablesAllowed())->toBe(6);
 });
 
-test('update com nome novo regenera o slug', function () {
+test('update com nome novo regenera o slug apenas em planos custom', function () {
+    seedPlans();
+    $custom = SaasPlan::create([
+        'name' => 'Custom',
+        'slug' => 'custom',
+        'price_cents' => 7500,
+        'interval' => 'month',
+        'features_json' => ['max_tables' => 30],
+        'is_active' => true,
+    ]);
+
+    $this->actingAs(createSuperAdmin())
+        ->putJson('/api/superadmin/plans/'.$custom->id, [
+            'name' => 'Custom Novo',
+        ])
+        ->assertOk();
+
+    expect($custom->fresh()->slug)->toBe('custom-novo');
+});
+
+test('update com nome novo mantém slug canônico dos planos de sistema', function () {
     seedPlans();
     $premium = SaasPlan::where('slug', 'premium')->first();
 
@@ -305,7 +325,7 @@ test('update com nome novo regenera o slug', function () {
         ])
         ->assertOk();
 
-    expect($premium->fresh()->slug)->toBe('premium-anual');
+    expect($premium->fresh()->slug)->toBe('premium');
 });
 
 test('tenant gratuito resolve plano com slug legado gratuito', function () {

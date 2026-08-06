@@ -16,6 +16,7 @@ use App\Livewire\Admin\DeliveryPeopleManager;
 use App\Livewire\Admin\EfiCredentialsManager;
 use App\Livewire\Admin\LoyaltyManager;
 use App\Livewire\Admin\MenuManager;
+use App\Livewire\Admin\PlatformSupport;
 use App\Livewire\Admin\Settings;
 use App\Livewire\Admin\SmtpSettings;
 use App\Livewire\Admin\SupportManager;
@@ -23,6 +24,7 @@ use App\Livewire\Admin\TablesPage;
 use App\Livewire\Admin\UserManager;
 use App\Livewire\Client\SupportPage;
 use App\Livewire\Waiter\WaiterSupport;
+use App\Models\SaasPlan;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -30,7 +32,11 @@ use League\CommonMark\CommonMarkConverter;
 use League\CommonMark\Extension\Table\TableExtension;
 
 Route::get('/', function () {
-    return view('welcome');
+    $plans = SaasPlan::where('is_active', true)
+        ->orderBy('price_cents')
+        ->get();
+
+    return view('welcome', compact('plans'));
 });
 
 Route::get('/termos-de-uso', function () {
@@ -82,6 +88,7 @@ Route::middleware(['auth', 'role:superadmin', 'throttle:superadmin'])->prefix('s
     Route::get('/usuarios', [SuperadminPanelController::class, 'users'])->name('users');
     Route::get('/webhooks', [SuperadminPanelController::class, 'webhooks'])->name('webhooks');
     Route::get('/auditoria', [SuperadminPanelController::class, 'audit'])->name('audit');
+    Route::get('/suporte', [SuperadminPanelController::class, 'platformSupport'])->name('platform-support');
     Route::get('/privacidade', [SuperadminPanelController::class, 'privacy'])->name('privacy');
     Route::get('/empresas/{tenant}/configuracoes', [SuperadminPanelController::class, 'tenantSettings'])->name('tenant.settings');
 });
@@ -145,6 +152,7 @@ Route::middleware(['auth', 'tenant.scope', 'block.superadmin.from.tenant.panel',
     Route::get('/dashboard/efi-credentials', EfiCredentialsManager::class)->name('dashboard.efi-credentials');
     Route::get('/dashboard/configurar-email', SmtpSettings::class)->name('dashboard.smtp-settings');
     Route::get('/dashboard/suporte', SupportManager::class)->name('dashboard.support');
+    Route::get('/dashboard/suporte-plataforma', PlatformSupport::class)->name('dashboard.support.platform');
     Route::get('/dashboard/backup', BackupManager::class)->name('dashboard.backup');
     Route::get('/dashboard/backup/{backup}/download', [BackupController::class, 'download'])
         ->name('dashboard.backup.download')
@@ -188,10 +196,6 @@ Route::middleware(['auth', 'tenant.scope', 'check.staff', 'check.tenant.owner'])
 
         return view('waiter-panel', ['tenant' => $slug]);
     })->name('waiter.panel');
-
-    Route::get('/{slug:slug}/configuracoes', function (Tenant $slug) {
-        return view('waiter-panel', ['tenant' => $slug, 'tab' => 'settings']);
-    })->name('waiter.panel.settings')->middleware('check.paid.tenant');
 
     Route::get('/{slug:slug}/suporte', WaiterSupport::class)->name('waiter.support')->middleware('check.paid.tenant');
 });

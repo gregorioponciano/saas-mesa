@@ -1,6 +1,8 @@
 <?php
 
-namespace App\Livewire\Client;
+declare(strict_types=1);
+
+namespace App\Livewire\Admin;
 
 use App\Livewire\Concerns\HandlesSupportAttachments;
 use App\Models\SupportTicket;
@@ -9,17 +11,37 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
-class SupportPage extends Component
+/**
+ * Canal Empresa (tenant) -> Plataforma (superadmin).
+ *
+ * Componente separado de SupportManager de propósito: tickets "plataforma"
+ * têm semântica diferente dos tickets de cliente final (cliente->empresa) —
+ * sem nota interna (vazaria para a plataforma), sem reatribuição para a
+ * equipe local, sem zona de perigo e sem métricas de atendimento. Misturar
+ * as duas audiências no mesmo SupportManager geraria tela confusa e queries
+ * condicionais por tab. A UI reaproveita o visual de support-manager.blade.php.
+ */
+class PlatformSupport extends Component
 {
     use HandlesSupportAttachments;
 
-    public $tenant;
+    public string $statusFilter = 'all';
 
-    public string $tab = 'meus_tickets';
+    public string $search = '';
+
+    public ?int $viewingTicketId = null;
+
+    public ?array $viewingTicket = null;
+
+    public bool $showDetail = false;
+
+    public string $replyBody = '';
+
+    public bool $showCreateForm = false;
 
     public string $newSubject = '';
 
-    public string $newCategory = 'outro';
+    public string $newCategory = 'conta';
 
     public string $newPriority = 'media';
 
@@ -27,32 +49,22 @@ class SupportPage extends Component
 
     public ?string $newOrderRef = null;
 
-    public ?int $viewingTicketId = null;
-
-    public ?array $viewingTicket = null;
-
-    public bool $showTicketDetail = false;
-
-    public string $replyBody = '';
-
-    public function mount(): void
-    {
-        $this->tenant = Auth::user()->tenant;
-    }
-
     #[Computed]
-    public function myTickets()
+    public function tickets()
     {
-        return SupportTicket::with('lastMessage')
-            ->where('user_id', Auth::id())
+        return SupportTicket::where('audience', SupportTicket::AUDIENCE_PLATFORM)
+            ->with(['user', 'lastMessage'])
+            ->when($this->statusFilter !== 'all', fn ($q) => $q->where('status', $this->statusFilter))
+            ->when($this->search, fn ($q) => $q->where('subject', 'like', "%{$this->search}%"))
             ->latest('updated_at')
+            ->take(100)
             ->get();
     }
 
     public function openTicket(): void
     {
         if (! $this->supportActionAllowed('open', 10)) {
-            $this->notifySupportDenied('Muitos tickets em pouco tempo. Aguarde um minuto e tente de novo.');
+            $this->notifySupportDenied('Muitos chamados em pouco tempo. Aguarde um minuto e tente de novo.');
 
             return;
         }
@@ -67,35 +79,36 @@ class SupportPage extends Component
         ]);
 
         $ticket = SupportTicket::create([
-            'tenant_id' => $this->tenant->id,
+            'tenant_id' => Auth::user()->tenant_id,
             'user_id' => Auth::id(),
             'subject' => $this->newSubject,
             'category' => $this->newCategory,
             'priority' => $this->newPriority,
             'status' => 'aberto',
             'order_id' => $this->newOrderRef ?: null,
+            'audience' => SupportTicket::AUDIENCE_PLATFORM,
         ]);
 
         SupportTicketMessage::create(array_merge([
             'ticket_id' => $ticket->id,
             'user_id' => Auth::id(),
             'body' => $this->newBody,
-            'author_role' => 'cliente',
+            'author_role' => 'admin',
             'author_name' => Auth::user()->name,
         ], $this->storeSupportAttachment()));
 
         $this->reset(['newSubject', 'newCategory', 'newPriority', 'newBody', 'newOrderRef']);
         $this->resetSupportAttachment();
-        $this->tab = 'meus_tickets';
-        $this->dispatch('notify', message: 'Ticket aberto com sucesso! Em breve nossa equipe entrará em contato.');
+        $this->showCreateForm = false;
+        $this->viewTicket($ticket->id);
+        $this->dispatch('notify', message: 'Chamado aberto! Nossa equipe de plataforma vai analisar.');
     }
 
     public function viewTicket(int $ticketId): void
     {
-        $ticket = SupportTicket::with([
-            'messages' => fn ($q) => $q->where('is_internal', false)->oldest(),
-            'assignedTo',
-        ])->where('user_id', Auth::id())->findOrFail($ticketId);
+        $ticket = SupportTicket::where('audience', SupportTicket::AUDIENCE_PLATFORM)
+            ->with(['messages' => fn ($q) => $q->oldest(), 'user'])
+            ->findOrFail($ticketId);
 
         $this->viewingTicketId = $ticketId;
         $this->viewingTicket = [
@@ -111,7 +124,6 @@ class SupportPage extends Component
             'statusClasses' => $ticket->statusClasses(),
             'created_at' => $ticket->created_at->format('d/m/Y H:i'),
             'updated_at' => $ticket->updated_at->format('d/m/Y H:i'),
-            'assigned_to' => $ticket->assignedTo?->name,
             'order_id' => $ticket->order_id,
             'messages' => $ticket->messages->map(fn ($m) => [
                 'id' => $m->id,
@@ -125,7 +137,7 @@ class SupportPage extends Component
                 'attachment_url' => $m->attachmentUrl(),
             ])->toArray(),
         ];
-        $this->showTicketDetail = true;
+        $this->showDetail = true;
         $this->replyBody = '';
         $this->resetSupportAttachment();
     }
@@ -137,54 +149,62 @@ class SupportPage extends Component
             'attachment' => $this->supportAttachmentRule(),
         ]);
 
-        $ticket = SupportTicket::where('user_id', Auth::id())->findOrFail($this->viewingTicketId);
+        $ticket = SupportTicket::where('audience', SupportTicket::AUDIENCE_PLATFORM)->findOrFail($this->viewingTicketId);
 
         if ($ticket->isClosed()) {
-            $this->notifySupportDenied('Este ticket está encerrado. Abra um novo ou reagende a conversa.');
+            $this->notifySupportDenied('Este chamado está encerrado. Reabra-o para enviar nova mensagem.');
 
             return;
         }
 
         if (! $this->supportActionAllowed('reply:'.$ticket->id, 20)) {
-            $this->notifySupportDenied('Você está respondendo rápido demais. Aguarde alguns segundos.');
+            $this->notifySupportDenied('Você está enviando mensagens rápido demais. Aguarde alguns segundos.');
 
             return;
         }
 
+        $user = Auth::user();
+
         SupportTicketMessage::create(array_merge([
             'ticket_id' => $ticket->id,
-            'user_id' => Auth::id(),
+            'user_id' => $user->id,
             'body' => $this->replyBody,
-            'author_role' => 'cliente',
-            'author_name' => Auth::user()->name,
+            'is_internal' => false,
+            'author_role' => 'admin',
+            'author_name' => $user->name,
         ], $this->storeSupportAttachment()));
 
-        if ($ticket->status === 'aguardando_cliente') {
+        if ($ticket->status === 'aberto') {
+            $ticket->update(['status' => 'em_atendimento']);
+        } elseif ($ticket->status === 'aguardando_cliente') {
             $ticket->update(['status' => 'em_atendimento']);
         }
 
         $this->replyBody = '';
         $this->resetSupportAttachment();
         $this->viewTicket($this->viewingTicketId);
-        $this->dispatch('notify', message: 'Resposta enviada!');
+        $this->dispatch('notify', message: 'Mensagem enviada à plataforma!');
     }
 
-    public function closeTicket(int $ticketId): void
+    public function updateStatus(int $ticketId, string $status): void
     {
-        SupportTicket::where('user_id', Auth::id())->findOrFail($ticketId)->update(['status' => 'fechado']);
-        $this->showTicketDetail = false;
-        $this->dispatch('notify', message: 'Ticket fechado.');
+        SupportTicket::where('audience', SupportTicket::AUDIENCE_PLATFORM)
+            ->findOrFail($ticketId)->update(['status' => $status]);
+        if ($this->viewingTicketId === $ticketId) {
+            $this->viewTicket($ticketId);
+        }
+        $this->dispatch('notify', message: 'Status atualizado!');
     }
 
-    public function backToList(): void
+    public function closeDetail(): void
     {
-        $this->showTicketDetail = false;
+        $this->showDetail = false;
         $this->viewingTicketId = null;
         $this->viewingTicket = null;
     }
 
     public function render()
     {
-        return view('livewire.client.support-page')->extends('layouts.client');
+        return view('livewire.admin.platform-support')->extends('layouts.admin');
     }
 }

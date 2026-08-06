@@ -142,22 +142,40 @@
                                         <span class="text-[10px] text-neutral-500">{{ $msg['created_at'] }}</span>
                                     </div>
                                     <p class="text-sm text-neutral-200 whitespace-pre-wrap">{{ $msg['body'] }}</p>
+                                    @include('partials.support-message-attachment')
                                 </div>
                             </div>
                         @endforeach
                     </div>
 
                     {{-- Reply Form --}}
+                    @if ($viewingTicket['status'] === 'fechado')
+                        <div class="p-4 rounded-2xl bg-neutral-900/50 border border-neutral-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                            <div>
+                                <p class="text-sm font-medium text-neutral-300">Ticket encerrado</p>
+                                <p class="text-xs text-neutral-500 mt-0.5">Reabra para responder ou receber novas mensagens.</p>
+                            </div>
+                            <button wire:click="updateStatus({{ $viewingTicket['id'] }}, 'aberto')"
+                                    class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-sm font-semibold transition-all disabled:opacity-50"
+                                    wire:loading.attr="disabled">
+                                <span wire:loading.remove>Reabrir Ticket</span>
+                                <span wire:loading>Reabrindo...</span>
+                            </button>
+                        </div>
+                    @else
                     <div class="p-4 rounded-2xl bg-neutral-900/50 border border-neutral-800">
                         <textarea wire:model="replyBody" rows="3"
                                   class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm resize-none"
                                   placeholder="Digite sua resposta..."></textarea>
                         @error('replyBody') <p class="text-xs text-red-400 mt-1">{{ $message }}</p> @enderror
                         <div class="flex items-center justify-between mt-3">
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" wire:model="replyIsInternal" class="rounded bg-neutral-800 border-neutral-600 text-amber-500 focus:ring-amber-500">
-                                <span class="text-xs text-neutral-400">Nota Interna</span>
-                            </label>
+                            <div class="flex items-center gap-3">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" wire:model="replyIsInternal" class="rounded bg-neutral-800 border-neutral-600 text-amber-500 focus:ring-amber-500">
+                                    <span class="text-xs text-neutral-400">Nota Interna</span>
+                                </label>
+                                @include('partials.support-attachment-input')
+                            </div>
                             <button wire:click="sendReply" wire:loading.attr="disabled"
                                     class="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-sm font-semibold transition-all disabled:opacity-50">
                                 <span wire:loading.remove>Enviar</span>
@@ -165,6 +183,7 @@
                             </button>
                         </div>
                     </div>
+                    @endif
                 </div>
             </div>
         @endif

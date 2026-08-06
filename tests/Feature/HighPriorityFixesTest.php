@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\SubscriptionController;
+use App\Livewire\Public\Menu;
+use App\Livewire\Waiter\WaiterDashboard;
 use App\Models\DeliveryPerson;
 use App\Models\Order;
 use App\Models\SaasPlan;
@@ -10,6 +12,7 @@ use App\Models\SaasSubscription;
 use App\Models\Table;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 it('scopeStaff inclui atendentes e nao vaza admins de outro tenant', function () {
     $tenantA = createTenant();
@@ -93,8 +96,8 @@ it('atendente nao consegue remover entregador (guar admin)', function () {
     $this->actingAs($staff);
 
     try {
-        (new App\Livewire\Waiter\WaiterDashboard)->removeDeliveryPerson($order->id);
-    } catch (Symfony\Component\HttpKernel\Exception\HttpException $e) {
+        (new WaiterDashboard)->removeDeliveryPerson($order->id);
+    } catch (HttpException $e) {
         expect($e->getStatusCode())->toBe(403);
     }
 });
@@ -103,7 +106,7 @@ it('guest pode liberar mesa ao sair (anti ocupacao indefinida)', function () {
     $tenant = createTenant();
     $table = Table::factory()->create(['tenant_id' => $tenant->id, 'status' => 'occupied']);
 
-    $menu = new App\Livewire\Public\Menu;
+    $menu = new Menu;
     $menu->tenant = $tenant;
     $menu->selectedTableId = $table->id;
     $menu->selectedTableNumber = $table->number;

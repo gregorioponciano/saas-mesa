@@ -106,6 +106,8 @@ Os limites (`max_tables`, `max_products`, `max_users`) e features (`pix_payments
 
 > Não há um plano "Enterprise" no código atual — se isso vier a existir, basta criar o registro em `SaasPlanSeeder` (ou pelo painel superadmin) com o slug desejado.
 
+> Os planos `free` e `premium` são planos de sistema: seus slugs (`free`/`gratuito` e `premium`) são preservados mesmo ao renomear o plano no painel, pois são usados por `Tenant::resolvePlan()`, pelo checkout e pela home pública. A home (`/`) renderiza a seção de planos **dinamicamente** a partir de `SaasPlan` (como o checkout), refletindo nome, preço, badge e features editados no superadmin.
+
 ## Módulos e funcionalidades
 
 ### Painel do restaurante (`/dashboard`, role `admin`)
@@ -121,7 +123,7 @@ Os limites (`max_tables`, `max_products`, `max_users`) e features (`pix_payments
 - **Configuração de e-mail SMTP** (`SmtpSettings`) — envio de e-mails com servidor próprio do tenant
 - **Configurações gerais** (`Settings`) — dados da empresa, horários, logo
 - **Backup** (`BackupManager` + `TenantBackupService` + model `TenantBackup`) — backup/exportação dos dados da empresa em JSON, retenção por plano (7 dias no gratuito, ilimitada no pago), download autenticado e purge diário (`backups:purge`)
-- **Suporte** (`SupportManager`) — tickets de suporte (`SupportTicket`, `SupportTicketMessage`)
+- **Suporte** (`SupportManager` + `PlatformSupport`) — tickets de suporte (`SupportTicket`, `SupportTicketMessage`) internos e para a plataforma, com categorias, prioridades, status (aberto, em atendimento, aguardando cliente, resolvido, fechado), anexos (jpg/jpeg/png/pdf até 2MB) e rate limiting (10 aberturas/min e 20 respostas/min por chamado)
 - **Assinatura da plataforma** (`SubscriptionCheckout` + `SubscriptionController`) — contratar/cancelar plano do SaaS
 - **Contadores da sidebar** (`SidebarCounts`) — atualizados por polling (`wire:poll` do Livewire, não websocket)
 
@@ -165,6 +167,7 @@ O painel web (`/superadmin/*`, autenticado via `role:superadmin`) é servido pel
 | Usuários da plataforma | `/superadmin/usuarios` | `GET/POST /api/superadmin/users`, `POST /users/{user}/revoke` |
 | Logs de webhooks | `/superadmin/webhooks` | `GET /api/superadmin/webhook-logs`, `/webhook-logs/{log}` |
 | Auditoria (log de ações do superadmin) | `/superadmin/auditoria` | `GET /api/superadmin/audit-logs` |
+| Suporte da plataforma (chamados dos tenants) | `/superadmin/suporte` | — |
 | Privacidade (LGPD) | `/superadmin/privacidade` | — |
 
 A auditoria (`AuditService` + model `AuditLog`) registra **quem** (admin), **o quê** (ação), **em qual tenant**, **IP** e dados da ação para: criar/suspender/reativar/trocar plano/forçar cobrança/excluir/exportar tenant, criar/editar planos, toggle de fidelidade, criar/excluir backups, criar/revogar superadmins e editar configurações de empresa.
@@ -264,7 +267,7 @@ php artisan tenant:generate-encryption-key
 # 6. Criar o banco de dados
 mysql -u root -p -e "CREATE DATABASE saas_mesa CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-# 7. Rodar as migrations (47 arquivos)
+# 7. Rodar as migrations (56 arquivos)
 php artisan migrate --force
 
 # 8. (Opcional) Popular com dados de teste
@@ -380,6 +383,7 @@ GET  /superadmin/backups                → Backups de todos os tenants
 GET  /superadmin/usuarios               → Usuários da plataforma
 GET  /superadmin/webhooks               → Logs de webhooks
 GET  /superadmin/auditoria              → Log de auditoria de ações
+GET  /superadmin/suporte                → Chamados de suporte da plataforma
 GET  /superadmin/privacidade            → LGPD
 ```
 
@@ -396,8 +400,9 @@ GET  /dashboard/pontos              → Fidelidade
 GET  /dashboard/configuracoes       → Configurações da empresa
 GET  /dashboard/efi-credentials     → Credenciais EfiBank do tenant
 GET  /dashboard/configurar-email    → SMTP do tenant
-GET  /dashboard/suporte             → Suporte
-GET  /dashboard/backup              → Backup/exportação de dados
+GET  /dashboard/suporte             → Suporte interno
+GET  /dashboard/suporte-plataforma   → Chamados com o suporte da plataforma
+GET  /dashboard/backup               → Backup/exportação de dados
 GET  /dashboard/backup/{backup}/download   → Download do backup (throttle:10,1)
 GET|POST /subscription              → Checkout da assinatura da plataforma
 POST /subscription/cancel           → Cancelar assinatura
@@ -415,9 +420,8 @@ GET|POST /cardapio/{slug}/redefinir-senha/{t}  → Redefinição de senha     (t
 
 ### Painel do garçom (`/painel/{slug}`, requer plano Premium)
 ```
-GET  /painel/{slug}                 → Atendimento de mesas
-GET  /painel/{slug}/configuracoes   → Configurações
-GET  /painel/{slug}/suporte         → Suporte
+GET  /painel/{slug}           → Atendimento de mesas
+GET  /painel/{slug}/suporte   → Suporte
 ```
 
 ### Área do cliente final (`/conta/{slug}`)
@@ -580,9 +584,22 @@ php artisan test
 | `SuperadminRateLimitTest` | Throttle da API/painel superadmin e do login (120/20/10 por minuto) |
 | `TenantIsolationLoyaltyTest` | Isolamento de pontos, transações, estoque e config de lealdade entre tenants |
 | `SidebarCountsTest` | Contagens da sidebar (planos free/paid) |
+| `SupportTicketAudienceTest` | Tickets: audiência empresa/plataforma, status fechado/resolvido, reabertura e rate limit |
+| `SupportAttachmentTest` | Anexos em tickets (tipos, limite de 2MB, URL pública, storage) |
+| `CheckTenantSubscriptionTest` | Middleware de assinatura/tenant (trial, bloqueios) |
+| `CpfValidationTest` | Validação e máscara de CPF |
+| `EfiBankWebhookFlowTest` | Fluxo completo de webhooks EfiBank (camadas 1 e 2) |
+| `PlanDowngradeTest` | Downgrade de plano: fidelidade desativada e limites |
+| `PlanLimitsDynamicTest` | Limites dinâmicos lidos de `SaasPlan.features_json` sem deploy |
+| `PlansConsistencyTest` | Consistência de planos (features_json objeto/string JSON, slug canônico de free/premium, exclusão, checkout) |
+| `SubscriptionCheckoutFlowTest` | Checkout da assinatura (trial → premium, cobrança PIX) |
+| `TenantIsolationExtendedTest` | Isolamento estendido (pagamentos, credenciais, backups) |
+| `WaiterPanelRoutingTest` | Rotas do painel do garçom (papel, plano, tenant) |
+| `CriticalFixesTest` | Correções críticas (somas de pagamento, fechamento de mesa, PIX no delivery) |
+| `HighPriorityFixesTest` | Correções de alta prioridade (scope staff, hash do entregador, cancelamento de assinatura) |
 | `ExampleTest` (Feature/Unit) | Smoke de rotas públicas + regras de negócio de planos |
 
-> O estado atual da suíte é **218 testes passando** (729 assertions) — verificado com `php artisan test`, `composer phpstan` (nível 1, zero erros) e `vendor/bin/pint --test`.
+> O estado atual da suíte é **357 testes passando** (1275 assertions) — verificado com `php artisan test`, `composer phpstan` (nível 1, zero erros) e `vendor/bin/pint --test`.
 
 ### CI/CD
 
@@ -731,7 +748,7 @@ routes/
 └── console.php  # Agendamentos (check-subscriptions, financial-report, backups:purge)
 
 database/
-├── migrations/  # 47 migrations
+├── migrations/  # 56 migrations
 ├── factories/   # Tenant, User, SaasPlan, SaasSubscription, Table, Category, Product, Coupon, Order, OrderPayment
 └── seeders/     # TenantSeeder, SaasPlanSeeder, CategorySeeder, ProductSeeder,
                  # ProductAttributeSeeder, CouponSeeder, TableSeeder
@@ -747,3 +764,5 @@ Levantamento feito em análise do código-fonte atual (não é lista de features
 
 1. **Paginação e busca em `GET /api/superadmin/tenants`** — hoje retorna todos os tenants de uma vez, sem paginação, filtro ou busca por nome/status/plano.
 2. **Broadcast de pagamento em tempo real** — o evento `OrderPaid` implementa `ShouldBroadcast`, mas o `.env.example` traz `BROADCAST_CONNECTION=log` por padrão; o pacote `laravel/reverb` já está instalado (`config/reverb.php` publicado) — basta configurar as variáveis `REVERB_*`/`BROADCAST_CONNECTION=reverb` no `.env` de produção e rodar `php artisan reverb:start` sob o Supervisor. Enquanto isso, as telas dependem de polling (`wire:poll`).
+3. **Coluna morta `passkey_credentials` em `users`** — coluna criada na migration de bancos de usuários, sem implementação WebAuthn nem uso no código; candidata a remoção (com backfill de dependências de release) quando for implementar login por passkey.
+4. **Autoexportação LGPD limitada ao papel de entregador** — o comando de exportação de dados pessoais automática fica disparando para entregadores; clientes têm UI própria para exportar/remover dados. Rever o critério de papel no comando agendado.

@@ -64,6 +64,11 @@ class SuperadminPanelController extends Controller
         return view('superadmin.audit');
     }
 
+    public function platformSupport(): View
+    {
+        return view('superadmin.platform-support');
+    }
+
     public function privacy(): View
     {
         return view('superadmin.privacy');

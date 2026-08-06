@@ -82,6 +82,32 @@ test('csp allows unsafe-eval only outside production', function () {
     expect($csp)->not->toContain('unsafe-eval');
 });
 
+test('HSTS only over HTTPS in production', function () {
+    config()->set('app.env', 'production');
+
+    $tenant = createTenant();
+    $this->actingAs(createTenantAdmin($tenant));
+
+    $secure = $this->call('GET', 'https://localhost/');
+    $secure->assertHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+
+    $plain = $this->call('GET', 'http://localhost/');
+    $plain->assertHeaderMissing('Strict-Transport-Security');
+
+    config()->set('app.env', 'testing');
+});
+
+test('HSTS is never sent outside production', function () {
+    config()->set('app.env', 'local');
+
+    $tenant = createTenant();
+    $this->actingAs(createTenantAdmin($tenant));
+
+    $response = $this->call('GET', 'https://localhost/');
+
+    $response->assertHeaderMissing('Strict-Transport-Security');
+});
+
 test('order payment model has fillable attributes', function () {
     $payment = new OrderPayment;
 

@@ -20,6 +20,7 @@ use Livewire\Component;
  * @property int $tablesCount
  * @property int $occupiedTablesCount
  * @property int $openTicketsCount
+ * @property int $openPlatformTicketsCount
  */
 class SidebarCounts extends Component
 {
@@ -36,7 +37,7 @@ class SidebarCounts extends Component
     {
         $this->lastNotifiedOrderId = Order::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', ['novo', 'em_preparo', 'saiu_entrega'])
             ->latest()->value('id');
-        $this->lastNotifiedTicketId = SupportTicket::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', $this->activeTicketStatuses())
+        $this->lastNotifiedTicketId = SupportTicket::where('audience', SupportTicket::AUDIENCE_TENANT)->where('tenant_id', auth()->user()->tenant_id)->whereIn('status', $this->activeTicketStatuses())
             ->latest()->value('id');
     }
 
@@ -79,7 +80,13 @@ class SidebarCounts extends Component
     #[Computed]
     public function openTicketsCount(): int
     {
-        return SupportTicket::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', $this->activeTicketStatuses())->count();
+        return SupportTicket::where('audience', SupportTicket::AUDIENCE_TENANT)->where('tenant_id', auth()->user()->tenant_id)->whereIn('status', $this->activeTicketStatuses())->count();
+    }
+
+    #[Computed]
+    public function openPlatformTicketsCount(): int
+    {
+        return SupportTicket::where('audience', SupportTicket::AUDIENCE_PLATFORM)->where('tenant_id', auth()->user()->tenant_id)->whereIn('status', $this->activeTicketStatuses())->count();
     }
 
     private function tableStats(): array
@@ -126,7 +133,7 @@ class SidebarCounts extends Component
 
     public function checkNewTickets(): void
     {
-        $latest = SupportTicket::where('tenant_id', auth()->user()->tenant_id)
+        $latest = SupportTicket::where('audience', SupportTicket::AUDIENCE_TENANT)->where('tenant_id', auth()->user()->tenant_id)
             ->select('id', 'subject', 'user_id')
             ->with('user:id,name')
             ->whereIn('status', $this->activeTicketStatuses())
@@ -153,6 +160,7 @@ class SidebarCounts extends Component
             'tablesCount' => $this->tablesCount,
             'occupiedTablesCount' => $this->occupiedTablesCount,
             'openTicketsCount' => $this->openTicketsCount,
+            'openPlatformTicketsCount' => $this->openPlatformTicketsCount,
             'isAdmin' => Auth::user()?->isAdmin() ?? false,
         ]);
     }

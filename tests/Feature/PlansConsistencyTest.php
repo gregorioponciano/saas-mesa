@@ -278,3 +278,90 @@ test('assinatura aceita plano customizado ativo', function () {
     expect($subscription->plan_id)->toBe($plan->id);
     expect($subscription->status)->toBe('pending');
 });
+
+test('renomear o plano gratuito mantém o slug canônico (sem duplicação)', function () {
+    seedPlans();
+    $freePlan = SaasPlan::where('slug', 'free')->first();
+    expect($freePlan)->not->toBeNull();
+
+    $superadmin = createSuperAdmin();
+    $this->actingAs($superadmin)
+        ->putJson('/api/superadmin/plans/'.$freePlan->id, [
+            'name' => 'Gratuito Renomeado',
+            'price_cents' => 0,
+            'interval' => 'month',
+            'is_active' => true,
+        ])
+        ->assertOk();
+
+    $freePlan->refresh();
+    expect($freePlan->name)->toBe('Gratuito Renomeado');
+    expect($freePlan->slug)->toBe('free');
+
+    expect(SaasPlan::where('slug', 'gratuito-renomeado')->count())->toBe(0);
+});
+
+test('renomear o plano premium mantém o slug canônico premium', function () {
+    seedPlans();
+    $premium = SaasPlan::where('slug', 'premium')->first();
+
+    $superadmin = createSuperAdmin();
+    $this->actingAs($superadmin)
+        ->putJson('/api/superadmin/plans/'.$premium->id, [
+            'name' => 'Premium Power',
+            'price_cents' => 9790,
+            'interval' => 'month',
+            'is_active' => true,
+        ])
+        ->assertOk();
+
+    $premium->refresh();
+    expect($premium->slug)->toBe('premium');
+});
+
+test('excluir plano remove da listagem da API', function () {
+    seedPlans();
+    $free = SaasPlan::where('slug', 'free')->first();
+
+    $superadmin = createSuperAdmin();
+    $this->actingAs($superadmin)
+        ->deleteJson('/api/superadmin/plans/'.$free->id)
+        ->assertNoContent();
+
+    $this->actingAs($superadmin)
+        ->getJson('/api/superadmin/plans')
+        ->assertOk()
+        ->assertJsonMissing(['slug' => 'free']);
+});
+
+test('cartão do plano usa feature_items persistidos (não descrições hardcoded)', function () {
+    $plan = SaasPlan::create([
+        'name' => 'Fictício',
+        'slug' => 'ficticio',
+        'price_cents' => 9900,
+        'interval' => 'month',
+        'features_json' => ['max_tables' => 10, 'max_products' => 50, 'max_users' => 5],
+        'feature_items' => [
+            ['label' => 'Mesas máximas: 10', 'included' => true],
+            ['label' => 'Suporte Fictício', 'included' => true],
+        ],
+        'is_active' => true,
+    ]);
+
+    $items = $plan->featureItems();
+    expect($items)->toBe([
+        ['label' => 'Mesas máximas: 10', 'included' => true],
+        ['label' => 'Suporte Fictício', 'included' => true],
+    ]);
+});
+
+test('checkout não renderiza plano gratuito quando não existe plano free no banco', function () {
+    $tenant = createTenant(['status' => 'active', 'plan' => 'paid']);
+    $user = createTenantAdmin($tenant);
+
+    $this->actingAs($user)
+        ->get('/subscription')
+        ->assertOk();
+
+    expect(SaasPlan::where('price_cents', 0)->count())->toBe(0);
+});

@@ -14,7 +14,20 @@ class SupportTicket extends Model
 {
     protected $fillable = [
         'tenant_id', 'user_id', 'assigned_to', 'subject',
-        'category', 'priority', 'status', 'order_id',
+        'category', 'priority', 'status', 'order_id', 'audience',
+    ];
+
+    protected $attributes = [
+        'audience' => self::AUDIENCE_TENANT,
+    ];
+
+    public const AUDIENCE_TENANT = 'tenant';
+
+    public const AUDIENCE_PLATFORM = 'platform';
+
+    public const AUDIENCE_LABELS = [
+        self::AUDIENCE_TENANT => 'Empresa',
+        self::AUDIENCE_PLATFORM => 'Plataforma',
     ];
 
     public const CATEGORY_LABELS = [

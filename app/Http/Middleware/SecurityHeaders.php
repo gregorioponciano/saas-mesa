@@ -29,7 +29,7 @@ class SecurityHeaders
             $response->headers->set('Content-Security-Policy', $csp);
         }
 
-        if (config('app.env') === 'production' && ! $request->isSecure()) {
+        if (config('app.env') === 'production' && $request->isSecure()) {
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
         }
 

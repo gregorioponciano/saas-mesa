@@ -597,14 +597,16 @@
             {{-- TAB: Orders --}}
             @elseif ($clientTab === 'orders' && Auth::check())
                 @php
-                    $filterType = $ordersFilter ?? 'mesa';
+                    $filterType = $ordersFilter ?? 'all';
                     $unpaidOrders = $myUnpaidOrders;
                     if ($filterType === 'mesa') {
                         $filteredUnpaid = $unpaidOrders->where('table_id', '!=', null);
                     } elseif ($filterType === 'entrega') {
                         $filteredUnpaid = $unpaidOrders->where('table_id', null)->where('type', 'entrega');
-                    } else {
+                    } elseif ($filterType === 'retirada') {
                         $filteredUnpaid = $unpaidOrders->where('table_id', null)->where('type', 'retirada');
+                    } else {
+                        $filteredUnpaid = $unpaidOrders;
                     }
                 @endphp
                 <div class="px-4 mt-4 space-y-6 pb-8"
@@ -620,6 +622,10 @@
 
                     {{-- Type Filter --}}
                     <div class="flex gap-2">
+                        <button wire:click="$set('ordersFilter', 'all')"
+                                class="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ ($filterType === 'all') ? 'bg-amber-500 text-neutral-950 shadow-lg shadow-amber-500/25' : 'bg-neutral-900/50 border border-neutral-800 text-neutral-400 hover:text-white' }}">
+                            Todas
+                        </button>
                         <button wire:click="$set('ordersFilter', 'mesa')"
                                 class="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ ($filterType === 'mesa') ? 'bg-emerald-500 text-neutral-950 shadow-lg shadow-emerald-500/25' : 'bg-neutral-900/50 border border-neutral-800 text-neutral-400 hover:text-white' }}">
                             Mesa

@@ -113,6 +113,12 @@ class PlansController extends Controller
 
                 $validated['slug'] = $newSlug;
             }
+
+            // Planos de sistema (free/premium) mantêm o slug canônico mesmo se o nome
+            // for editado — evita duplicação e quebras no checkout.
+            if (in_array($plan->getOriginal('slug'), ['free', 'gratuito', 'premium'], true)) {
+                $validated['slug'] = $plan->getOriginal('slug');
+            }
         }
 
         if (isset($validated['features_json']) && is_string($validated['features_json'])) {

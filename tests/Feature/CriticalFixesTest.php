@@ -2,13 +2,15 @@
 
 declare(strict_types=1);
 
+use App\Livewire\Admin\TableGrid;
+use App\Models\DeliveryPerson;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderPayment;
 use App\Models\Payment;
-use App\Models\Product;
 use App\Models\Table;
 use App\Models\Tenant;
+use App\Services\DeliveryService;
 
 it('soma pagamentos EFI (order_payments) no paidAmount do pedido', function () {
     $tenant = createTenant(['plan' => Tenant::PLAN_PAID]);
@@ -115,14 +117,14 @@ it('pedido de entrega pago por PIX fica visivel para entregadores', function () 
         'total' => 45.00,
     ]);
 
-    $delivery = App\Models\DeliveryPerson::create([
+    $delivery = DeliveryPerson::create([
         'tenant_id' => $tenant->id,
         'name' => 'Entregador Teste',
         'phone' => '(11) 91111-1111',
         'status' => 'active',
     ]);
 
-    $available = app(App\Services\DeliveryService::class)->getAvailableOrders($delivery);
+    $available = app(DeliveryService::class)->getAvailableOrders($delivery);
 
     expect($available->pluck('id'))->toContain($order->id);
 });
@@ -155,7 +157,7 @@ it('freeTable fecha apenas pedidos totalmente pagos', function () {
 
     $this->actingAs(createTenantAdmin($tenant));
 
-    $component = new App\Livewire\Admin\TableGrid();
+    $component = new TableGrid;
     $component->freeTable($table->id);
 
     expect($paidOrder->fresh()->status)->toBe('fechado');

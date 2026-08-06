@@ -180,7 +180,10 @@ class SubscriptionController extends Controller
 
     private function activateFreePlan(Tenant $tenant): RedirectResponse
     {
-        $freePlan = SaasPlan::whereIn('slug', ['free', 'gratuito'])->first();
+        $freePlan = SaasPlan::where('price_cents', 0)
+            ->orderBy('price_cents')
+            ->first()
+            ?? SaasPlan::whereIn('slug', ['free', 'gratuito'])->first();
 
         DB::transaction(function () use ($tenant, $freePlan) {
             $subscription = SaasSubscription::where('tenant_id', $tenant->id)->latest('created_at')->first();
@@ -221,7 +224,10 @@ class SubscriptionController extends Controller
                 ->with('error', 'Não é possível cancelar enquanto o Premium estiver ativo. Deixe o plano expirar.');
         }
 
-        $freePlan = SaasPlan::where('slug', 'free')->first();
+        $freePlan = SaasPlan::where('price_cents', 0)
+            ->orderBy('price_cents')
+            ->first()
+            ?? SaasPlan::where('slug', 'free')->first();
 
         DB::transaction(function () use ($tenant, $freePlan) {
             $subscription = SaasSubscription::where('tenant_id', $tenant->id)->latest('created_at')->first();

@@ -21,8 +21,9 @@
             <div class="group relative rounded-2xl bg-neutral-900/70 border border-neutral-800 hover:bg-neutral-900 p-6 flex flex-col transition-all duration-300"
                  :style="cardStyle(p)">
                 <div class="flex items-start justify-between gap-3">
-                    <div class="flex items-center gap-3 min-w-0">
+                    <div class="flex items-center gap-2 min-w-0">
                         <h3 class="text-lg font-bold text-white truncate" x-text="p.name"></h3>
+                        <span x-show="p.badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0" x-text="p.badge"></span>
                     </div>
                     <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide shrink-0"
                           :class="p.is_active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-neutral-800 text-neutral-500 border border-neutral-700'"
@@ -45,19 +46,19 @@
                     </div>
 
                     <div class="space-y-1.5">
-                        <template x-for="(label, key) in descriptionFeatures" :key="key">
-                            <div class="flex items-center gap-2.5 text-xs" x-show="featureValue(p, key) !== null">
-                                <template x-if="featureValue(p, key) === true">
+                        <template x-for="(item, index) in (p.feature_items || [])" :key="index">
+                            <div class="flex items-center gap-2.5 text-xs">
+                                <template x-if="item.included">
                                     <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
                                     </svg>
                                 </template>
-                                <template x-if="featureValue(p, key) === false">
+                                <template x-if="!item.included">
                                     <svg class="w-4 h-4 text-neutral-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
                                     </svg>
                                 </template>
-                                <span class="text-neutral-400" x-text="label"></span>
+                                <span class="text-neutral-400" x-text="item.label"></span>
                             </div>
                         </template>
                     </div>
@@ -313,8 +314,7 @@
             },
             emptyFeatures() {
                 const numeric = Object.fromEntries(this.knownFeatures.map(k => [k, '']));
-                const descriptions = Object.fromEntries(Object.keys(this.descriptionFeatures).map(k => [k, false]));
-                return { ...numeric, ...descriptions };
+                return { ...numeric };
             },
             defaultFeatureItems() {
                 return Object.keys(this.descriptionFeatures).map(key => {
@@ -333,8 +333,8 @@
                 this.error = '';
                 const features = p.features_json || {};
                 const formFeatures = {};
-                for (const key of [...this.knownFeatures, ...Object.keys(this.descriptionFeatures)]) {
-                    formFeatures[key] = features[key] ?? (this.knownFeatures.includes(key) ? '' : false);
+                for (const key of this.knownFeatures) {
+                    formFeatures[key] = features[key] ?? '';
                 }
                 this.extraFeatures = Object.fromEntries(
                     Object.entries(features).filter(([key]) => !this.knownFeatures.includes(key))
@@ -375,9 +375,6 @@
                 for (const key of this.knownFeatures) {
                     const raw = this.form.features[key];
                     features[key] = raw === '' || raw === null || raw === undefined ? null : Number(raw);
-                }
-                for (const key of Object.keys(this.descriptionFeatures)) {
-                    features[key] = !!this.form.features[key];
                 }
                 return features;
             },

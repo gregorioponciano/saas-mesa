@@ -60,6 +60,7 @@
                                     <span class="text-[10px] text-neutral-500">{{ $msg['created_at'] }}</span>
                                 </div>
                                 <p class="text-sm text-neutral-200 whitespace-pre-wrap">{{ $msg['body'] }}</p>
+                                @include('partials.support-message-attachment')
                             </div>
                         </div>
                     @endforeach
@@ -74,10 +75,13 @@
                                   placeholder="Digite sua resposta..."></textarea>
                         @error('replyBody') <p class="text-xs text-red-400 mt-1">{{ $message }}</p> @enderror
                         <div class="flex items-center justify-between mt-3">
-                            <button wire:click="closeTicket({{ $viewingTicket['id'] }})"
-                                    class="text-xs text-neutral-500 hover:text-red-400 transition-colors">
-                                Fechar Ticket
-                            </button>
+                            <div class="flex items-center gap-4">
+                                <button wire:click="closeTicket({{ $viewingTicket['id'] }})"
+                                        class="text-xs text-neutral-500 hover:text-red-400 transition-colors">
+                                    Fechar Ticket
+                                </button>
+                                @include('partials.support-attachment-input')
+                            </div>
                             <button wire:click="sendReply" wire:loading.attr="disabled"
                                     class="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 text-sm font-semibold transition-all disabled:opacity-50">
                                 <span wire:loading.remove>Enviar Resposta</span>
@@ -176,6 +180,11 @@
                                   class="w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm resize-none min-h-[120px]"
                                   placeholder="Conte-nos detalhadamente o que está acontecendo..."></textarea>
                         @error('newBody') <p class="text-xs text-red-400 mt-1">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-neutral-300 mb-1.5">Anexo (opcional)</label>
+                        @include('partials.support-attachment-input')
                     </div>
 
                     <div class="flex justify-end pt-2">

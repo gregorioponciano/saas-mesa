@@ -175,10 +175,13 @@
             $intervalMonths = ['month' => 1, 'quarter' => 3, 'semiannual' => 6, 'year' => 12];
             $intervalNames = ['month' => 'Mensal', 'quarter' => 'Trimestral', 'semiannual' => 'Semestral', 'year' => 'Anual'];
             $intervalOptions = ['month' => [1, 3, 6, 12], 'quarter' => [3, 6, 12], 'semiannual' => [6, 12], 'year' => [12]];
-            $freePlan = $plans->where('slug', 'gratuito')->first() ?? $plans->where('slug', 'free')->first();
+            $freePlan = $plans->first(fn ($p) => $p->price_cents === 0)
+                ?? $plans->where('slug', 'gratuito')->first()
+                ?? $plans->where('slug', 'free')->first();
             $freeItems = $freePlan?->featureItems() ?? [];
         @endphp
         {{-- Free --}}
+        @if ($freePlan)
         <div class="relative p-8 rounded-3xl bg-neutral-900/50 border {{ $tenant->isFree() ? 'border-amber-500/30 ring-2 ring-amber-500/20' : 'border-neutral-800' }} transition-all duration-300">
             @if ($tenant->isFree())
                 <span class="absolute -top-3 right-6 px-4 py-1 text-xs font-semibold rounded-full bg-amber-500 text-neutral-950">Atual</span>
@@ -208,11 +211,12 @@
             @else
                 <form method="POST" action="{{ route('subscription.checkout.store') }}">
                     @csrf
-                    <input type="hidden" name="plan" value="gratuito">
+                    <input type="hidden" name="plan" value="{{ $freePlan->slug }}">
                     <button type="submit" class="w-full py-3.5 px-4 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-semibold rounded-xl transition-all duration-200">Ativar Gratuito</button>
                 </form>
             @endif
         </div>
+        @endif
 
         {{-- Premium --}}
         @php $plan = $plans->where('slug', 'premium')->first(); @endphp
@@ -290,7 +294,7 @@
         @endif
 
         {{-- Outros planos ativos --}}
-        @foreach ($plans->whereNotIn('slug', ['free', 'gratuito', 'premium']) as $plan)
+        @foreach ($plans->reject(fn ($p) => $p->id === $freePlan?->id || $p->slug === 'premium') as $plan)
         <div class="plan-card relative p-8 rounded-3xl bg-neutral-900/50 border border-neutral-800 transition-all duration-300"
              @if ($plan->price_cents > 0) data-price-per-month="{{ $plan->price_cents / 100 }}" @endif
              style="{{ $plan->border_color ? 'border-color: '.$plan->border_color.';' : '' }}{{ $plan->background_color ? ' background-color: '.$plan->background_color.';' : '' }}">

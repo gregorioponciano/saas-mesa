@@ -1,6 +1,8 @@
 <?php
 
-namespace App\Livewire\Waiter;
+declare(strict_types=1);
+
+namespace App\Livewire\Superadmin;
 
 use App\Livewire\Concerns\HandlesSupportAttachments;
 use App\Models\SupportTicket;
@@ -9,15 +11,18 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
-class WaiterSupport extends Component
+/**
+ * Canal Empresa -> Plataforma visto pelo superadmin.
+ *
+ * O TenantScope::resolveTenantId() retorna null para superadmin, então as
+ * queries abaixo enxergam tickets de todos os tenants automaticamente —
+ * só filtramos por audience = 'platform'.
+ */
+class PlatformSupportManager extends Component
 {
     use HandlesSupportAttachments;
 
-    public $tenant;
-
-    public string $statusFilter = 'aberto';
-
-    public string $categoryFilter = 'all';
+    public string $statusFilter = 'all';
 
     public string $search = '';
 
@@ -29,20 +34,18 @@ class WaiterSupport extends Component
 
     public string $replyBody = '';
 
-    public bool $replyIsInternal = false;
-
-    public function mount(): void
-    {
-        $this->tenant = Auth::user()->tenant;
-    }
-
     #[Computed]
     public function tickets()
     {
-        return SupportTicket::where('audience', SupportTicket::AUDIENCE_TENANT)->where('tenant_id', auth()->user()->tenant_id)->with(['user', 'lastMessage', 'assignedTo'])
+        return SupportTicket::where('audience', SupportTicket::AUDIENCE_PLATFORM)
+            ->with(['tenant:id,name', 'user', 'lastMessage'])
             ->when($this->statusFilter !== 'all', fn ($q) => $q->where('status', $this->statusFilter))
-            ->when($this->categoryFilter !== 'all', fn ($q) => $q->where('category', $this->categoryFilter))
-            ->when($this->search, fn ($q) => $q->where('subject', 'like', "%{$this->search}%"))
+            ->when($this->search, function ($q) {
+                $q->where(function ($q) {
+                    $q->where('subject', 'like', "%{$this->search}%")
+                        ->orWhereHas('tenant', fn ($t) => $t->where('name', 'like', "%{$this->search}%"));
+                });
+            })
             ->latest('updated_at')
             ->take(100)
             ->get();
@@ -50,7 +53,8 @@ class WaiterSupport extends Component
 
     public function viewTicket(int $ticketId): void
     {
-        $ticket = SupportTicket::where('audience', SupportTicket::AUDIENCE_TENANT)->where('tenant_id', auth()->user()->tenant_id)->with(['messages' => fn ($q) => $q->oldest(), 'user', 'assignedTo'])
+        $ticket = SupportTicket::where('audience', SupportTicket::AUDIENCE_PLATFORM)
+            ->with(['messages' => fn ($q) => $q->oldest(), 'tenant:id,name', 'user'])
             ->findOrFail($ticketId);
 
         $this->viewingTicketId = $ticketId;
@@ -67,16 +71,14 @@ class WaiterSupport extends Component
             'statusClasses' => $ticket->statusClasses(),
             'created_at' => $ticket->created_at->format('d/m/Y H:i'),
             'updated_at' => $ticket->updated_at->format('d/m/Y H:i'),
+            'tenant_name' => $ticket->tenant?->name ?? '—',
             'user_name' => $ticket->user?->name ?? '—',
-            'assigned_to' => $ticket->assignedTo?->name,
-            'assigned_to_id' => $ticket->assigned_to,
             'order_id' => $ticket->order_id,
             'messages' => $ticket->messages->map(fn ($m) => [
                 'id' => $m->id,
                 'body' => $m->body,
                 'author_role' => $m->author_role,
                 'author_name' => $m->author_name,
-                'is_internal' => $m->is_internal,
                 'created_at' => $m->created_at->format('d/m/Y H:i'),
                 'attachment_path' => $m->attachment_path,
                 'attachment_name' => $m->attachment_original_name,
@@ -86,7 +88,6 @@ class WaiterSupport extends Component
         ];
         $this->showDetail = true;
         $this->replyBody = '';
-        $this->replyIsInternal = false;
         $this->resetSupportAttachment();
     }
 
@@ -97,7 +98,7 @@ class WaiterSupport extends Component
             'attachment' => $this->supportAttachmentRule(),
         ]);
 
-        $ticket = SupportTicket::where('audience', SupportTicket::AUDIENCE_TENANT)->where('tenant_id', auth()->user()->tenant_id)->findOrFail($this->viewingTicketId);
+        $ticket = SupportTicket::where('audience', SupportTicket::AUDIENCE_PLATFORM)->findOrFail($this->viewingTicketId);
 
         if ($ticket->status === 'fechado') {
             $this->notifySupportDenied('Este chamado está encerrado. Reabra-o para responder.');
@@ -112,58 +113,34 @@ class WaiterSupport extends Component
         }
 
         $user = Auth::user();
-        $authorRole = $user->isAdmin() ? 'admin' : 'atendente';
 
         SupportTicketMessage::create(array_merge([
             'ticket_id' => $ticket->id,
             'user_id' => $user->id,
             'body' => $this->replyBody,
-            'is_internal' => $this->replyIsInternal,
-            'author_role' => $authorRole,
+            'is_internal' => false,
+            'author_role' => 'platform',
             'author_name' => $user->name,
         ], $this->storeSupportAttachment()));
 
-        if (! $this->replyIsInternal) {
-            if ($ticket->status === 'aberto') {
-                $ticket->update(['status' => 'em_atendimento']);
-            }
-            $ticket->update(['status' => 'aguardando_cliente']);
+        if ($ticket->status === 'aberto' || $ticket->status === 'aguardando_cliente' || $ticket->status === 'resolvido') {
+            $ticket->update(['status' => 'em_atendimento']);
         }
 
         $this->replyBody = '';
         $this->resetSupportAttachment();
         $this->viewTicket($this->viewingTicketId);
-        $this->dispatch('notify', message: 'Resposta enviada!');
+        $this->dispatch('notify', message: 'Resposta enviada à empresa!');
     }
 
     public function updateStatus(int $ticketId, string $status): void
     {
-        SupportTicket::where('audience', SupportTicket::AUDIENCE_TENANT)->where('tenant_id', auth()->user()->tenant_id)->findOrFail($ticketId)->update(['status' => $status]);
-
+        SupportTicket::where('audience', SupportTicket::AUDIENCE_PLATFORM)
+            ->findOrFail($ticketId)->update(['status' => $status]);
         if ($this->viewingTicketId === $ticketId) {
             $this->viewTicket($ticketId);
         }
         $this->dispatch('notify', message: 'Status atualizado!');
-    }
-
-    public function assignToMe(int $ticketId): void
-    {
-        SupportTicket::where('audience', SupportTicket::AUDIENCE_TENANT)->where('tenant_id', auth()->user()->tenant_id)->findOrFail($ticketId)->update(['assigned_to' => Auth::id()]);
-
-        if ($this->viewingTicketId === $ticketId) {
-            $this->viewTicket($ticketId);
-        }
-        $this->dispatch('notify', message: 'Ticket assumido!');
-    }
-
-    public function unassign(int $ticketId): void
-    {
-        SupportTicket::where('audience', SupportTicket::AUDIENCE_TENANT)->where('tenant_id', auth()->user()->tenant_id)->findOrFail($ticketId)->update(['assigned_to' => null]);
-
-        if ($this->viewingTicketId === $ticketId) {
-            $this->viewTicket($ticketId);
-        }
-        $this->dispatch('notify', message: 'Ticket liberado.');
     }
 
     public function closeDetail(): void
@@ -175,6 +152,6 @@ class WaiterSupport extends Component
 
     public function render()
     {
-        return view('livewire.waiter.waiter-support')->extends('layouts.waiter');
+        return view('livewire.superadmin.platform-support-manager');
     }
 }
