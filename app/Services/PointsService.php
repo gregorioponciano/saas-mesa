@@ -39,6 +39,30 @@ class PointsService
 
         $idempotencyKey = "order_points_{$order->id}";
 
+        $earnedTransaction = PointsTransaction::where('order_id', $order->id)
+            ->where('type', PointsTransaction::TYPE_EARNED)
+            ->latest('id')
+            ->first();
+
+        $reversal = null;
+
+        if ($earnedTransaction) {
+            $reversal = PointsTransaction::where('order_id', $order->id)
+                ->where('type', PointsTransaction::TYPE_REVERSED)
+                ->where('id', '>', $earnedTransaction->id)
+                ->latest('id')
+                ->first();
+
+            if (! $reversal) {
+                return true;
+            }
+
+            // Reabertura de conta: o estorno existente invalida a chave
+            // anterior, permitindo conceder os pontos novamente no novo
+            // fechamento (chave nova por estorno).
+            $idempotencyKey = "order_points_{$order->id}_regrant_{$reversal->id}";
+        }
+
         $alreadyProcessed = PointsTransaction::where('idempotency_key', $idempotencyKey)->exists();
 
         if ($alreadyProcessed) {

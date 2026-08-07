@@ -57,7 +57,8 @@ class StockService
                 $order->id,
                 $userId,
                 'sale',
-                "Venda - Pedido #{$order->id}"
+                "Venda - Pedido #{$order->id}",
+                $item->id
             );
 
             $results[$item->id] = $result;
@@ -82,7 +83,8 @@ class StockService
                 $order->id,
                 $userId,
                 'cancellation',
-                "Cancelamento - Pedido #{$order->id}"
+                "Cancelamento - Pedido #{$order->id}",
+                $item->id
             );
 
             $results[$item->id] = $result;
@@ -104,7 +106,8 @@ class StockService
             $item->order_id,
             $userId,
             'cancellation',
-            "Cancelamento de item - Pedido #{$item->order_id}"
+            "Cancelamento de item - Pedido #{$item->order_id}",
+            $item->id
         );
     }
 
@@ -115,13 +118,14 @@ class StockService
         ?int $orderId = null,
         ?int $userId = null,
         string $type = 'sale',
-        ?string $description = null
+        ?string $description = null,
+        ?int $itemId = null
     ): bool {
         if (! $productId || $quantity <= 0) {
             return false;
         }
 
-        $idempotencyKey = "stock_{$type}_order_{$orderId}_product_{$productId}";
+        $idempotencyKey = "stock_{$type}_order_{$orderId}_product_{$productId}".($itemId ? "_item_{$itemId}" : '');
 
         $alreadyProcessed = StockMovement::where('idempotency_key', $idempotencyKey)->exists();
         if ($alreadyProcessed) {
@@ -182,13 +186,14 @@ class StockService
         ?int $orderId = null,
         ?int $userId = null,
         string $type = 'return',
-        ?string $description = null
+        ?string $description = null,
+        ?int $itemId = null
     ): bool {
         if (! $productId || $quantity <= 0) {
             return false;
         }
 
-        $idempotencyKey = "stock_{$type}_order_{$orderId}_product_{$productId}";
+        $idempotencyKey = "stock_{$type}_order_{$orderId}_product_{$productId}".($itemId ? "_item_{$itemId}" : '');
 
         $alreadyProcessed = StockMovement::where('idempotency_key', $idempotencyKey)->exists();
         if ($alreadyProcessed) {

@@ -17,6 +17,19 @@ class Order extends Model
     /** @use HasFactory<OrderFactory> */
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        static::updating(function (Order $order) {
+            if ($order->isDirty('status')) {
+                if ($order->status === 'cancelado' && ! $order->cancelled_at) {
+                    $order->cancelled_at = now();
+                } elseif ($order->status !== 'cancelado') {
+                    $order->cancelled_at = null;
+                }
+            }
+        });
+    }
+
     protected $fillable = [
         'tenant_id',
         'user_id',
@@ -45,6 +58,9 @@ class Order extends Model
         'accepted_at',
         'picked_up_at',
         'delivered_at',
+        'cancelled_at',
+        'cancelled_by',
+        'cancellation_reason',
         'delivery_photo_path',
         'delivery_lat',
         'delivery_lng',
@@ -60,6 +76,7 @@ class Order extends Model
             'accepted_at' => 'datetime',
             'picked_up_at' => 'datetime',
             'delivered_at' => 'datetime',
+            'cancelled_at' => 'datetime',
             'delivery_lat' => 'decimal:7',
             'delivery_lng' => 'decimal:7',
         ];
@@ -126,6 +143,8 @@ class Order extends Model
     public const array STATUS_ACTIVE = ['novo', 'em_preparo', 'pronto', 'coletado', 'saiu_entrega'];
 
     public const int CHANGE_REQUEST_MINUTES = 5;
+
+    public const int CLIENT_CANCELLATION_WINDOW_MINUTES = 10;
 
     public function statusLabel(): string
     {
@@ -293,15 +312,6 @@ class Order extends Model
         return $this->paidAmount() > 0;
     }
 
-    public function paidAmount(): float
-    {
-        $manual = (float) $this->payments()->where('status', 'paid')->sum('amount');
-
-        $orderPayments = $this->orderPayments()->where('status', 'paid')->sum('amount_cents');
-
-        return $manual + ((float) $orderPayments / 100);
-    }
-
     public function pendingPaymentAmount(): float
     {
         return max(0, (float) $this->total - $this->paidAmount());
@@ -335,5 +345,56 @@ class Order extends Model
     public function isDelivered(): bool
     {
         return in_array($this->status, ['entregue', 'fechado']);
+    }
+
+    /**
+     * Soma dos valores efetivamente recebidos (pagos e ainda nao estornados).
+     */
+    public function paidAmount(): float
+    {
+        $manual = (float) $this->payments()->where('status', 'paid')->sum('amount');
+
+        $orderPayments = $this->orderPayments()->where('status', 'paid')->sum('amount_cents');
+
+        return $manual + ((float) $orderPayments / 100);
+    }
+
+    /**
+     * Soma dos valores pagos que foram estornados/ressarcidos ao cliente.
+     */
+    public function refundedAmount(): float
+    {
+        $manual = (float) $this->payments()->where('status', 'refunded')->sum('amount');
+
+        $orderPayments = $this->orderPayments()->where('status', 'refunded')->sum('amount_cents');
+
+        return $manual + ((float) $orderPayments / 100);
+    }
+
+    /**
+     * Saldo liquido recebido (pago - estornado). Fonte de verdade do faturamento.
+     */
+    public function effectivePaidAmount(): float
+    {
+        return $this->paidAmount() - $this->refundedAmount();
+    }
+
+    /**
+     * Janela (minutos apos criacao) em que o proprio cliente pode cancelar
+     * um pedido ainda nao pago e nao finalizado (pratica de protecao ao
+     * consumidor para pedidos fora do estabelecimento).
+     */
+    public function withinClientCancellationWindow(): bool
+    {
+        if (! $this->created_at) {
+            return false;
+        }
+
+        return $this->created_at->diffInMinutes(now()) < self::CLIENT_CANCELLATION_WINDOW_MINUTES;
+    }
+
+    public function cancelledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
     }
 }

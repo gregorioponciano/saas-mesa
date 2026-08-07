@@ -21,6 +21,8 @@ class OrderItem extends Model
         'cancelled_by',
         'is_points_item',
         'points_cost',
+        'is_bonificacao',
+        'bonificacao_reason',
     ];
 
     protected function casts(): array
@@ -32,6 +34,7 @@ class OrderItem extends Model
             'change_requested_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'is_points_item' => 'boolean',
+            'is_bonificacao' => 'boolean',
         ];
     }
 
@@ -53,6 +56,11 @@ class OrderItem extends Model
     public function isCancelled(): bool
     {
         return $this->cancelled_at !== null;
+    }
+
+    public function isBonificacao(): bool
+    {
+        return (bool) $this->is_bonificacao;
     }
 
     public function canRequestChange(): bool

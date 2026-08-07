@@ -9,12 +9,14 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Table;
+use App\Models\User;
 use App\Models\UserAddress;
 use App\Services\DeliveryNotificationService;
 use App\Services\DeliveryService;
 use App\Services\EfiBank\EfiBankClient;
 use App\Services\EfiBank\TenantEfiBankService;
 use App\Services\GeocodingService;
+use App\Services\OrderLifecycleService;
 use App\Services\PointsService;
 use App\Services\StockService;
 use Illuminate\Support\Facades\Auth;
@@ -191,8 +193,22 @@ class Cart extends Component
         if (Auth::check()) {
             $this->userAddresses = UserAddress::where('user_id', Auth::id())
                 ->orderBy('is_default', 'desc')
+                ->orderBy('updated_at', 'desc')
                 ->get()
                 ->toArray();
+
+            $default = collect($this->userAddresses)->first(fn ($a) => (bool) ($a['is_default'] ?? false))
+                ?? ($this->userAddresses[0] ?? null);
+
+            if ($default && ! $this->selectedAddressId) {
+                $this->selectedAddressId = (int) $default['id'];
+                $this->deliveryAddress = $default['full_address'] ?? '';
+                $this->deliveryReference = $default['reference'] ?? '';
+                $this->deliveryCity = $default['city'] ?? '';
+                $this->deliveryState = $default['state'] ?? '';
+                $this->deliveryZipcode = $default['zipcode'] ?? null;
+                $this->refreshDeliveryDistance();
+            }
         }
     }
 
@@ -875,11 +891,19 @@ class Cart extends Component
             $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
             $this->pixTxid = $charge['txid'] ?? $txid;
             $this->pixQrCode = $charge['qrcode'] ?? null;
-            if ($this->pixCopiaECola) {
+            if ($this->pixQrCode) {
                 $this->showPixCheckoutModal = true;
             }
         } catch (\Throwable $e) {
+            $this->pixPaymentError = true;
+            $this->pixPaymentErrorMsg = $e->getMessage();
             $this->dispatch('notify', message: 'Pedido criado! Erro ao gerar PIX: '.$e->getMessage());
+        }
+
+        if (! $this->showPixCheckoutModal && ! $this->pixPaymentError) {
+            $this->pixPaymentError = true;
+            $this->pixPaymentErrorMsg = 'Nao foi possivel gerar o QR Code PIX. Tente novamente.';
+            $this->showPixCheckoutModal = true;
         }
 
         $this->generatingPix = false;
@@ -894,7 +918,7 @@ class Cart extends Component
 
     public function verifyCheckoutPixPayment(): void
     {
-        if (! $this->pixTxid || ! $this->pixOrderId || $this->pixPaymentConfirmed) {
+        if (! $this->showPixCheckoutModal || ! $this->pixTxid || ! $this->pixOrderId || $this->pixPaymentConfirmed) {
             return;
         }
 
@@ -943,16 +967,42 @@ class Cart extends Component
             return;
         }
 
+        $street = $this->newAddressStreet ?: $this->deliveryAddress;
+        $number = $this->newAddressNumber ?: null;
+        $neighborhood = $this->newAddressNeighborhood ?: null;
+
         $existingCount = UserAddress::where('user_id', $userId)->count();
         if ($existingCount >= 5) {
             return;
         }
 
+        $needleParts = [];
+        $needleStreet = $street;
+        if ($number) {
+            $needleStreet .= ', '.$number;
+        }
+        $needleParts[] = $needleStreet;
+        if ($this->newAddressComplement) {
+            $needleParts[] = $this->newAddressComplement;
+        }
+        if ($neighborhood) {
+            $needleParts[] = $neighborhood;
+        }
+        $needleCityState = $this->deliveryCity ?: '';
+        if ($this->deliveryState) {
+            $needleCityState .= ' - '.$this->deliveryState;
+        }
+        $needleParts[] = $needleCityState;
+        $needle = trim(preg_replace('/\s+/', ' ', implode(', ', $needleParts)));
         $alreadySaved = UserAddress::where('user_id', $userId)
-            ->where('address', $this->newAddressStreet ?: $this->deliveryAddress)
-            ->exists();
+            ->get()
+            ->first(fn ($a) => strtolower(trim($a->full_address)) === strtolower($needle));
 
         if ($alreadySaved) {
+            if (! $alreadySaved->is_default && $existingCount === 1) {
+                $alreadySaved->update(['is_default' => true]);
+            }
+
             return;
         }
 
@@ -960,10 +1010,10 @@ class Cart extends Component
             'tenant_id' => $this->tenant->id,
             'user_id' => $userId,
             'label' => 'Entrega',
-            'address' => $this->newAddressStreet ?: $this->deliveryAddress,
-            'number' => $this->newAddressNumber ?: null,
+            'address' => $street,
+            'number' => $number,
             'complement' => $this->newAddressComplement ?: null,
-            'neighborhood' => $this->newAddressNeighborhood ?: null,
+            'neighborhood' => $neighborhood,
             'city' => $this->deliveryCity ?: '',
             'state' => $this->deliveryState ?: '',
             'zipcode' => $this->deliveryZipcode ?: null,
@@ -973,7 +1023,7 @@ class Cart extends Component
 
         try {
             $coords = app(GeocodingService::class)->geocode(
-                ($this->newAddressStreet ?: $this->deliveryAddress).', '.($this->newAddressNumber ? $this->newAddressNumber.', ' : '').($this->newAddressNeighborhood ?: ''),
+                $street.', '.($number ? $number.', ' : '').($neighborhood ?: ''),
                 $this->deliveryCity,
                 $this->deliveryState,
                 $this->deliveryZipcode
@@ -1033,6 +1083,15 @@ class Cart extends Component
             }
             $this->previousOrderStatus = $order->status;
 
+            $canCancel = false;
+            if (Auth::check() && Auth::user() instanceof User) {
+                $canCancel = app(OrderLifecycleService::class)->assertCanCancel(
+                    $order,
+                    Auth::user(),
+                    OrderLifecycleService::ACTOR_CLIENT
+                ) === '';
+            }
+
             $this->orderTracking = [
                 'id' => $order->id,
                 'customer_name' => $order->customer_name,
@@ -1046,6 +1105,7 @@ class Cart extends Component
                 'statusLabel' => $order->statusLabel(),
                 'statusColor' => $order->statusClasses(),
                 'delivery_cost' => (float) ($order->delivery_cost ?? 0),
+                'can_cancel' => $canCancel,
                 'items' => $order->items->map(fn ($item) => [
                     'id' => $item->id,
                     'product_name' => $item->product_name,
@@ -1053,6 +1113,7 @@ class Cart extends Component
                     'price' => $item->price,
                     'change_requested' => $item->change_requested,
                     'change_note' => $item->change_note,
+                    'is_bonificacao' => $item->isBonificacao(),
                 ]),
                 'address_json' => $order->address_json,
             ];
@@ -1062,6 +1123,45 @@ class Cart extends Component
             $this->previousOrderStatus = null;
             Session::forget("last_order_{$this->tenant->id}");
         }
+    }
+
+    public function cancelTrackingOrder(): void
+    {
+        if (! Auth::check()) {
+            $this->dispatch('notify', message: 'Entre na sua conta para cancelar o pedido. Caso contrario, peca ao restaurante.', type: 'error');
+
+            return;
+        }
+
+        $order = Order::with('items', 'table')->find($this->lastOrderId);
+
+        if (! $order || ($order->user_id !== null && $order->user_id !== Auth::id())) {
+            $this->dispatch('notify', message: 'Pedido nao encontrado.', type: 'error');
+
+            return;
+        }
+
+        $result = app(OrderLifecycleService::class)->cancelOrder(
+            $order,
+            Auth::user(),
+            OrderLifecycleService::ACTOR_CLIENT,
+            'Cancelamento pelo cliente (carrinho)'
+        );
+
+        if (! $result['success']) {
+            $this->dispatch('notify', message: $result['error'] ?? 'Nao foi possivel cancelar o pedido.', type: 'error');
+
+            return;
+        }
+
+        if ($result['refunded_amount'] > 0) {
+            $this->dispatch('notify', message: 'Pedido cancelado! O valor sera ressarcido em ate 1 dia util.');
+        } else {
+            $this->dispatch('notify', message: 'Pedido cancelado com sucesso!');
+        }
+
+        $this->loadOrderTracking();
+        $this->dispatch('orderUpdated');
     }
 
     public function requestItemChange(int $itemId, string $note): void

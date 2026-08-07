@@ -209,6 +209,10 @@ class DeliveryService
             return null;
         }
 
+        if ($order->hasPayment()) {
+            throw new \DomainException('Pedido ja pago: somente o administrador pode alterar o historico.');
+        }
+
         $previousStatus = $order->status;
         $order->update(['status' => 'cancelado']);
 

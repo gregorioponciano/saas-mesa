@@ -15,6 +15,7 @@ use App\Models\UserFavorite;
 use App\Services\DeliveryNotificationService;
 use App\Services\EfiBank\EfiBankClient;
 use App\Services\EfiBank\TenantEfiBankService;
+use App\Services\OrderLifecycleService;
 use App\Services\PointsService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -542,11 +543,19 @@ class Menu extends Component
             $this->pixCopiaECola = $charge['pixCopiaECola'] ?? null;
             $this->pixTxid = $charge['txid'] ?? $txid;
             $this->pixQrCode = $charge['qrcode'] ?? null;
-            if ($this->pixCopiaECola) {
+            if ($this->pixQrCode) {
                 $this->showPixModal = true;
             }
         } catch (\Throwable $e) {
+            $this->pixPaymentError = true;
+            $this->pixPaymentErrorMsg = $e->getMessage();
             $this->dispatch('notify', message: 'Erro ao gerar PIX: '.$e->getMessage());
+        }
+
+        if (! $this->showPixModal && ! $this->pixPaymentError) {
+            $this->pixPaymentError = true;
+            $this->pixPaymentErrorMsg = 'Nao foi possivel gerar o QR Code PIX. Tente novamente.';
+            $this->showPixModal = true;
         }
 
         $this->generatingPix = false;
@@ -565,7 +574,7 @@ class Menu extends Component
 
     public function verifyPixPayment(): void
     {
-        if (! $this->pixTxid || ! $this->pixOrderId || $this->pixPaymentConfirmed) {
+        if (! $this->showPixModal || ! $this->pixTxid || ! $this->pixOrderId || $this->pixPaymentConfirmed) {
             return;
         }
 
@@ -619,6 +628,39 @@ class Menu extends Component
             ->latest()
             ->take(20)
             ->get();
+    }
+
+    public function cancelMyOrder(int $orderId): void
+    {
+        if (! Auth::check()) {
+            return;
+        }
+
+        $order = Order::where('user_id', Auth::id())->findOrFail($orderId);
+
+        $result = app(OrderLifecycleService::class)->cancelOrder(
+            $order,
+            Auth::user(),
+            OrderLifecycleService::ACTOR_CLIENT,
+            'Cancelamento pelo cliente'
+        );
+
+        if (! $result['success']) {
+            $this->dispatch('notify', message: $result['error'] ?? 'Nao foi possivel cancelar o pedido.', type: 'error');
+
+            return;
+        }
+
+        if ($result['refunded_amount'] > 0) {
+            $this->dispatch('notify', message: 'Pedido cancelado! O valor sera ressarcido em ate 1 dia util.');
+        } else {
+            $this->dispatch('notify', message: 'Pedido cancelado com sucesso!');
+        }
+
+        if ($order->table_id) {
+            Table::tryFreeTable($order->table_id);
+            $this->clearTableSession();
+        }
     }
 
     public bool $showAddressModal = false;

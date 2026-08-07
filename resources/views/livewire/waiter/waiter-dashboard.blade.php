@@ -748,7 +748,11 @@
                                         <span class="text-xs font-semibold px-2 py-0.5 rounded-full {{ $order->typeClasses }}">{{ $order->typeLabel }}</span>
                                     </div>
                                      <p class="text-xs sm:text-sm text-neutral-300 mt-1 font-medium truncate">{{ $order->customer_name }}</p>
-                                    <p class="text-xs text-neutral-500 mt-0.5">{{ $order->created_at }}</p>
+                                    @if ($order->is_cancelled && $order->cancelled_at)
+                                        <p class="text-xs text-red-400/90 mt-0.5 font-medium">Cancelado em {{ $order->cancelled_at }}</p>
+                                    @else
+                                        <p class="text-xs text-neutral-500 mt-0.5">{{ $order->created_at }}</p>
+                                    @endif
                                 </div>
                                 <span class="px-2 sm:px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-xs font-medium rounded-full shrink-0 {{ $order->statusClasses }}">{{ $order->statusLabel }}</span>
                             </div>
@@ -810,7 +814,12 @@
                 <div class="flex items-center justify-between px-6 py-4 border-b border-neutral-800">
                     <div>
                         <h3 class="text-lg font-bold">Pedido #{{ $viewingOrder['id'] }}</h3>
-                        <p class="text-xs text-neutral-500">{{ $viewingOrder['created_at'] }}</p>
+                        @if ($viewingOrder['status'] === 'cancelado' && $viewingOrder['cancelled_at'])
+                            <p class="text-xs text-red-400/90 font-medium mt-0.5">Cancelado em {{ $viewingOrder['cancelled_at'] }}</p>
+                            <p class="text-xs text-neutral-500">Criado em {{ $viewingOrder['created_at'] }}</p>
+                        @else
+                            <p class="text-xs text-neutral-500">{{ $viewingOrder['created_at'] }}</p>
+                        @endif
                     </div>
                     <button wire:click="closeOrderModal"
                             class="p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors">
@@ -890,17 +899,20 @@
                         </div>
                         <div class="space-y-2">
                             @foreach ($viewingOrder['items'] as $item)
-                                <div class="flex items-center justify-between text-sm p-2 rounded-lg {{ $item['change_requested'] ? 'bg-blue-500/10 border border-blue-500/20' : '' }}">
+                                <div class="flex items-center justify-between text-sm p-2 rounded-lg {{ $item['change_requested'] ? 'bg-blue-500/10 border border-blue-500/20' : ($item['is_bonificacao'] ? 'bg-emerald-500/10 border border-emerald-500/20' : '') }}">
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-center gap-2">
-                                            <span class="text-neutral-300">{{ $item['quantity'] }}x {{ $item['product_name'] }}</span>
+                                            <span class="text-neutral-300 {{ $item['is_cancelled'] ? 'line-through opacity-50' : '' }}">{{ $item['quantity'] }}x {{ $item['product_name'] }}</span>
                                             @if ($item['change_requested'])<span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">Troca</span>@endif
+                                            @if ($item['is_bonificacao'])<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Cortesia</span>@endif
+                                            @if ($item['is_cancelled'])<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">Cancelado</span>@endif
                                         </div>
                                         @if ($item['change_requested'] && $item['change_note'])<p class="text-xs text-neutral-500 mt-0.5">{{ $item['change_note'] }}</p>@endif
+                                        @if ($item['is_bonificacao'] && $item['bonificacao_reason'])<p class="text-xs text-emerald-500/70 mt-0.5">{{ $item['bonificacao_reason'] }}</p>@endif
                                     </div>
                                     <div class="flex items-center gap-2 shrink-0">
-                                        <span class="text-neutral-400">R$ {{ number_format($item['subtotal'], 2, ',', '.') }}</span>
-                                        @if (!$viewingOrder['is_fechado'])
+                                        <span class="text-neutral-400">R$ {{ number_format($item['is_bonificacao'] ? 0 : $item['subtotal'], 2, ',', '.') }}</span>
+                                        @if (!$viewingOrder['is_fechado'] && !$item['is_cancelled'])
                                             <button wire:click="removeItemFromOrder({{ $item['id'] }})"
                                                     wire:confirm="Remover este item do pedido?"
                                                     class="p-1 rounded text-neutral-500 hover:text-red-400 hover:bg-red-500/10 transition-colors">
@@ -1019,6 +1031,19 @@
                         <input wire:model="addItemQuantity" type="number" min="1" max="99"
                                class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
                     </div>
+                    <div class="flex items-center justify-between rounded-xl bg-neutral-800/50 border border-neutral-700 px-4 py-3">
+                        <label class="text-sm text-neutral-300 cursor-pointer">Item de cortesia (bonificacao)</label>
+                        <input wire:model="addItemIsBonus" type="checkbox"
+                               class="w-5 h-5 rounded bg-neutral-800 border-neutral-600 accent-amber-500">
+                    </div>
+                    @if ($addItemIsBonus)
+                        <div>
+                            <label class="block text-xs font-medium text-neutral-400 mb-1.5">Motivo da cortesia (opcional)</label>
+                            <input wire:model="addItemBonusReason" type="text" maxlength="255"
+                                   placeholder="Ex.: compensacao por erro na entrega"
+                                   class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
+                        </div>
+                    @endif
                     <div class="flex gap-3 pt-2">
                         <button wire:click="closeOrderModal"
                                 class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all">Cancelar</button>

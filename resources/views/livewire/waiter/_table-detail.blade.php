@@ -63,6 +63,9 @@
                                         @if ($item['is_points_item'] ?? false)
                                             <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400">Pontos</span>
                                         @endif
+                                        @if ($item['is_bonificacao'] ?? false)
+                                            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">Cortesia</span>
+                                        @endif
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <span class="text-sm text-neutral-300 font-medium">R$ {{ number_format($item['subtotal'], 2, ',', '.') }}</span>

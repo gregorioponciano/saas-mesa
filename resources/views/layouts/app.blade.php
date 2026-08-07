@@ -14,6 +14,7 @@
     <body class="bg-neutral-950 text-white font-['Inter'] antialiased">
         @include('partials.flash-messages')
         @include('partials.notifications')
+        @include('partials.saas-dialog')
 
         @yield('content')
 

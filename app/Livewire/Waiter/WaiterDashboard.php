@@ -15,7 +15,9 @@ use App\Models\UserAddress;
 use App\Services\DeliveryNotificationService;
 use App\Services\DeliveryService;
 use App\Services\EfiBank\TenantEfiBankService;
+use App\Services\OrderLifecycleService;
 use App\Services\PointsService;
+use App\Services\RevenueService;
 use App\Services\StockService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -94,6 +96,10 @@ class WaiterDashboard extends Component
     public ?int $addItemProductId = null;
 
     public int $addItemQuantity = 1;
+
+    public bool $addItemIsBonus = false;
+
+    public string $addItemBonusReason = '';
 
     public ?int $selectedProduct = null;
 
@@ -259,22 +265,13 @@ class WaiterDashboard extends Component
             default => 7,
         };
 
-        $startDate = Carbon::now()->subDays($days - 1);
-
-        $orders = Order::where('tenant_id', auth()->user()->tenant_id)->where('created_at', '>=', $startDate)
-            ->whereIn('status', ['entregue', 'saiu_entrega', 'fechado'])
-            ->selectRaw('DATE(created_at) as date, SUM(total) as total')
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get()
-            ->keyBy('date');
+        $series = app(RevenueService::class)->revenueChart(auth()->user()->tenant_id, $days);
 
         $this->revenueData = [];
-        for ($i = 0; $i < $days; $i++) {
-            $date = $startDate->copy()->addDays($i)->format('Y-m-d');
+        foreach ($series as $date => $total) {
             $this->revenueData[] = [
                 'date' => Carbon::parse($date)->format('d/m'),
-                'total' => (float) ($orders[$date]->total ?? 0),
+                'total' => $total,
             ];
         }
     }
@@ -326,6 +323,7 @@ class WaiterDashboard extends Component
                     'cancelled_at' => $item->cancelled_at,
                     'is_cancelled' => $item->isCancelled(),
                     'is_points_item' => $item->is_points_item,
+                    'is_bonificacao' => $item->isBonificacao(),
                 ]),
             ])->toArray();
         } else {
@@ -341,35 +339,42 @@ class WaiterDashboard extends Component
         }
 
         $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
-        $order->update(['status' => $status]);
 
         if ($status === 'cancelado') {
-            try {
-                app(PointsService::class)->reversePointsForOrder($order->fresh());
-            } catch (\Throwable $e) {
-                Log::error('Erro ao estornar pontos cancelamento atendente', [
-                    'order_id' => $order->id, 'error' => $e->getMessage(),
-                ]);
+            $result = app(OrderLifecycleService::class)->cancelOrder(
+                $order,
+                auth()->user(),
+                OrderLifecycleService::ACTOR_ATTENDANT
+            );
+
+            if (! $result['success']) {
+                $this->dispatch('notify', message: $result['error'] ?? 'Nao foi possivel cancelar.', type: 'error');
+
+                return;
             }
 
-            try {
-                app(PointsService::class)->refundSpentPointsForOrder($order->fresh());
-            } catch (\Throwable $e) {
-                Log::error('Erro ao devolver pontos gastos cancelamento atendente', [
-                    'order_id' => $order->id, 'error' => $e->getMessage(),
-                ]);
+            if ($result['refunded_amount'] > 0) {
+                $this->dispatch('notify', message: 'Pedido cancelado! R$ '.number_format($result['refunded_amount'], 2, ',', '.').' sera ressarcido ao cliente.');
             }
 
-            if (! $order->isDelivered()) {
-                try {
-                    app(StockService::class)->returnOrderStock($order->fresh(), Auth::id());
-                } catch (\Throwable $e) {
-                    Log::error('Erro ao devolver estoque cancelamento atendente', [
-                        'order_id' => $order->id, 'error' => $e->getMessage(),
-                    ]);
-                }
+            $order = $order->fresh();
+
+            if ($order->table_id && ! Table::hasOtherActiveOrders($order->table_id, $order->id)) {
+                $order->table()->update(['status' => 'free']);
+                $this->dispatch('tableFreed')->to('public.menu');
+                $this->dispatch('tableFreed')->to('public.cart');
             }
-        } elseif ($status === 'fechado') {
+
+            $this->loadOrderDetail();
+            $this->dispatch('notify', message: 'Status do pedido atualizado!');
+            $this->dispatch('orderUpdated');
+
+            return;
+        }
+
+        $order->update(['status' => $status]);
+
+        if ($status === 'fechado') {
             try {
                 app(PointsService::class)->grantPointsForOrder($order->fresh());
             } catch (\Throwable $e) {
@@ -432,6 +437,7 @@ class WaiterDashboard extends Component
             'statusLabel' => $order->statusLabel(),
             'statusColor' => $order->statusClasses(),
             'created_at' => $order->created_at->format('d/m/Y H:i'),
+            'cancelled_at' => $order->cancelled_at ? $order->cancelled_at->format('d/m/Y H:i') : null,
             'payment_method' => $order->payment_method,
             'payment_change' => $order->payment_change ? (float) $order->payment_change : null,
             'notes' => $order->notes,
@@ -453,6 +459,9 @@ class WaiterDashboard extends Component
                 'subtotal' => (float) $item->price * $item->quantity,
                 'change_requested' => $item->change_requested,
                 'change_note' => $item->change_note,
+                'is_bonificacao' => $item->isBonificacao(),
+                'bonificacao_reason' => $item->bonificacao_reason,
+                'is_cancelled' => $item->isCancelled(),
             ])->toArray(),
             'payments' => $order->payments->map(fn ($p) => [
                 'id' => $p->id,
@@ -497,6 +506,8 @@ class WaiterDashboard extends Component
         $this->addItemOrderId = $orderId;
         $this->addItemProductId = null;
         $this->addItemQuantity = 1;
+        $this->addItemIsBonus = false;
+        $this->addItemBonusReason = '';
         $this->showAddItemModal = true;
     }
 
@@ -522,15 +533,19 @@ class WaiterDashboard extends Component
             return;
         }
 
-        $price = (float) $product->price;
+        $isBonus = $this->addItemIsBonus;
+        $price = $isBonus ? 0.0 : (float) $product->price;
+        $bonusReason = $isBonus ? trim($this->addItemBonusReason) : null;
 
-        DB::transaction(function () use ($product, $order, $price) {
-            OrderItem::create([
+        DB::transaction(function () use ($product, $order, $price, $isBonus, $bonusReason) {
+            $item = OrderItem::create([
                 'order_id' => $order->id,
                 'product_id' => $product->id,
                 'product_name' => $product->name,
                 'quantity' => $this->addItemQuantity,
                 'price' => $price,
+                'is_bonificacao' => $isBonus,
+                'bonificacao_reason' => $bonusReason,
             ]);
 
             $order->increment('total', $price * $this->addItemQuantity);
@@ -541,19 +556,24 @@ class WaiterDashboard extends Component
                 $order->tenant_id,
                 $order->id,
                 Auth::id(),
-                'sale',
-                "Adicao de item - Pedido #{$order->id}"
+                $isBonus ? 'bonificacao' : 'sale',
+                $isBonus ? "Bonificacao (cortesia) - Pedido #{$order->id}" : "Adicao de item - Pedido #{$order->id}",
+                $item->id
             );
         });
 
         $this->showAddItemModal = false;
         $this->addItemProductId = null;
         $this->addItemQuantity = 1;
+        $this->addItemIsBonus = false;
+        $this->addItemBonusReason = '';
         $this->loadOrderDetail();
         if ($this->showOrderModal && $this->viewingOrderId === $order->id) {
             $this->viewOrder($order->id);
         }
-        $this->dispatch('notify', message: "{$product->name} adicionado ao pedido #{$order->id}!");
+        $this->dispatch('notify', message: $isBonus
+            ? "{$product->name} adicionado ao pedido #{$order->id} como cortesia!"
+            : "{$product->name} adicionado ao pedido #{$order->id}!");
         $this->dispatch('orderUpdated');
     }
 
@@ -572,24 +592,16 @@ class WaiterDashboard extends Component
             return;
         }
 
-        $subtotal = (float) $item->price * $item->quantity;
+        $result = app(OrderLifecycleService::class)->cancelItem(
+            $item,
+            auth()->user(),
+            OrderLifecycleService::ACTOR_ATTENDANT
+        );
 
-        if (! $item->is_points_item && ! $order->isDelivered()) {
-            try {
-                app(StockService::class)->returnItemStock($item, Auth::id());
-            } catch (\Throwable $e) {
-                Log::error('Erro ao devolver estoque ao remover item', [
-                    'item_id' => $item->id, 'order_id' => $order->id, 'error' => $e->getMessage(),
-                ]);
-            }
-        }
+        if (! $result['success']) {
+            $this->dispatch('notify', message: $result['error'] ?? 'Nao foi possivel remover o item.', type: 'error');
 
-        $item->delete();
-        $order->decrement('total', $subtotal);
-
-        $remainingActive = $order->items()->count();
-        if ($remainingActive === 0 && ! $order->isBillClosed()) {
-            $order->update(['status' => 'cancelado']);
+            return;
         }
 
         $this->loadOrderDetail();
@@ -861,30 +873,14 @@ class WaiterDashboard extends Component
 
     public function reopenAccount(int $orderId): void
     {
-        if (! Auth::user()?->isAdmin()) {
-            $this->dispatch('notify', message: 'Apenas administradores podem reabrir contas.');
-
-            return;
-        }
         $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
-        if ($order->status !== 'fechado') {
-            $this->dispatch('notify', message: 'Apenas contas fechadas podem ser reabertas.');
+
+        $result = app(OrderLifecycleService::class)->reopenAccount($order, auth()->user());
+
+        if (! $result['success']) {
+            $this->dispatch('notify', message: $result['error'] ?? 'Nao foi possivel reabrir a conta.', type: 'error');
 
             return;
-        }
-        $order->update(['status' => 'entregue', 'bill_closed_at' => null]);
-
-        try {
-            app(PointsService::class)->refundSpentPointsForOrder($order);
-        } catch (\Throwable $e) {
-            Log::error('Erro ao devolver pontos na reabertura atendente', [
-                'order_id' => $order->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
-
-        if ($order->table_id) {
-            $order->table()->update(['status' => 'occupied']);
         }
 
         if ($this->showOrderModal && $this->viewingOrderId === $orderId) {
@@ -1318,31 +1314,25 @@ class WaiterDashboard extends Component
     #[Computed]
     public function totalRevenue()
     {
-        return Order::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', ['entregue', 'saiu_entrega', 'fechado'])->sum('total');
+        return app(RevenueService::class)->revenue(auth()->user()->tenant_id, $this->period)->total_revenue;
     }
 
     #[Computed]
     public function deliveryRevenue()
     {
-        return Order::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', ['entregue', 'saiu_entrega', 'fechado'])
-            ->where('type', 'entrega')
-            ->sum('total');
+        return app(RevenueService::class)->revenue(auth()->user()->tenant_id, $this->period)->delivery_revenue;
     }
 
     #[Computed]
     public function tableRevenue()
     {
-        return Order::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', ['entregue', 'saiu_entrega', 'fechado'])
-            ->where('type', 'mesa')
-            ->sum('total');
+        return app(RevenueService::class)->revenue(auth()->user()->tenant_id, $this->period)->table_revenue;
     }
 
     #[Computed]
     public function pickupRevenue()
     {
-        return Order::where('tenant_id', auth()->user()->tenant_id)->whereIn('status', ['entregue', 'saiu_entrega', 'fechado'])
-            ->where('type', 'retirada')
-            ->sum('total');
+        return app(RevenueService::class)->revenue(auth()->user()->tenant_id, $this->period)->pickup_revenue;
     }
 
     #[Computed]
@@ -1714,6 +1704,8 @@ class WaiterDashboard extends Component
             'statusClasses' => $order->statusClasses(),
             'created_at' => $order->bill_closed_at ? $order->bill_closed_at->format('d/m/Y H:i') : $order->created_at->format('d/m/Y H:i'),
             'created_at_raw' => $order->bill_closed_at ?? $order->created_at,
+            'cancelled_at' => $order->cancelled_at ? $order->cancelled_at->format('d/m/Y H:i') : null,
+            'is_cancelled' => $order->isCancelled(),
             'items' => $order->items,
             'address_json' => $order->address_json,
             'order_count' => 1,

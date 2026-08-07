@@ -274,7 +274,7 @@ class TenantEfiBankService
                 ->lockForUpdate()
                 ->first();
 
-            if (! $payment || $payment->isPaid()) {
+            if (! $payment || $payment->isPaid() || ! $payment->isPending()) {
                 return;
             }
 

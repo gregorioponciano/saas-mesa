@@ -13,11 +13,11 @@ use App\Models\UserAddress;
 use App\Services\DeliveryNotificationService;
 use App\Services\DeliveryService;
 use App\Services\EfiBank\TenantEfiBankService;
+use App\Services\OrderLifecycleService;
 use App\Services\PointsService;
 use App\Services\StockService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -58,6 +58,10 @@ class TableGrid extends Component
     public ?int $addItemProductId = null;
 
     public int $addItemQuantity = 1;
+
+    public bool $addItemIsBonus = false;
+
+    public string $addItemBonusReason = '';
 
     public bool $showCloseTableModal = false;
 
@@ -198,6 +202,7 @@ class TableGrid extends Component
                     'cancelled_at' => $item->cancelled_at,
                     'is_cancelled' => $item->isCancelled(),
                     'is_points_item' => $item->is_points_item,
+                    'is_bonificacao' => $item->isBonificacao(),
                 ]),
             ]);
             $grouped = $ordersData->groupBy('customer_name');
@@ -233,6 +238,37 @@ class TableGrid extends Component
             abort(403);
         }
         $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
+
+        if ($status === 'cancelado') {
+            $result = app(OrderLifecycleService::class)->cancelOrder(
+                $order,
+                auth()->user(),
+                OrderLifecycleService::ACTOR_ADMIN
+            );
+
+            if (! $result['success']) {
+                $this->dispatch('notify', message: $result['error'] ?? 'Nao foi possivel cancelar.', type: 'error');
+
+                return;
+            }
+
+            $order = $order->fresh();
+
+            if ($order->table_id) {
+                $wasFreed = Table::tryFreeTable($order->table_id);
+                if ($wasFreed) {
+                    $this->dispatch('tableFreed')->to('public.menu');
+                    $this->dispatch('tableFreed')->to('public.cart');
+                }
+            }
+
+            $this->loadOrderDetail();
+            $this->dispatch('orderUpdated');
+            $this->dispatch('notify', message: 'Status do pedido atualizado!');
+
+            return;
+        }
+
         $order->update(['status' => $status]);
 
         if ($order->table_id && $status === 'novo') {
@@ -249,21 +285,6 @@ class TableGrid extends Component
 
         if ($status === 'fechado') {
             app(PointsService::class)->grantPointsForOrder($order->fresh());
-        }
-
-        if ($status === 'cancelado') {
-            app(PointsService::class)->reversePointsForOrder($order->fresh());
-            app(PointsService::class)->refundSpentPointsForOrder($order->fresh());
-            if (! $order->isDelivered()) {
-                try {
-                    app(StockService::class)->returnOrderStock($order->fresh(), auth()->id());
-                } catch (\Throwable $e) {
-                    Log::error('Erro ao devolver estoque no cancelamento', [
-                        'order_id' => $order->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
-            }
         }
 
         $this->loadOrderDetail();
@@ -291,54 +312,21 @@ class TableGrid extends Component
         }
 
         if ($order->isBillClosed()) {
-            $this->dispatch('notify', message: 'Conta ja fechada, nao e possivel cancelar itens.');
+            $this->dispatch('notify', message: 'Conta ja fechada: apenas o administrador pode alterar o historico.');
 
             return;
         }
 
-        if ($order->isDelivered() && ! $order->isCancelled()) {
-            $this->dispatch('notify', message: 'Pedido ja entregue. Estoque nao sera devolvido automaticamente. Se necessario, ajuste manualmente.');
-        }
+        $result = app(OrderLifecycleService::class)->cancelItem(
+            $item,
+            auth()->user(),
+            OrderLifecycleService::ACTOR_ADMIN
+        );
 
-        $deduction = (float) $item->price * (int) $item->quantity;
+        if (! $result['success']) {
+            $this->dispatch('notify', message: $result['error'] ?? 'Nao foi possivel cancelar o item.', type: 'error');
 
-        $item->update([
-            'cancelled_at' => now(),
-            'cancelled_by' => auth()->id(),
-        ]);
-
-        $order->decrement('total', $deduction);
-
-        if (! $order->isDelivered()) {
-            try {
-                app(StockService::class)->returnItemStock($item, Auth::id());
-            } catch (\Throwable $e) {
-                Log::error('Erro ao devolver estoque por item cancelado', [
-                    'item_id' => $item->id,
-                    'order_id' => $order->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
-
-        if ($item->is_points_item && $item->points_cost) {
-            try {
-                app(PointsService::class)->refundPointsForItem($item);
-                $order->decrement('points_spent', (int) $item->points_cost);
-            } catch (\Throwable $e) {
-                Log::error('Erro ao devolver pontos por item cancelado', [
-                    'item_id' => $item->id,
-                    'order_id' => $order->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
-
-        $remainingActive = $order->items()->whereNull('cancelled_at')->count();
-        if ($remainingActive === 0 && ! $order->isBillClosed()) {
-            $order->update(['status' => 'cancelado']);
-            app(PointsService::class)->reversePointsForOrder($order->fresh());
-            app(PointsService::class)->refundSpentPointsForOrder($order->fresh());
+            return;
         }
 
         $this->loadOrderDetail();
@@ -446,6 +434,8 @@ class TableGrid extends Component
         $this->addItemOrderId = $orderId;
         $this->addItemProductId = null;
         $this->addItemQuantity = 1;
+        $this->addItemIsBonus = false;
+        $this->addItemBonusReason = '';
         $this->showAddItemModal = true;
     }
 
@@ -474,15 +464,19 @@ class TableGrid extends Component
             return;
         }
 
-        $price = (float) $product->price;
+        $isBonus = $this->addItemIsBonus;
+        $price = $isBonus ? 0.0 : (float) $product->price;
+        $bonusReason = $isBonus ? trim($this->addItemBonusReason) : null;
 
-        DB::transaction(function () use ($product, $order, $price) {
+        DB::transaction(function () use ($product, $order, $price, $isBonus, $bonusReason) {
             $item = OrderItem::create([
                 'order_id' => $order->id,
                 'product_id' => $product->id,
                 'product_name' => $product->name,
                 'quantity' => $this->addItemQuantity,
                 'price' => $price,
+                'is_bonificacao' => $isBonus,
+                'bonificacao_reason' => $bonusReason,
             ]);
 
             $order->increment('total', $price * $this->addItemQuantity);
@@ -493,16 +487,21 @@ class TableGrid extends Component
                 $order->tenant_id,
                 $order->id,
                 Auth::id(),
-                'sale',
-                "Adicao de item - Pedido #{$order->id}"
+                $isBonus ? 'bonificacao' : 'sale',
+                $isBonus ? "Bonificacao (cortesia) - Pedido #{$order->id}" : "Adicao de item - Pedido #{$order->id}",
+                $item->id
             );
         });
 
         $this->showAddItemModal = false;
         $this->addItemProductId = null;
         $this->addItemQuantity = 1;
+        $this->addItemIsBonus = false;
+        $this->addItemBonusReason = '';
         $this->loadOrderDetail();
-        $this->dispatch('notify', message: "{$product->name} adicionado ao pedido #{$order->id}!");
+        $this->dispatch('notify', message: $isBonus
+            ? "{$product->name} adicionado ao pedido #{$order->id} como cortesia!"
+            : "{$product->name} adicionado ao pedido #{$order->id}!");
         $this->dispatch('orderUpdated');
     }
 

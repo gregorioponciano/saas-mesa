@@ -18,6 +18,9 @@ class Payment extends Model
         'status',
         'paid_at',
         'notes',
+        'refunded_at',
+        'refunded_by',
+        'refund_note',
     ];
 
     protected function casts(): array
@@ -25,6 +28,7 @@ class Payment extends Model
         return [
             'amount' => 'decimal:2',
             'paid_at' => 'datetime',
+            'refunded_at' => 'datetime',
         ];
     }
 
@@ -72,6 +76,31 @@ class Payment extends Model
     public function isPending(): bool
     {
         return $this->status === 'pending';
+    }
+
+    public function isRefunded(): bool
+    {
+        return $this->status === 'refunded';
+    }
+
+    /**
+     * Estorna/ressarce um pagamento recebido, preservando o historico
+     * (o registro nao e apagado, apenas marcado como reembolsado).
+     */
+    public function markRefunded(int $byUserId, ?string $reason = null): bool
+    {
+        if ($this->status === 'refunded') {
+            return false;
+        }
+
+        $this->update([
+            'status' => 'refunded',
+            'refunded_at' => now(),
+            'refunded_by' => $byUserId,
+            'refund_note' => $reason ? substr($reason, 0, 255) : null,
+        ]);
+
+        return true;
     }
 
     public function order(): BelongsTo

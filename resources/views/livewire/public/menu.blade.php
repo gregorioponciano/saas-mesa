@@ -740,6 +740,15 @@
                                     <span wire:loading wire:target="generateOrderPix({{ $order->id }})">Gerando...</span>
                                 </button>
                                 @endif
+
+                                @if (!$hasPaid && $order->withinClientCancellationWindow() && !$order->isCancelled())
+                                    <button wire:click="cancelMyOrder({{ $order->id }})"
+                                            wire:confirm="Cancelar este pedido?"
+                                            class="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-semibold transition-all text-sm">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        Cancelar Pedido
+                                    </button>
+                                @endif
                             </div>
                         </div>
                     @empty
@@ -1613,8 +1622,8 @@
             @endauth
 
             {{-- PIX Payment Modal --}}
-            <div x-data="{ open: @entangle('showPixModal') }"
-                 x-init="$watch('open', val => document.body.style.overflow = val ? 'hidden' : '')"
+            <div x-data="{ open: @entangle('showPixModal'), openedAt: 0 }"
+                 x-init="$watch('open', val => { document.body.style.overflow = val ? 'hidden' : ''; if (val) openedAt = Date.now(); })"
                  x-show="open"
                  x-transition:enter="transition-opacity duration-300"
                  x-transition:enter-start="opacity-0"
@@ -1624,7 +1633,7 @@
                  x-transition:leave-end="opacity-0"
                  class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-lg flex items-center justify-center p-3 sm:p-4"
                  x-cloak>
-                <div class="absolute inset-0" wire:click="closePixModal"></div>
+                <div class="absolute inset-0" @click="Date.now() - openedAt > 1500 && $wire.closePixModal()"></div>
                 <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl"
                      @click.stop>
                     <div class="flex items-center justify-between mb-4">
@@ -1633,7 +1642,7 @@
                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </div>
-                    <div wire:poll.5s="verifyPixPayment">
+                    <div wire:poll.5s.visible="verifyPixPayment">
                         @if ($generatingPix)
                             <div class="flex flex-col items-center py-8">
                                 <svg class="w-12 h-12 animate-spin text-amber-400 mb-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
@@ -1646,7 +1655,7 @@
                                 <p class="text-sm text-neutral-400 mt-1">Pedido #{{ $pixOrderId }} pago.</p>
                             </div>
                         @elseif ($pixQrCode)
-                            <div class="space-y-4">
+                            <div class="space-y-4" wire:ignore>
                                 <p class="text-sm text-neutral-400 text-center">Escaneie o QR Code para pagar</p>
                                 <div x-data="{ remaining: 3600, timer: null }"
                                      x-init="timer = setInterval(() => { remaining > 0 ? remaining-- : clearInterval(timer) }, 1000)">
@@ -1686,7 +1695,7 @@
                                 @endif
                             </div>
                         @endif
-                    </div>
+                        </div>
                     <div class="mt-4 flex gap-3">
                         <button wire:click="closePixModal"
                                 class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all text-sm">
@@ -1858,7 +1867,9 @@
             @endif
 
             {{-- Cart Component --}}
-            @livewire('public.cart', ['tenant' => $tenant, 'token' => $token])
+            <div wire:ignore>
+                @livewire('public.cart', ['tenant' => $tenant, 'token' => $token])
+            </div>
 
             {{-- Product Detail Modal --}}
             <div x-data="{

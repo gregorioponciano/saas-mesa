@@ -9,8 +9,11 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Table;
+use App\Services\AuditService;
 use App\Services\EfiBank\TenantEfiBankService;
+use App\Services\OrderLifecycleService;
 use App\Services\PointsService;
+use App\Services\RevenueService;
 use App\Services\StockService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -57,6 +60,10 @@ class Dashboard extends Component
 
     public int $addItemQuantity = 1;
 
+    public bool $addItemIsBonus = false;
+
+    public string $addItemBonusReason = '';
+
     public bool $showPaymentModal = false;
 
     public ?int $paymentOrderId = null;
@@ -99,6 +106,16 @@ class Dashboard extends Component
 
     public string $stockAdjustmentValue = '0';
 
+    public bool $showCancelOrderModal = false;
+
+    public ?int $cancelOrderId = null;
+
+    public string $cancelReason = '';
+
+    public float $cancelRefundAmount = 0;
+
+    public bool $cancelHasPayment = false;
+
     protected $listeners = [
         'notifyNewOrder' => '$refresh',
         'orderUpdated' => '$refresh',
@@ -135,23 +152,13 @@ class Dashboard extends Component
             default => 7,
         };
 
-        $tenantId = auth()->user()->tenant_id;
-        $startDate = Carbon::now()->subDays($days - 1);
-
-        $orders = Order::where('tenant_id', $tenantId)->where('created_at', '>=', $startDate)
-            ->whereIn('status', ['entregue', 'saiu_entrega', 'fechado'])
-            ->selectRaw('DATE(created_at) as date, SUM(total) as total')
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get()
-            ->keyBy('date');
+        $series = app(RevenueService::class)->revenueChart(auth()->user()->tenant_id, $days);
 
         $this->revenueData = [];
-        for ($i = 0; $i < $days; $i++) {
-            $date = $startDate->copy()->addDays($i)->format('Y-m-d');
+        foreach ($series as $date => $total) {
             $this->revenueData[] = [
                 'date' => Carbon::parse($date)->format('d/m'),
-                'total' => (float) ($orders[$date]->total ?? 0),
+                'total' => $total,
             ];
         }
     }
@@ -159,21 +166,7 @@ class Dashboard extends Component
     #[Computed]
     public function revenueStats(): object
     {
-        $query = Order::where('tenant_id', auth()->user()->tenant_id)
-            ->when($this->period === 'today', fn ($q) => $q->whereDate('created_at', today()))
-            ->when($this->period === 'week', fn ($q) => $q->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()]))
-            ->when($this->period === 'month', fn ($q) => $q->whereMonth('created_at', now()->month));
-
-        return (object) $query->selectRaw("
-            COALESCE(SUM(total), 0) as total_revenue,
-            COALESCE(SUM(CASE WHEN type = 'entrega' THEN total ELSE 0 END), 0) as delivery_revenue,
-            COALESCE(SUM(CASE WHEN type = 'mesa' THEN total ELSE 0 END), 0) as table_revenue,
-            COALESCE(SUM(CASE WHEN type = 'retirada' THEN total ELSE 0 END), 0) as pickup_revenue,
-            COUNT(*) as orders_today,
-            COALESCE(SUM(CASE WHEN type = 'entrega' THEN 1 ELSE 0 END), 0) as delivery_orders_today,
-            COALESCE(SUM(CASE WHEN type = 'mesa' THEN 1 ELSE 0 END), 0) as table_orders_today,
-            COALESCE(SUM(CASE WHEN type = 'retirada' THEN 1 ELSE 0 END), 0) as pickup_orders_today
-        ")->first();
+        return app(RevenueService::class)->revenue(auth()->user()->tenant_id, $this->period);
     }
 
     #[Computed]
@@ -269,6 +262,13 @@ class Dashboard extends Component
                     'statusClasses' => $first->statusClasses(),
                     'created_at' => $first->bill_closed_at->format('d/m/Y H:i'),
                     'created_at_raw' => $first->bill_closed_at,
+                    'cancelled_at' => null,
+                    'is_cancelled' => false,
+                    'paid_amount' => round((float) $group->sum(fn ($o) => $o->paidAmount()), 2),
+                    'refunded_amount' => 0.0,
+                    'payment_status' => $first->payment_status,
+                    'cancelled_by_name' => null,
+                    'cancellation_reason' => null,
                     'items' => $group->flatMap(fn ($o) => $o->items),
                     'address_json' => null,
                     'order_count' => $group->count(),
@@ -306,6 +306,13 @@ class Dashboard extends Component
             'statusClasses' => $order->statusClasses(),
             'created_at' => $order->bill_closed_at ? $order->bill_closed_at->format('d/m/Y H:i') : $order->created_at->format('d/m/Y H:i'),
             'created_at_raw' => $order->bill_closed_at ?? $order->created_at,
+            'cancelled_at' => $order->cancelled_at?->format('d/m/Y H:i'),
+            'is_cancelled' => $order->isCancelled(),
+            'paid_amount' => round($order->paidAmount(), 2),
+            'refunded_amount' => round($order->refundedAmount(), 2),
+            'payment_status' => $order->payment_status,
+            'cancelled_by_name' => $order->cancelledBy?->name,
+            'cancellation_reason' => $order->cancellation_reason,
             'items' => $order->items,
             'address_json' => $order->address_json,
             'order_count' => 1,
@@ -436,6 +443,9 @@ class Dashboard extends Component
                 'subtotal' => (float) $item->price * $item->quantity,
                 'change_requested' => $item->change_requested,
                 'change_note' => $item->change_note,
+                'is_bonificacao' => $item->isBonificacao(),
+                'bonificacao_reason' => $item->bonificacao_reason,
+                'is_cancelled' => $item->isCancelled(),
             ])->toArray(),
             'payments' => $order->payments->map(fn ($p) => [
                 'id' => $p->id,
@@ -450,6 +460,11 @@ class Dashboard extends Component
             ])->toArray(),
             'pending_payment' => $order->pendingPaymentAmount(),
             'has_payment' => $order->hasPayment(),
+            'paid_amount' => round($order->paidAmount(), 2),
+            'refunded_amount' => round($order->refundedAmount(), 2),
+            'payment_status' => $order->payment_status,
+            'cancelled_by_name' => $order->cancelledBy?->name,
+            'cancellation_reason' => $order->cancellation_reason,
         ];
         $this->showOrderModal = true;
     }
@@ -463,6 +478,8 @@ class Dashboard extends Component
         $this->addItemOrderId = null;
         $this->addItemProductId = null;
         $this->addItemQuantity = 1;
+        $this->addItemIsBonus = false;
+        $this->addItemBonusReason = '';
         $this->showPaymentModal = false;
         $this->paymentOrderId = null;
         $this->paymentMethod = 'pix';
@@ -480,6 +497,8 @@ class Dashboard extends Component
         $this->addItemOrderId = $orderId;
         $this->addItemProductId = null;
         $this->addItemQuantity = 1;
+        $this->addItemIsBonus = false;
+        $this->addItemBonusReason = '';
         $this->showAddItemModal = true;
     }
 
@@ -508,15 +527,19 @@ class Dashboard extends Component
             return;
         }
 
-        $price = (float) $product->price;
+        $isBonus = $this->addItemIsBonus;
+        $price = $isBonus ? 0.0 : (float) $product->price;
+        $bonusReason = $isBonus ? trim($this->addItemBonusReason) : null;
 
-        DB::transaction(function () use ($product, $order, $price) {
-            OrderItem::create([
+        DB::transaction(function () use ($product, $order, $price, $isBonus, $bonusReason) {
+            $item = OrderItem::create([
                 'order_id' => $order->id,
                 'product_id' => $product->id,
                 'product_name' => $product->name,
                 'quantity' => $this->addItemQuantity,
                 'price' => $price,
+                'is_bonificacao' => $isBonus,
+                'bonificacao_reason' => $bonusReason,
             ]);
 
             $order->increment('total', $price * $this->addItemQuantity);
@@ -527,16 +550,75 @@ class Dashboard extends Component
                 $order->tenant_id,
                 $order->id,
                 Auth::id(),
-                'sale',
-                "Adicao de item - Pedido #{$order->id}"
+                $isBonus ? 'bonificacao' : 'sale',
+                $isBonus ? "Bonificacao (cortesia) - Pedido #{$order->id}" : "Adicao de item - Pedido #{$order->id}",
+                $item->id
             );
         });
 
         $this->showAddItemModal = false;
         $this->addItemProductId = null;
         $this->addItemQuantity = 1;
+        $this->addItemIsBonus = false;
+        $this->addItemBonusReason = '';
         $this->viewOrder($order->id);
-        $this->dispatch('notify', message: "{$product->name} adicionado ao pedido #{$order->id}!");
+        $this->dispatch('notify', message: $isBonus
+            ? "{$product->name} adicionado ao pedido #{$order->id} como cortesia!"
+            : "{$product->name} adicionado ao pedido #{$order->id}!");
+        $this->dispatch('orderUpdated');
+    }
+
+    public function markItemAsBonus(int $itemId, string $bonusReason = ''): void
+    {
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
+
+        $item = OrderItem::with('order')->findOrFail($itemId);
+        $order = $item->order;
+
+        if (! $order || $order->tenant_id !== auth()->user()->tenant_id) {
+            abort(403);
+        }
+
+        if ($order->isBillClosed()) {
+            $this->dispatch('notify', message: 'Conta ja fechada, nao e possivel bonificar itens.');
+
+            return;
+        }
+
+        if ($item->isCancelled() || $item->is_points_item) {
+            $this->dispatch('notify', message: 'Este item nao pode ser bonificado.', type: 'error');
+
+            return;
+        }
+
+        if ($item->isBonificacao()) {
+            $this->dispatch('notify', message: 'Item ja e cortesia.', type: 'error');
+
+            return;
+        }
+
+        DB::transaction(function () use ($item, $order, $bonusReason) {
+            $item->update([
+                'is_bonificacao' => true,
+                'bonificacao_reason' => $bonusReason ? substr($bonusReason, 0, 255) : null,
+            ]);
+
+            $order->decrement('total', (float) $item->price * (int) $item->quantity);
+        });
+
+        app(AuditService::class)->log(
+            'order.item_bonificacao',
+            "Item #{$item->id} do pedido #{$order->id} bonificado (cortesia) por ".auth()->user()->roleLabel().($bonusReason ? " - Motivo: {$bonusReason}" : ''),
+            ['order_id' => $order->id, 'item_id' => $item->id, 'actor_id' => auth()->id(), 'reason' => $bonusReason],
+            $order->tenant,
+            'order',
+            (string) $order->id
+        );
+
+        $this->viewOrder($order->id);
+        $this->dispatch('notify', message: 'Item marcado como cortesia (bonificacao). O cliente nao paga por ele.');
         $this->dispatch('orderUpdated');
     }
 
@@ -558,20 +640,17 @@ class Dashboard extends Component
             return;
         }
 
-        $subtotal = (float) $item->price * $item->quantity;
+        $result = app(OrderLifecycleService::class)->cancelItem(
+            $item,
+            auth()->user(),
+            OrderLifecycleService::ACTOR_ADMIN
+        );
 
-        if (! $item->is_points_item && ! $order->isDelivered()) {
-            try {
-                app(StockService::class)->returnItemStock($item, Auth::id());
-            } catch (\Throwable $e) {
-                Log::error('Erro ao devolver estoque ao remover item', [
-                    'item_id' => $item->id, 'order_id' => $order->id, 'error' => $e->getMessage(),
-                ]);
-            }
+        if (! $result['success']) {
+            $this->dispatch('notify', message: $result['error'] ?? 'Nao foi possivel remover o item.', type: 'error');
+
+            return;
         }
-
-        $item->delete();
-        $order->decrement('total', $subtotal);
 
         $this->viewOrder($order->id);
         $this->dispatch('notify', message: 'Item removido do pedido!');
@@ -744,68 +823,77 @@ class Dashboard extends Component
 
             return;
         }
-        $order->update(['status' => 'entregue', 'bill_closed_at' => null]);
 
-        try {
-            app(PointsService::class)->refundSpentPointsForOrder($order);
-        } catch (\Throwable $e) {
-            Log::error('Erro ao devolver pontos na reabertura', [
-                'order_id' => $order->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        $result = app(OrderLifecycleService::class)->reopenAccount($order, auth()->user());
 
-        if ($order->table_id) {
-            $order->table()->update(['status' => 'occupied']);
+        if (! $result['success']) {
+            $this->dispatch('notify', message: $result['error'] ?? 'Nao foi possivel reabrir a conta.', type: 'error');
+
+            return;
         }
 
         if ($this->showOrderModal) {
             $this->viewOrder($orderId);
         }
-        $this->dispatch('notify', message: "Conta #{$order->id} reaberta!");
+        $this->dispatch('notify', message: "Conta #{$order->id} reaberta! Pagamentos permanecem registrados como pagos.");
         $this->dispatch('orderUpdated');
     }
 
-    public function cancelClosedOrder(int $orderId): void
+    public function openCancelOrderModal(int $orderId): void
     {
         if (! auth()->user()->isAdmin()) {
             abort(403);
         }
         $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
-        if ($order->status !== 'fechado') {
-            $this->dispatch('notify', message: 'Apenas contas fechadas podem ser canceladas.');
+        $this->cancelOrderId = $order->id;
+        $this->cancelReason = '';
+        $this->cancelRefundAmount = round($order->paidAmount(), 2);
+        $this->cancelHasPayment = $order->hasPayment() || $order->orderPayments()->whereIn('status', ['paid', 'pending', 'processing'])->exists();
+        $this->showCancelOrderModal = true;
+    }
+
+    public function closeCancelOrderModal(): void
+    {
+        $this->showCancelOrderModal = false;
+        $this->cancelOrderId = null;
+        $this->cancelReason = '';
+        $this->cancelRefundAmount = 0;
+        $this->cancelHasPayment = false;
+    }
+
+    public function confirmCancelOrder(): void
+    {
+        if (! auth()->user()->isAdmin()) {
+            abort(403);
+        }
+        if (! $this->cancelOrderId) {
+            return;
+        }
+
+        $order = Order::where('tenant_id', auth()->user()->tenant_id)->with('table')->findOrFail($this->cancelOrderId);
+
+        $result = app(OrderLifecycleService::class)->cancelOrder(
+            $order,
+            auth()->user(),
+            OrderLifecycleService::ACTOR_ADMIN,
+            $this->cancelReason ?: null
+        );
+
+        $this->closeCancelOrderModal();
+
+        if (! $result['success']) {
+            $this->dispatch('notify', message: $result['error'] ?? 'Nao foi possivel cancelar.', type: 'error');
 
             return;
         }
 
-        $order->update(['status' => 'cancelado', 'bill_closed_at' => null]);
-
-        try {
-            app(PointsService::class)->reversePointsForOrder($order);
-        } catch (\Throwable $e) {
-            Log::error('Erro ao estornar pontos no cancelamento', [
-                'order_id' => $order->id,
-                'error' => $e->getMessage(),
-            ]);
+        $message = "Conta #{$order->id} cancelada!";
+        if ($result['refunded_amount'] > 0) {
+            $message .= ' R$ '.number_format($result['refunded_amount'], 2, ',', '.').' sera ressarcido ao cliente.';
         }
 
-        try {
-            app(PointsService::class)->refundSpentPointsForOrder($order);
-        } catch (\Throwable $e) {
-            Log::error('Erro ao devolver pontos gastos no cancelamento', [
-                'order_id' => $order->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
-
-        if ($order->table_id) {
-            $hasOther = Table::hasOtherActiveOrders($order->table_id, $order->id);
-            if (! $hasOther) {
-                $order->table()->update(['status' => 'free']);
-            }
-        }
-
-        $this->dispatch('notify', message: "Conta #{$order->id} cancelada!");
+        $this->dispatch('notify', message: $message);
+        $this->closeOrderModal();
         $this->dispatch('orderUpdated');
     }
 
@@ -926,35 +1014,48 @@ class Dashboard extends Component
             abort(403);
         }
         $order = Order::where('tenant_id', auth()->user()->tenant_id)->findOrFail($orderId);
-        $order->update(['status' => $status]);
 
         if ($status === 'cancelado') {
-            try {
-                app(PointsService::class)->reversePointsForOrder($order->fresh());
-            } catch (\Throwable $e) {
-                Log::error('Erro ao estornar pontos no cancelamento manual', [
-                    'order_id' => $order->id, 'error' => $e->getMessage(),
-                ]);
+            $result = app(OrderLifecycleService::class)->cancelOrder(
+                $order,
+                auth()->user(),
+                OrderLifecycleService::ACTOR_ADMIN
+            );
+
+            if (! $result['success']) {
+                $this->dispatch('notify', message: $result['error'] ?? 'Nao foi possivel cancelar.', type: 'error');
+
+                return;
             }
 
-            try {
-                app(PointsService::class)->refundSpentPointsForOrder($order->fresh());
-            } catch (\Throwable $e) {
-                Log::error('Erro ao devolver pontos gastos no cancelamento manual', [
-                    'order_id' => $order->id, 'error' => $e->getMessage(),
-                ]);
+            if ($result['refunded_amount'] > 0) {
+                $this->dispatch('notify', message: 'Pedido cancelado! R$ '.number_format($result['refunded_amount'], 2, ',', '.').' sera ressarcido ao cliente.');
             }
 
-            if (! $order->isDelivered()) {
-                try {
-                    app(StockService::class)->returnOrderStock($order->fresh(), Auth::id());
-                } catch (\Throwable $e) {
-                    Log::error('Erro ao devolver estoque no cancelamento manual', [
-                        'order_id' => $order->id, 'error' => $e->getMessage(),
-                    ]);
+            $order = $order->fresh();
+
+            if ($order->table_id) {
+                $hasOther = Table::hasOtherActiveOrders($order->table_id, $order->id);
+                if (! $hasOther) {
+                    $order->table()->update(['status' => 'free']);
+                    $this->dispatch('tableFreed')->to('public.menu');
+                    $this->dispatch('tableFreed')->to('public.cart');
                 }
             }
-        } elseif ($status === 'fechado') {
+
+            if ($this->showOrderModal && $this->viewingOrderId === $orderId) {
+                $this->viewOrder($orderId);
+            }
+
+            $this->dispatch('notify', message: 'Status do pedido atualizado!');
+            $this->dispatch('orderUpdated');
+
+            return;
+        }
+
+        $order->update(['status' => $status]);
+
+        if ($status === 'fechado') {
             try {
                 app(PointsService::class)->grantPointsForOrder($order->fresh());
             } catch (\Throwable $e) {

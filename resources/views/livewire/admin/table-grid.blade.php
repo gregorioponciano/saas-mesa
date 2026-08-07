@@ -217,6 +217,9 @@
                                                     @if ($item['is_points_item'] ?? false)
                                                         <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400">Pontos</span>
                                                     @endif
+                                                    @if ($item['is_bonificacao'] ?? false)
+                                                        <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">Cortesia</span>
+                                                    @endif
                                                 </div>
                                                 <div class="flex items-center gap-2">
                                                     <span class="text-sm text-neutral-300 font-medium">R$ {{ number_format($item['subtotal'], 2, ',', '.') }}</span>
@@ -467,6 +470,19 @@
                         <input wire:model="addItemQuantity" type="number" min="1" max="99"
                                class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
                     </div>
+                    <div class="flex items-center justify-between rounded-xl bg-neutral-800/50 border border-neutral-700 px-4 py-3">
+                        <label class="text-sm text-neutral-300 cursor-pointer">Item de cortesia (bonificacao)</label>
+                        <input wire:model="addItemIsBonus" type="checkbox"
+                               class="w-5 h-5 rounded bg-neutral-800 border-neutral-600 accent-amber-500">
+                    </div>
+                    @if ($addItemIsBonus)
+                        <div>
+                            <label class="block text-xs font-medium text-neutral-400 mb-1.5">Motivo da cortesia (opcional)</label>
+                            <input wire:model="addItemBonusReason" type="text" maxlength="255"
+                                   placeholder="Ex.: compensacao por erro na entrega"
+                                   class="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm transition-all">
+                        </div>
+                    @endif
                     <div class="flex gap-3 pt-2">
                         <button wire:click="$set('showAddItemModal', false)"
                                 class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all">Cancelar</button>

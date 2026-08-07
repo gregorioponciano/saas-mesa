@@ -56,7 +56,7 @@ it('redireciona o superadmin logado de /login para o painel superadmin', functio
     $this->get(route('login'))->assertRedirect(route('superadmin.dashboard'));
 });
 
-it('bloqueia com 403 o login de outra empresa enquanto superadmin está logado', function () {
+it('permite o superadmin entrar na conta de qualquer empresa com sessão ativa', function () {
     $superadmin = createSuperAdmin();
     $this->actingAs($superadmin);
 
@@ -65,9 +65,9 @@ it('bloqueia com 403 o login de outra empresa enquanto superadmin está logado',
     $this->post(route('login'), [
         'email' => $companyAdmin->email,
         'password' => 'password',
-    ])->assertForbidden();
+    ])->assertRedirect('/dashboard');
 
-    expect(Auth::user()->role)->toBe('superadmin');
+    expect(Auth::user()->role)->toBe('admin');
 });
 
 it('permite o superadmin entrar com a conta da própria empresa', function () {

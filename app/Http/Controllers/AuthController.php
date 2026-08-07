@@ -47,14 +47,6 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
 
-        if (Auth::check() && Auth::user()->isSuperAdmin()) {
-            $target = User::where('email', $credentials['email'])->first();
-
-            if (! $target || $target->tenant_id !== Auth::user()->tenant_id) {
-                abort(403, 'Acesso restrito: um superadmin de outra empresa está logado neste navegador. Faça logout do painel superadmin antes de entrar com essa conta.');
-            }
-        }
-
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
             $user = Auth::user()->load('tenant');

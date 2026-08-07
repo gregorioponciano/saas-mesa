@@ -39,6 +39,7 @@ class StockMovement extends Model
         'entry' => 'Entrada',
         'exit' => 'Saída',
         'return' => 'Devolução',
+        'bonificacao' => 'Bonificação',
     ];
 
     public function tenant(): BelongsTo

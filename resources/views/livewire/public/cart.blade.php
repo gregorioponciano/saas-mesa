@@ -579,6 +579,17 @@
                         {{ $orderTracking['statusLabel'] }}
                     </span>
 
+                    @if (!$isFinished && ($orderTracking['can_cancel'] ?? false))
+                        <div class="mt-4">
+                            <button @click="saasConfirm('Tem certeza que deseja cancelar este pedido?', { type: 'danger', title: 'Cancelar pedido', confirmLabel: 'Sim, cancelar' }).then(ok => { if (ok) $wire.cancelTrackingOrder(); })"
+                                    wire:loading.attr="disabled"
+                                    class="px-6 py-2.5 text-sm font-semibold rounded-xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all disabled:opacity-50">
+                                Cancelar Pedido
+                            </button>
+                            <p class="text-xs text-neutral-500 mt-2">Voce pode cancelar gratuitamente em ate {{ \App\Models\Order::CLIENT_CANCELLATION_WINDOW_MINUTES }} minutos (art. 49 CDC).</p>
+                        </div>
+                    @endif
+
                     @if (!$isFinished)
                         <div class="flex justify-center gap-4 mt-4">
                             @php
@@ -604,6 +615,9 @@
                                 <div class="flex items-start justify-between text-sm">
                                     <div class="flex-1 min-w-0">
                                         <span>{{ $item['quantity'] }}x {{ $item['product_name'] }}</span>
+                                        @if ($item['is_bonificacao'] ?? false)
+                                            <span class="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">Cortesia</span>
+                                        @endif
                                         @if ($item['change_requested'])
                                             <div class="flex items-center gap-1 mt-1">
                                                 <span class="text-xs text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">Troca solicitada</span>
@@ -788,8 +802,8 @@
     </div>
 
     {{-- PIX Checkout Modal --}}
-    <div x-data="{ open: @entangle('showPixCheckoutModal') }"
-         x-init="$watch('open', val => document.body.style.overflow = val ? 'hidden' : '')"
+    <div x-data="{ open: @entangle('showPixCheckoutModal'), openedAt: 0 }"
+         x-init="$watch('open', val => { document.body.style.overflow = val ? 'hidden' : ''; if (val) openedAt = Date.now(); })"
          x-show="open"
          x-transition:enter="transition-opacity duration-300"
          x-transition:enter-start="opacity-0"
@@ -799,7 +813,7 @@
          x-transition:leave-end="opacity-0"
          class="fixed inset-0 z-[90] bg-black/60 backdrop-blur-lg flex items-center justify-center p-3 sm:p-4"
          x-cloak>
-        <div class="absolute inset-0" wire:click="closePixCheckoutModal"></div>
+        <div class="absolute inset-0" @click="Date.now() - openedAt > 1500 && $wire.closePixCheckoutModal()"></div>
         <div class="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl"
              @click.stop>
             <div class="flex items-center justify-between mb-4">
@@ -808,7 +822,7 @@
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <div wire:poll.5s="verifyCheckoutPixPayment">
+            <div wire:poll.5s.visible="verifyCheckoutPixPayment">
                 @if ($generatingPix)
                     <div class="flex flex-col items-center py-8">
                         <svg class="w-12 h-12 animate-spin text-amber-400 mb-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
@@ -821,7 +835,7 @@
                         <p class="text-sm text-neutral-400 mt-1">Seu pedido foi enviado.</p>
                     </div>
                 @elseif ($pixQrCode)
-                    <div class="space-y-4">
+                    <div class="space-y-4" wire:ignore>
                         <p class="text-sm text-neutral-400 text-center">Escaneie o QR Code para pagar</p>
                         <div class="flex justify-center">
                             <img src="data:image/png;base64,{{ $pixQrCode }}" alt="QR Code PIX" class="w-56 h-56 rounded-2xl bg-white p-2">
@@ -844,10 +858,13 @@
                     </div>
                 @elseif ($pixPaymentError)
                     <div class="flex flex-col items-center py-8">
-                        <p class="text-sm text-red-400">Erro ao verificar pagamento.</p>
+                        <p class="text-sm text-red-400">Erro ao gerar/verificar pagamento.</p>
+                        @if ($pixPaymentErrorMsg)
+                            <p class="text-xs text-neutral-500 mt-1">{{ $pixPaymentErrorMsg }}</p>
+                        @endif
                     </div>
                 @endif
-            </div>
+                </div>
             <div class="mt-4 flex gap-3">
                 <button wire:click="closePixCheckoutModal"
                         class="flex-1 px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 font-medium transition-all text-sm">
